@@ -1,0 +1,61 @@
+ferm (1.0pl8-2) unstable; urgency=low
+
+  * Add missing whitespace after --tos 0x00.
+    (Closes: #111855).
+
+ -- Tommi Virtanen <tv@debian.org>  Fri, 12 Oct 2001 22:44:12 +0300
+
+ferm (1.0pl8-1) unstable; urgency=low
+
+  * New upstream version. Has improvements in manpage (Closes: #98519),
+    can autodetect needed modules (Closes: #100058), and has a NOP action
+    for accounting (Closes: #100056).
+
+ -- Tommi Virtanen <tv@debian.org>  Thu, 19 Jul 2001 22:29:00 +0300
+
+ferm (1.0pl6-2) unstable; urgency=low
+
+  * Fixed cut-and-pasto, ferm is now architecture-independent
+    (Closes: #98141).
+
+ -- Tommi Virtanen <tv@debian.org>  Sun, 24 Jun 2001 00:11:34 +0300
+
+ferm (1.0pl6-1) unstable; urgency=low
+
+  * New upstream version.
+
+ -- Tommi Virtanen <tv@debian.org>  Wed, 30 May 2001 22:29:20 +0300
+
+ferm (1.0pl5-1) unstable; urgency=low
+
+  * New upstream version.
+
+ -- Tommi Virtanen <tv@debian.org>  Thu, 17 May 2001 21:20:17 +0300
+
+ferm (1.0pl3-1) unstable; urgency=low
+
+  * New upstream version.
+
+ -- Tommi Virtanen <tv@debian.org>  Thu, 10 May 2001 20:43:12 +0300
+
+ferm (1.0pl1-1) unstable; urgency=low
+
+  * New upstream version.
+  * Fixed a small grammar error in description.
+
+ -- Tommi Virtanen <tv@debian.org>  Sat,  5 May 2001 00:54:53 +0300
+
+ferm (0.0.18-1) unstable; urgency=low
+
+  * New upstream version, includes fix for MASQERADE typo (Closes:
+    #94720)
+  * Fix cut-and-pasto, section should be net.
+
+ -- Tommi Virtanen <tv@debian.org>  Sun, 22 Apr 2001 22:10:29 +0300
+
+ferm (0.0.17-1) unstable; urgency=low
+
+  * Initial version (Closes: #93154)
+
+ -- Tommi Virtanen <tv@debian.org>  Sat,  7 Apr 2001 00:18:15 +0300
+

@@ -1,0 +1,30 @@
+Source: ferm
+Section: net
+Priority: optional
+Maintainer: Tommi Virtanen <tv@debian.org>
+Standards-Version: 3.1.1
+Build-Depends: perl5, gzip
+
+Package: ferm
+Architecture: all
+Depends: perl, iptables | ipchains | ipfwadm
+Description: maintain and setup complicated firewall rules
+ ferm allows one to reduce the tedious task of carefully inserting
+ rules and chains by a large factor, thus enabling the firewall
+ administrator to spend more time on developing good rules
+ then the proper implementation of the rule.
+ .
+ ferm supports ipchains firewalls, ipfwadm rules and
+ iptables firewalls. Changing to another system will be
+ very easy, and ferm will help in the process.
+ .
+ ferm compiles ready to go firewall-rules from a structured rule-
+ setup. These rules will be executed by the preferred kernel
+ interface, such as ipchains(8) and iptables(8).
+ .
+ ferm will also add in modularizing firewalls, because it creates
+ the possibility to split up the firewall into several different
+ files, which can be reloaded at will, so you can dynamically
+ adjust your rules.
+ .
+ ferm, pronounced "firm", stands for "For Easy Rule Making".

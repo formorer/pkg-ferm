@@ -361,7 +361,7 @@ sub chains {
             /reliability|reliable|4/ && do { $rr .= "04 "};
             /max-throughput|maxthroughput|8/ && do { $rr .= "08 "};
             /lowdelay|interactive|min-delay|10/ && do { $rr .= "10 "};
-            /clear|^0$|^00$|^0x00$/ && do { $rr .= "00"};
+            /clear|^0$|^00$|^0x00$/ && do { $rr .= "00 "};
             }
 	; } ;
     if (defined $rule{'setmark'} ) {
@@ -515,7 +515,7 @@ sub tables {
             /reliability|reliable|4/ && do { $rr .= "0x04 "};
             /max-throughput|maxthroughput|8/ && do { $rr .= "0x08 "};
             /lowdelay|interactive|min-delay|10/ && do { $rr .= "0x10 "};
-            /clear|^0$|^00$|^0x00$/ && do { $rr .= "0x00"};
+            /clear|^0$|^00$|^0x00$/ && do { $rr .= "0x00 "};
             }
         ; } ;
 
@@ -687,7 +687,7 @@ sub fwadm {
             /reliability|reliable|4/ && do { $rr .= "04 "};
             /max-throughput|maxthroughput|8/ && do { $rr .= "08 "};
             /lowdelay|interactive|min-delay|10/ && do { $rr .= "10 "};
-	    /clear|^0$|^00$|^0x00$/ && do { $rr .= "00"};
+	    /clear|^0$|^00$|^0x00$/ && do { $rr .= "00 "};
             }
         ; } ;
 

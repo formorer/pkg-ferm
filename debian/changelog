@@ -1,3 +1,22 @@
+ferm (1.1-1) unstable; urgency=low
+
+  * New upstream release (Closes: #194170). Beware, there are syntax
+    changes.
+
+ -- Tommi Virtanen <tv@debian.org>  Wed, 16 Jul 2003 19:12:02 +0300
+
+ferm (1.0pl8-3) unstable; urgency=low
+
+  * Allow use of lists when setting variables (Closes: #143606).
+  * Generate correct output when combining log and other targets with
+    ipchains (Closes: #144065).
+  * New standards version.
+  * No longer create compatibility symlinks in /usr/doc.
+  * Switch from Build-Depends to Build-Depends-Indep, this is an arch all
+    package.
+
+ -- Tommi Virtanen <tv@debian.org>  Sat, 19 Apr 2003 22:06:06 +0300
+
 ferm (1.0pl8-2) unstable; urgency=low
 
   * Add missing whitespace after --tos 0x00.

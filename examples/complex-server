@@ -3,6 +3,8 @@
 # example for ferm, by Auke Kok
 #
 
+# this example works with ipchains only (unmodified)
+option ipchains
 option clearall
 option createchains
 

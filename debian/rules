@@ -33,9 +33,7 @@ binary-arch: build debian/control
 	install --mode=0644 debian/changelog \
 		"debian/tmp/usr/share/doc/$(PACKAGE)/changelog.Debian"
 	gzip -9f debian/tmp/usr/share/doc/"$(PACKAGE)"/changelog*
-	install -d --mode=0755 debian/tmp/DEBIAN
-	install --mode=0755 debian/postinst debian/prerm \
-		debian/tmp/DEBIAN
+	install -d --mode=0755 "debian/tmp/DEBIAN"
 	dpkg-gencontrol -isp
 	dpkg --build debian/tmp ..
 

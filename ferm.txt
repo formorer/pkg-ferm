@@ -5,40 +5,35 @@ SYNOPSYS
     ferm *options* *inputfiles*
 
 DESCRIPTION
-    ferm compiles ready to go firewall-rules from a structured rule-
-    setup. These rules will be executed by the preferred kernel
-    interface, such as ipchains(8) and iptables(8).
+    ferm compiles ready to go firewall-rules from a structured rule-setup.
+    These rules will be executed by the preferred kernel interface, such as
+    ipchains(8) and iptables(8).
 
-    Besides just executing all rules in one command, the obvious
-    gain is the possibility to provide a structured description of a
-    firewall. No need anymore for tedious typing all firewalls into
-    custom scripts, you can now write logically and coherent rules
-    using a C-style nesting structure, and let ferm create all rules
-    for you.
+    Besides just executing all rules in one command, the obvious gain is the
+    possibility to provide a structured description of a firewall. No need
+    anymore for tedious typing all firewalls into custom scripts, you can
+    now write logically and coherent rules using a C-style nesting
+    structure, and let ferm create all rules for you.
 
-    ferm will also aid in modularizing firewalls, because it creates
-    the possibility to split up the firewall into several different
-    files, which can be reloaded at will, so you can dynamically
-    adjust your rules.
+    ferm will also aid in modularizing firewalls, because it creates the
+    possibility to split up the firewall into several different files, which
+    can be reloaded at will, so you can dynamically adjust your rules.
 
     ferm, pronounced "firm", stands for "For Easy Rule Making".
 
 STRUCTURE OF A FIREWALL FILE
-    The structure of a proper firewall file looks like simplified C-
-    code. Only a few syntactic characters are used in ferm-
-    configuration files. Besides these special caracters, ferm uses
-    'keys' and 'values', think of them as options and parameters, or
-    as variables and values, whatever.
+    The structure of a proper firewall file looks like simplified C-code.
+    Only a few syntactic characters are used in ferm- configuration files.
+    Besides these special caracters, ferm uses 'keys' and 'values', think of
+    them as options and parameters, or as variables and values, whatever.
 
-    With these words, you define the characteristics of your
-    firewall. Every firewall consists of two things: First, look if
-    network traffic matches certain conditions, and second, what to
-    do with that traffic.
+    With these words, you define the characteristics of your firewall. Every
+    firewall consists of two things: First, look if network traffic matches
+    certain conditions, and second, what to do with that traffic.
 
-    You may specify conditions that are valid for the kernel
-    interface program you are using, probably iptables(8). For
-    instance, in iptables, when you are trying to match tcp packets,
-    you would say:
+    You may specify conditions that are valid for the kernel interface
+    program you are using, probably iptables(8). For instance, in iptables,
+    when you are trying to match tcp packets, you would say:
 
         iptables --protocol tcp
 
@@ -46,9 +41,9 @@ STRUCTURE OF A FIREWALL FILE
 
         protocol tcp;
 
-    Just typing this in ferm doesn't do anything, you need to tell
-    ferm (actually, you need to tell iptables(8) and the kernel)
-    what to do with any traffic that matches this condition:
+    Just typing this in ferm doesn't do anything, you need to tell ferm
+    (actually, you need to tell iptables(8) and the kernel) what to do with
+    any traffic that matches this condition:
 
         iptables --protocol tcp -j ACCEPT
 
@@ -56,46 +51,44 @@ STRUCTURE OF A FIREWALL FILE
 
         protocol tcp accept;
 
-    Noticed the ; character? We're getting to that now, because
-    there are some special characters in ferm that make life easy.
+    Noticed the ; character? We're getting to that now, because there are
+    some special characters in ferm that make life easy.
 
     Here's a list of the special characters:
 
-    ;       The effectuation character. This character defines the end
-            of a rule. Anything defined before this character will
-            be put into one or more rules.
+    ;       The effectuation character. This character defines the end of a
+            rule. Anything defined before this character will be put into
+            one or more rules.
 
-            This character *makes* the rule. It gathers all the
-            information, all parameters and targets, special things
-            or whatever, that currently is 'valid', and tries to
-            make a decent rule out of it. ferm will do nothing
-            without this character!
+            This character *makes* the rule. It gathers all the information,
+            all parameters and targets, special things or whatever, that
+            currently is 'valid', and tries to make a decent rule out of it.
+            ferm will do nothing without this character!
 
             Example:
 
                 proto tcp ACCEPT;
 
-            THis example shows a single rule, defined by two keys
-            and one value.
+            THis example shows a single rule, defined by two keys and one
+            value.
 
     {}      The nesting symbol defines a 'block' of rules.
 
-            Anything defined before this block will still be
-            available within all rules inside this block. You can
-            nest blocks in blocks as far as you like. For every rule
-            defined in this block the values defined before this
-            block will apply. Usually you would define an often used
-            parameter as the protocol in front of this block, and
-            anything special inside it.
+            Anything defined before this block will still be available
+            within all rules inside this block. You can nest blocks in
+            blocks as far as you like. For every rule defined in this block
+            the values defined before this block will apply. Usually you
+            would define an often used parameter as the protocol in front of
+            this block, and anything special inside it.
 
-            You can put as many rules (using the <;> character) as
-            you like insode this block. but there should always be
-            one or more, although you will get away with none. Not
-            very usefull except for when you frequently edit you
-            config file, and might want to leave a chain empty.
+            You can put as many rules (using the <;> character) as you like
+            insode this block. but there should always be one or more,
+            although you will get away with none. Not very usefull except
+            for when you frequently edit you config file, and might want to
+            leave a chain empty.
 
-            Since the nesting block is left associative, it cannot
-            be bound to keys defined after the block.
+            Since the nesting block is left associative, it cannot be bound
+            to keys defined after the block.
 
             Example:
 
@@ -104,30 +97,38 @@ STRUCTURE OF A FIREWALL FILE
                     ACCEPT;
                 }
 
-            This block shows two rules inside a block, which will
-            both be merged with anything in front of it, so you will
-            get two rules:
+            This block shows two rules inside a block, which will both be
+            merged with anything in front of it, so you will get two rules:
 
                 iptables -A INPUT -p tcp -y -j DENY
                 iptables -A INPUT -p tcp -j ACCEPT
 
-    $       Further more, ferm now supports variables, so you can define
-            your favorite targets, interfaces etc. before you use
-            them. It works like this:
+    %       Further more, ferm now supports variables, so you can define
+            your favorite targets, interfaces etc. before you use them. It
+            works like this:
 
                 set IF eth0
-                set $IF ACCEPT
-                set TARGET $IF
+                set %IF ACCEPT
+                set TARGET %IF
 
             will result in this:
 
-                $IF = eth0
-                $eth0 = ACCEPT
-                $TARGET = eth0
+                %IF = eth0
+                %eth0 = ACCEPT
+                %TARGET = eth0
 
-    ()      The array symbol. Using the parentheses, you can define a
-            'list' of values that should be applied for the key to
-            the left of it.
+            If you want to put multiple arguments into a variable, you
+            should do it like this:
+
+                %IFS = "eth0,eth1,ppp0"
+
+            This way, ferm will recognize it being a list of values, and
+            split it whenever needed. If you use spaces, ferm won't
+            recognize it and think its just a value with spaces. The comma
+            tells ferm to split it up when needed.
+
+    ()      The array symbol. Using the parentheses, you can define a 'list'
+            of values that should be applied for the key to the left of it.
 
             Example:
 
@@ -138,8 +139,9 @@ STRUCTURE OF A FIREWALL FILE
                 ... -p tcp ...
                 ... -p udp ...
                 ... -p icmp ...
-                
-            Only values can be 'listed', so you cannot do something like this:
+    
+            Only values can be 'listed', so you cannot do something like
+            this:
 
                 proto tcp ( ACCEPT LOG );
 
@@ -149,18 +151,16 @@ STRUCTURE OF A FIREWALL FILE
 
             (which will result in nine rules!)
 
-            Values can be separated either by spaces or commas. The
-            array symbol is both left- and right-associative, in
-            contrast with the nesting block, which is left-
-            associative only.
+            Values can be separated either by spaces or commas. The array
+            symbol is both left- and right-associative, in contrast with the
+            nesting block, which is left-associative only.
 
-    ` # '   The comment symbol. Anything that follows this symbol up to
-            the end of line is ignored.
+    " # "   The comment symbol. Anything that follows this symbol up to the
+            end of line is ignored.
 
-    These symbols glue all the keywords into a structure, which
-    allows you to specify some keys only a few times, and let them
-    apply to any key/value pairs defined within an entire block, for
-    instance:
+    These symbols glue all the keywords into a structure, which allows you
+    to specify some keys only a few times, and let them apply to any
+    key/value pairs defined within an entire block, for instance:
 
         proto tcp {
             dport 22 ACCEPT;
@@ -168,8 +168,8 @@ STRUCTURE OF A FIREWALL FILE
             }
         ACCEPT;
 
-    Now here, the 'proto tcp' is valid within the block, but not
-    anymore after is, resulting in:
+    Now here, the 'proto tcp' is valid within the block, but not anymore
+    after is, resulting in:
 
         ... -p tcp --dport 22 -j accept
         ... -p tcp -y --dport 0:1023 -j deny
@@ -177,30 +177,26 @@ STRUCTURE OF A FIREWALL FILE
 
     Some important notes:
 
-    - Ferm inserts the rules 'chronologically', so the first rule
-    will be inserted before the second one.
+    - Ferm inserts the rules 'chronologically', so the first rule will be
+    inserted before the second one.
 
-    - Anything defined within a block is no longer valid when that
-    block ends.
+    - Anything defined within a block is no longer valid when that block
+    ends.
 
-    - Everything defined within the current block that is
-    'effectuated', will be no longer defined immediately after that
-    point.
+    - Everything defined within the current block that is 'effectuated',
+    will be no longer defined immediately after that point.
 
-    - Everything defined before a block is undefined when this block
-    closes.
+    - Everything defined before a block is undefined when this block closes.
 
-    If you do not understand this, don't worry, it alle becomes
-    clear by itself.
+    If you do not understand this, don't worry, it alle becomes clear by
+    itself.
 
     Two types of keys exist:
 
   Firewall keys
-
-            Firewall keys define a set of firewall packet matching
-            criteria that is supported by the kernel backend. They
-            look like 'name value' pairs or like 'switch'. For
-            instance:
+            Firewall keys define a set of firewall packet matching criteria
+            that is supported by the kernel backend. They look like 'name
+            value' pairs or like 'switch'. For instance:
 
                 proto tcp
 
@@ -208,16 +204,15 @@ STRUCTURE OF A FIREWALL FILE
 
                 syn
 
-            A 'name value' pair lets you fill in a value for a
-            certain condition you would like to match packets
-            against, switches are like on/off light switches on the
-            wall, if you specify a switch, you turn paket matching
-            for whatever the switch stands, on. In the latter
-            example, you turn SYN-packet matching on for this rule.
+            A 'name value' pair lets you fill in a value for a certain
+            condition you would like to match packets against, switches are
+            like on/off light switches on the wall, if you specify a switch,
+            you turn paket matching for whatever the switch stands, on. In
+            the latter example, you turn SYN-packet matching on for this
+            rule.
 
-            Both types can optionally be preceded by a !. This will
-            be handled that you don't want something to be matching
-            it:
+            Both types can optionally be preceded by a !. This will be
+            handled that you don't want something to be matching it:
 
                 !syn
 
@@ -225,29 +220,27 @@ STRUCTURE OF A FIREWALL FILE
 
                 ! syn
 
-            Means you want packets which *don't* have the syn-flag
-            set to be matched. Or even:
+            Means you want packets which *don't* have the syn-flag set to be
+            matched. Or even:
 
                 proto ! tcp
 
-            Means you want to match *anything but* packets from the
-            tcp protocol.
+            Means you want to match *anything but* packets from the tcp
+            protocol.
 
-            Read iptables(8) or ipchains(8) to see where the ! can
-            be used.
+            Read iptables(8) or ipchains(8) to see where the ! can be used.
 
   Option keys
-
-            Using option keys alter the behaviour of ferm; they can
-            be used to e.g. clear chains before use, or turn off
-            certain sanity checks.
+            Using option keys alter the behaviour of ferm; they can be used
+            to e.g. clear chains before use, or turn off certain sanity
+            checks.
 
             Example:
 
               option verbose
 
-            This option makes ferm show a lot of information about
-            what it is doing.
+            This option makes ferm show a lot of information about what it
+            is doing.
 
     The syntax is very simple, let's start with a simple example:
 
@@ -262,9 +255,9 @@ STRUCTURE OF A FIREWALL FILE
             proto (udp,tcp) ACCEPT;
         }
 
-    This will insert 4 rules, namely 2 in chain input, and 2 in
-    chain output, matching and accepting both udp and tcp packets.
-    Normally you would type this for ipchains(8):
+    This will insert 4 rules, namely 2 in chain input, and 2 in chain
+    output, matching and accepting both udp and tcp packets. Normally you
+    would type this for ipchains(8):
 
        ipchains -A input -p tcp ACCEPT
        ipchains -A output -p tcp ACCEPT
@@ -273,20 +266,20 @@ STRUCTURE OF A FIREWALL FILE
 
     Note how much less typing we need to do? :-)
 
-    Basically, this is all there is to it, although you can make it
-    quite more complex. Something to look at:
+    Basically, this is all there is to it, although you can make it quite
+    more complex. Something to look at:
 
        chain input policy ACCEPT {
            destination 10/8 port ! ftp goto mychain sport :1023 tos 4 settos 8 mark 2;
            destination 10/8 port ftp DENY;
        }
 
-    My point here is, that *you* need to make nice rules, keep them
-    readable to you and others, and not make it into a mess.
+    My point here is, that *you* need to make nice rules, keep them readable
+    to you and others, and not make it into a mess.
 
-    It would aid the reader if the resulting firewall rules were
-    placed here for reference. Also, you could include the nested
-    version with better readability.
+    It would aid the reader if the resulting firewall rules were placed here
+    for reference. Also, you could include the nested version with better
+    readability.
 
     Try using comments to show what you are doing:
 
@@ -307,18 +300,17 @@ STRUCTURE OF A FIREWALL FILE
             }
         }
 
-    The more you nest, the better it looks. Make sure the order you
-    specify is correct, you would not want to do this:
+    The more you nest, the better it looks. Make sure the order you specify
+    is correct, you would not want to do this:
 
         chain forward {
             proto ! udp DENY;
             proto tcp dport ftp ACCEPT;
         }
 
-    because the second rule will never match. Best way is to specify
-    first everyting that is allowed, and then deny everything else.
-    Look at the examples for more good snapshots. Most people do
-    something like this:
+    because the second rule will never match. Best way is to specify first
+    everyting that is allowed, and then deny everything else. Look at the
+    examples for more good snapshots. Most people do something like this:
 
         proto tcp {
             dport (
@@ -329,47 +321,45 @@ STRUCTURE OF A FIREWALL FILE
         }
 
   keywords
+    To make life easy, ferm allows you to use shorthands for most keywords.
+    A list of shorthand notations is available at the end of this section.
 
-    To make life easy, ferm allows you to use shorthands for most
-    keywords. A list of shorthand notations is available at the end
-    of this section.
+    What kind of value you provide for a keyword depends on the keyword
+    entirely, e.g. 'protocol' expects 'tcp', 'udp' or 'icmp', 'log-prefix'
+    expects a value like '"whoops, someone rang the doorbell"' and
+    'destination-port' can accept values like 'http', '80' or '0:1023'. Take
+    a look at the kernel backend program manual for possible values and how
+    they look like.
 
-    What kind of value you provide for a keyword depends on the
-    keyword entirely, e.g. 'protocol' expects 'tcp', 'udp' or
-    'icmp', 'log-prefix' expects a value like '"whoops, someone rang
-    the doorbell"' and 'destination-port' can accept values like
-    'http', '80' or '0:1023'. Take a look at the kernel backend
-    program manual for possible values and how they look like.
-
-    Note you may put a value in single quotes or double quotes, if
-    this may be required because a value contains spaces:
+    Note you may put a value in single quotes or double quotes, if this may
+    be required because a value contains spaces:
 
         log-prefix "Dropped tcp package: "
 
-    Please don't use commas, exclamation commas, exclamation marks,
-    parentheses, curly brackets or pipe characters between quotes,
-    ferm doesn't like that.
+    Please keep in mind that some characters have special meaning, so it
+    might be wise to refrain from using any other character then letters and
+    digits and spaces unless you need them and know what you're doing. Take
+    a look at VARIABLES and SHELL ESCAPES for more information about that.
 
     chain [chain-name]
-            Specifies a chain that this rule will be inserted to.
-            this is a required key for any rule. Chains can be built
-            in, like `input', `output' or `forward', or user-defined
-            chains.
+            Specifies a chain that this rule will be inserted to. this is a
+            required key for any rule. Chains can be built in, like "input",
+            "output" or "forward", or user-defined chains.
 
     interface [interface-name]
-            Define the interface name, your outside network card,
-            like eth0, or dialup like ppp1, or whatever device you
-            want to match for passing packets. It is equivalent to
-            the `-i' switch in ipchains(8) and iptables(8).
+            Define the interface name, your outside network card, like eth0,
+            or dialup like ppp1, or whatever device you want to match for
+            passing packets. It is equivalent to the "-i" switch in
+            ipchains(8) and iptables(8).
 
     outerface [interface-name]
-            Same as interface, only for matching the outgoing
-            interface for a packet, as in iptables(8). ipchains(8)
-            hasn't got this parameter.
+            Same as interface, only for matching the outgoing interface for
+            a packet, as in iptables(8). ipchains(8) hasn't got this
+            parameter.
 
     protocol [protocol-name|protocol-number]
-            Currently supported by the kernel are tcp, udp and icmp,
-            or their respective numbers.
+            Currently supported by the kernel are tcp, udp and icmp, or
+            their respective numbers.
 
     port [port-spec]
             Specify a port number, name or range
@@ -378,32 +368,30 @@ STRUCTURE OF A FIREWALL FILE
             Specify a network address, a hostname or ip-number.
 
     source|destination
-            Specify that the values provided for port and addr above
-            should be either source or <destination> ports and
-            addresses. This works like a toggle, which can be left
-            on for the entire configuration file. So, if you say
-            source once, all occurences of port will be source
-            port's, as well as for addresses.
+            Specify that the values provided for port and addr above should
+            be either source or <destination> ports and addresses. This
+            works like a toggle, which can be left on for the entire
+            configuration file. So, if you say source once, all occurences
+            of port will be source port's, as well as for addresses.
 
     saddr|daddr [address-spec]
-            Specify an address specifically for the source or
-            destination side, read it as a shorthand for source
-            address and destination address, although it does not
-            'toggle' the source|destination state, which is
-            remembered.
+            Specify an address specifically for the source or destination
+            side, read it as a shorthand for source address and destination
+            address, although it does not 'toggle' the source|destination
+            state, which is remembered.
 
     sport|dport [port-spec]
             Specify a port number, name or range for the source or
-            destination side, read it as a shorthand for source port
-            and destination port>, although it does not 'toggle' the
-            source|destination state, which is remembered. Ports can
-            be specified for tcp and udp, as well as icmp, only in
-            that case it means 'icmp-type' and only works when you
-            specify the type numerically.
+            destination side, read it as a shorthand for source port and
+            destination port>, although it does not 'toggle' the
+            source|destination state, which is remembered. Ports can be
+            specified for tcp and udp, as well as icmp, only in that case it
+            means 'icmp-type' and only works when you specify the type
+            numerically.
 
-            Note that you need to specify a protocol, before you can
-            use ports, that is because not all protocols support the
-            ideas of ports.
+            Note that you need to specify a protocol, before you can use
+            ports, that is because not all protocols support the ideas of
+            ports.
 
             Here are some examples of valid addresses:
 
@@ -420,86 +408,82 @@ STRUCTURE OF A FIREWALL FILE
                 1023:65535    which is equivalent to     1023:65535
 
     icmptype [type]
-            To specify an icmp message type. Can be numbers, but
-            refer to the manual of the kernel program to retreive a
-            list, for ipchains use "ipchains `-h' icmp". Examples:
-            ping, pong.
+            To specify an icmp message type. Can be numbers, but refer to
+            the manual of the kernel program to retreive a list, for
+            ipchains use "ipchains "-h" icmp". Examples: ping, pong.
 
     tos [value]
-            Matches a packet on the specified TOS-value. See settos
-            for values.
+            Matches a packet on the specified TOS-value. See settos for
+            values.
 
     settos [value]
-            Set the tcp package Type Of Service bit to this value.
-            This will be used by whatever traffic scheduler is
-            willing to, mostly your own linux-machine, but maybe
-            more. The original tos-bits are blanked and overwritten
-            by this value. Possible values are (look in the
-            shorthands for more, and easier values) :
+            Set the tcp package Type Of Service bit to this value. This will
+            be used by whatever traffic scheduler is willing to, mostly your
+            own linux-machine, but maybe more. The original tos-bits are
+            blanked and overwritten by this value. Possible values are (look
+            in the shorthands for more, and easier values) :
 
             02 04 08 10
+
+    setftos [value]
+            Set TOS field in packet header to value. This value can be in
+            decimal (ex: 32) or in hex (ex: 0x20)
 
     mark [value]
             matches packets based on their mark-value
 
     setmark [value]
-            Sets the mark-value for a packet, use with the MARK
-            target in iptables
+            Sets the mark-value for a packet, use with the MARK target in
+            iptables
 
-    syn     Specify that the SYN flag in a tcp package should be
-            matched, which are used to build new tcp connections.
-            You can identify incoming connections with this, and
-            decide wether you want to allow it or not. Packets that
-            do not have this flag are probably from an already
-            established connection, so it's considered reasonably
-            safe to let these through.
+    syn     Specify that the SYN flag in a tcp package should be matched,
+            which are used to build new tcp connections. You can identify
+            incoming connections with this, and decide wether you want to
+            allow it or not. Packets that do not have this flag are probably
+            from an already established connection, so it's considered
+            reasonably safe to let these through.
 
     fragment
-            Specify that only fragmented IP packets should be
-            matched. When packets are larger that the maximum packet
-            size your system can handle (called Maximum Transmission
-            Unit or MTU) they will be chopped into bits and sent one
-            by one as single packets. See ifconfig(8) if you want to
-            find the MTU for your system (the default is usually
-            1500 bytes).
+            Specify that only fragmented IP packets should be matched. When
+            packets are larger that the maximum packet size your system can
+            handle (called Maximum Transmission Unit or MTU) they will be
+            chopped into bits and sent one by one as single packets. See
+            ifconfig(8) if you want to find the MTU for your system (the
+            default is usually 1500 bytes).
 
-            Fragments are frequently used in DOS attacks, because
-            there is no way of finding out the origin of a fragment
-            packet.
+            Fragments are frequently used in DOS attacks, because there is
+            no way of finding out the origin of a fragment packet.
 
     policy [policy]
-            Specifies the default policy for the current chain. Can
-            be either of the standard actions (ACCEPT, DENY, REJECT,
-            MASQ and REDIRECT). A packet that matches no rules will
-            be treated as specified by the policy. You can't specify
-            chain names here. Only the predefined (built-in) chains
-            have policies.
+            Specifies the default policy for the current chain. Can be
+            either of the standard actions (ACCEPT, DENY, REJECT, MASQ and
+            REDIRECT). A packet that matches no rules will be treated as
+            specified by the policy. You can't specify chain names here.
+            Only the predefined (built-in) chains have policies.
 
             To avoid ambiguity, always specify the policies of all
             predefined chains explicitly.
 
     log     Log all packets that match this rule in the kernel log. Be
-            carefull with log flooding. Note the difference with LOG
-            in iptables! See LOG as well. In iptables, this makes a
-            copy of the current rule, and inserts it with the LOG
-            target instead of any other specified target.
+            carefull with log flooding. Note the difference with LOG in
+            iptables! See LOG as well. In iptables, this makes a copy of the
+            current rule, and inserts it with the LOG target instead of any
+            other specified target.
 
-            See also log-[level|prefix|tcp-sequence|tcp-options|ip-
-            options]
+            See also log-[level|prefix|tcp-sequence|tcp-options|ip-options]
 
     goto [chain]
-            Specify that matching packets should jump to this chain,
-            only user defined chains are valid jump targets.
+            Specify that matching packets should jump to this chain, only
+            user defined chains are valid jump targets.
 
     reverse Instructs the kernel to use this rule twice, the second time
-            with source and destination swapped. Unfortunately, this
-            doesn't work with iptables.
+            with source and destination swapped. Unfortunately, this doesn't
+            work with iptables.
 
-    LOG     Identical to the 'LOG' target in iptables, logs any packet
-            that matches, but doesn't do anything else to it. Only
-            valid for iptables, otherwise use 'log'. See log and
-            also log-[level|prefix|tcp-sequence|tcp-options|ip-
-            options].
+    LOG     Identical to the 'LOG' target in iptables, logs any packet that
+            matches, but doesn't do anything else to it. Only valid for
+            iptables, otherwise use 'log'. See log and also
+            log-[level|prefix|tcp-sequence|tcp-options|ip-options].
 
     ACCEPT  Accepts matching packets.
 
@@ -507,40 +491,76 @@ STRUCTURE OF A FIREWALL FILE
 
     DENY    Denies matching packets.
 
-    MASQ [port|portrange]
-            Masquerades matching packets. Optionally followed by a
-            port or port-range for iptables. Specify as "123", "123-
-            456" or "123:456". The port range parameter specifies
-            what local ports masqueraded connections should
-            originate from.
+    MASQ toports [port|portrange]
+            Masquerades matching packets. Optionally followed by a port or
+            port-range for iptables. Specify as "123", "123-456" or
+            "123:456". The port range parameter specifies what local ports
+            masqueraded connections should originate from. Note you need to
+            specify the 'to' word here.
 
-    RETURN  Returns to the parent chain where the current chain was
-            called if the packet matches.
+    RETURN  Returns to the parent chain where the current chain was called
+            if the packet matches.
 
-    REDIRECT [port|portrange]
-            Allows transparent proxying when rule matches, the port
-            that is redirected to must immediately follow this
-            keyword. The target may also be an IP-number in case you
-            are using iptables(8), so something like "REDIRECT
-            192.168.0.5:21" is valid there.
+    REDIRECT [to|toports] [port|portrange]
+            Allows transparent proxying when rule matches, the port that is
+            redirected to must immediately follow this keyword. The target
+            may also be an IP-number in case you are using iptables(8), so
+            something like "REDIRECT 192.168.0.5:21" is valid there.
 
-    SNAT|DNAT [ip-address|ip-range|ip-port-range]
-            Allows source/destination address translation, only
-            valid for iptables(8), requires an ip-number, range or
-            ip/port value.
+    SNAT|DNAT to [ip-address|ip-range|ip-port-range]
+            Allows source/destination address translation, only valid for
+            iptables(8), requires an ip-number, range or ip/port value.
 
-    TOS     Changes the packets TOS-field according to the set-tos
-            parameter specified, only valid for iptables.
+    TOS     Changes the packets TOS-field according to the set-tos parameter
+            specified, only valid for iptables.
+
+    FTOS    Set TOS field in packet header with setftos parameter.
+
+    TTL     The ttl-target is for changing ttl values
 
     table [table-name]
-            Selects this table for the rule. Valid table names are
-            "filter", "nat" and "mangle".
+            Selects this table for the rule. Valid table names are "filter",
+            "nat" and "mangle". If you don't specify any table, the default
+            table "filter" is used.
 
     reject-with [value]
             Rejects a packet with an ICMP value type message.
 
     limit [value]
             Limits these type of packets to a maximim.
+
+    iplimitabove [value]
+            Limits a certain IP list a number of connections.
+
+    iplimitmask [value]
+            Specifies the mask to use for iplimitabove.
+
+    psdweightthreshold [value]
+            Specifies the port scan weight threshold
+
+    psddelaythreshold [value]
+            Specifies the delay weight for port scans
+
+    psdloportsweight [value]
+            Specifies the weight for low ports in the port scan detection
+            algorithm
+
+    psdhiportsweight [value]
+            Specifies the weight for high ports in the port scan detection
+            algorithm
+
+    ttl [value]
+            Matches the ttl for value
+
+    ttl-[eq|lt|gt] [value]
+            Matches the ttl value when equal, smaller or larger than value
+
+    ttl-[set|dec|inc] [value]
+            Sets, decreases or increases the ttl value
+
+    length [[value]|[value:value]]
+            Specify a certain packet length to match, may be a range of
+            lengths
 
     burst [value]
             Limits bursts of these packets.
@@ -549,35 +569,144 @@ STRUCTURE OF A FIREWALL FILE
             Matches packets originating from these mac-addresses.
 
     state [value]
-            Matches packets with this state. The value may be
-            specified as a normal ferm-list: "(ESTABLISHED,RELATED)"
-            but "NEW:RELATED", and single values are also allowed.
+            Matches packets with this state. The value may be specified as a
+            normal ferm-list: "(ESTABLISHED,RELATED)" but "NEW:RELATED", and
+            single values are also allowed.
 
     tcp-flags [!] [flagmask] [flagmatch]
-            Specify tcp-flags, the ! is optional and has to precede
-            the mask, mask and match are mandatory. The list of mask
-            or match flags may be specified as a normal ferm-list:
-            "(SYN,ACK,RST)", but "SYN:ACK:RST" and single values are
-            also allowed.
+            Specify tcp-flags, the ! is optional and has to precede the
+            mask, mask and match are mandatory. The list of mask or match
+            flags may be specified as a normal ferm-list: "(SYN,ACK,RST)",
+            but "SYN:ACK:RST" and single values are also allowed.
 
     tcp-option [value]
             Specify a tcp-option for this rule.
 
-    log-[level|prefix|tcp-sequence|tcp-options|ip-options] [value]
+    log-[level|prefix]
+            Specifies several the log level and syslog prefix string.
+
+    log-|tcp-sequence|tcp-options|ip-options]
             Specifies several extra tcp/ip options.
 
     [u|g|p|s]id-owner [value]
-            Matches packets originating from this User, Group, Pid
-            or Session ID.
+            Matches packets originating from this User, Group, Pid or
+            Session ID.
 
     set [name] [value]
-            Set variable "name" to value "value", you can
-            dereference the variables by "$name". You may also put
-            variables within set statements.
+            Set variable "name" to value "value", you can dereference the
+            variables by "%name". You may also put variables within set
+            statements.
+
+VARIABLES
+    ferm also supports internal variables. This may come in handy if you
+    wish to define often used parameters in advance, making the ferm
+    configuration files even more easy to understand.
+
+    Setting variables is very easy with the set command. Here's some
+    examples:
+
+        set EXTERAL_IP "111.22.33.44"
+        set INTERNAL_IP '10.0.0.1'
+
+    Both these statements set the variable to what is in between the quotes,
+    you may afterwards refer to them like this:
+
+        chain input daddr ! %EXTERNAL_IP DROP;
+
+    The value of the variable will then be inserted into the rule and passed
+    to the firewall program.
+
+    the set command can actally be abused even more, since the following
+    statements also work:
+
+        set A "1"
+        set B %A
+        set %A "2"
+
+    After these statements, variable %A yields value "1", variable %B holds
+    the value "1", and the variable %1 holds the value "1" also.
+
+    More importantly, these variables can be used to store arrays or lists
+    of values:
+
+        set DNSSERVERS "111.2.33.1,111.2.33.2"
+
+    When this variable is inserted into a configuration file, the rule that
+    it applies to will automatically be split up into two different firewall
+    rules for each IP number given in the list.
+
+    Here's some even more complicated stuff that works:
+
+        set INTERNALINTERFACES "eth0,eth1,eth2"
+        set EXTERNALINTERFACES "ppp0,tunl0"
+        set INTERFACES "%INTERNALINTERFACES,%EXTERNALINTERFACES,lo"
+
+    NOTE: Beware of mixing '' string values within new string values,
+    because the trailing ' might be concatenated with another one in the
+    variable that you are including it. Take a look at this:
+
+        set IF1 'eth0'
+        set IF2 'eth1'
+        set IFS '%IF1,%IF2'
+
+    Variable IFS will now contain the value ''eth0','eth1'' and that is
+    probably not what you want. Better do this:
+
+        set OF1 "eth0"
+        set OF2 "eth1"
+        set OFS "%OF1,%OF2"
+
+    Which will result in variable OFS holding the value "eth0,eth1", which
+    will be split up correctly, namely into "eth0" and "eth1".
+
+SHELL ESCAPES
+    Ferm supports shell escaping in two ways. First, you may insert a shell
+    escaped string into a set command, second, you may insert a shell
+    escaped string into any place of a value.
+
+    There is a fundamental difference in this. Ferm will handle shell
+    escapes itself when they are used in a set construction, so the variable
+    then contains the value that was returned from the shell escape. You may
+    later refer to this value again without the command being executed
+    again.
+
+    When you use a shell escaped string as a value without it being in a set
+    statement, the exact string is just copied in the generated rule, and
+    when parsing is finished, ferm will call the shell with the entire rule,
+    and thus the shell escaped string. Only at this moment, the shell will
+    execute the string and insert the value back into the kernel interface
+    program. Thus, ferm will never see the real value of that.
+
+    Examples:
+
+        set DNSSERVERS `grep nameserver /etc/resolv.conf | awk '{print $2}'`
+        chain input proto tcp saddr %DNSSERVERS ACCEPT;
+
+    This way, ferm will interpret the value for DSSERVERS itself, put a
+    separating comma between multiple values if needed, and store this
+    information in the variable DNSSERVERS. The output will be like:
+
+        iptables -t filter -A INPUT -p tcp -s 192.168.0.1 -j ACCEPT
+        iptables -t filter -A INPUT -p tcp -s 192.168.0.2 -j ACCEPT
+
+    Otherwise, when you include a shell escape as a regular value in between
+    other ferm-statements:
+
+        chain input proto tcp saddr `grep nameserver /etc/resolv.conf | awk '{print $2}'` ACCEPT;
+
+    The shell escape is not parsed directly, but passed along with the, e.g.
+    iptables command, and subsequently, the shell will insert whatever that
+    value may become itself:
+
+        iptables -t filter -A INPUT -p tcp -d `grep nameserver /etc/resolv.conf | awk '{print $2}'` -j ACCEPT
+
+    Note that if the shell escape here yields more lines, something could go
+    wrong here easily. You are warned! Better not make ferm SUID too I guess
+    ;-)
 
 SHORTHANDS
-    Here's a complete list of possible shorthands, just to reduce
-    the amount of typing:
+    Here's a complete list of possible shorthands, just to reduce the amount
+    of typing:
 
     interface:
         if
@@ -642,6 +771,12 @@ SHORTHANDS
     mac:
         mac-source, macsource
 
+    iplimitabove:
+        ip-limit-above
+
+    iplimitmask
+        ip-limit-mask
+
     burst:
         limit-burst, limitburst
 
@@ -656,6 +791,18 @@ SHORTHANDS
 
     sid-owner:
         sidowner, sid
+
+    psdweightthreshold:
+        psd-weight-threshold
+
+    psddelaythreshold:
+        psd-delay-threshold
+
+    psdloportsweight:
+        psd-lo-ports-weight
+
+    psdhiportsweight:
+        psd-hi-ports-weight
 
     log-level:
         loglev
@@ -691,157 +838,147 @@ SHORTHANDS
 
             clear 0 00 0x00
 
-OPTIONS
-    Options can be specified with the "option" keyword, which can be
-    defined anywhere within the document. Although that may be fine,
-    you almost allways want to define them at the beginning of your
-    document, because the behaviour changes at the moment they are
-    specified.
+    setftos
+        set-ftos
 
-    All options can also be specified on the command line, which has
-    a few more available. The equivalent for the commandline options
-    that are also available in the firewall file is mentioned in the
-    firewall file options section.
+OPTIONS
+    Options can be specified with the "option" keyword, which can be defined
+    anywhere within the document. Although that may be fine, you almost
+    allways want to define them at the beginning of your document, because
+    the behaviour changes at the moment they are specified.
+
+    All options can also be specified on the command line, which has a few
+    more available. The equivalent for the commandline options that are also
+    available in the firewall file is mentioned in the firewall file options
+    section.
 
   Command line options
+    --noexec    Do not execute the ipchains(8) or iptables(8) commands, but
+                skip instead. This way you can parse your data, use --lines
+                to view the output.
 
-    --noexec    Do not execute the ipchains(8) or iptables(8) commands,
-                but skip instead. This way you can parse your data,
-                use --lines to view the output.
+    --lines     Show the firewall lines that were generated from the rules.
+                They will be shown just before they are executed, so if you
+                get error messages from ipchains(8) etc., you can see which
+                rule caused the error.
 
-    --lines     Show the firewall lines that were generated from the
-                rules. They will be shown just before they are
-                executed, so if you get error messages from
-                ipchains(8) etc., you can see which rule caused the
-                error.
+    --verbose   Shows some more details of the stages of execution of the
+                program.
 
-    --verbose   Shows some more details of the stages of execution of
-                the program.
-
-    --relaxed   Do not fuzz about errors, instead continue and let
-                ipchains(8) etc. give errors back.
+    --debug     Shows even more details of what ferm is doing while parsing
+                the rules. The debug info is put between the output for
+                clearity and commented.
 
     --help      Show a brief list of available commandline options.
 
     --version   Shows the version number of the program.
 
     --use [ipchains|iptables|ipfwadm]
-                Use this kernel program to implement the rules into
-                the kernel. Also available as firewall file option
-                "option [...]". This option must be set, either on
-                the commandline or in a ferm config file.
+                Use this kernel program to implement the rules into the
+                kernel. Also available as firewall file option "option
+                [...]". This option must be set, either on the commandline
+                or in a ferm config file.
 
-    --automod   Automatically insert the correct module parameter when
-                using iptables, making the module parameter
-                unnecessary
+    --location [/path/to/filename]
+                Explicitly define the exact name and location of the kernel
+                backend program, for the paranoid people out there.
+
+    --automod   Automatically insert the correct module parameter when using
+                iptables, making the module parameter unnecessary
 
   Firewall file options
-
     option clearall
-            Clears the entire firewall, deletes all user chains and
-            flushes the built in chains. Does not alter policies.
+            Clears the entire firewall, deletes all user chains and flushes
+            the built in chains. Does not alter policies.
 
     option flushall
             Flushes all chains but does not delete them.
 
     option flushchains
-            Flushes any chain which is defined in the setup, even
-            built-in chains are flushed when referred.
+            Flushes any chain which is defined in the setup, even built-in
+            chains are flushed when referred.
 
     option createchains
-            Creates any chain which is referred to, even when no
-            rule is specified for the chain, but is only referred by
-            with a "goto" keyword.
+            Creates any chain which is referred to, even when no rule is
+            specified for the chain, but is only referred by with a "goto"
+            keyword.
 
     option automod
-            Automatically insert the correct module parameter when
-            using iptables, making the module parameter unnecessary
-
-    option relaxed
-            Makes the program not whining over serious errors,
-            although that's not very handy because it will fail to
-            install the rules.
+            Automatically insert the correct module parameter when using
+            iptables, making the module parameter unnecessary
 
     option [iptables|ipchains|ipfwadm]
-            Define which kernel program you have to use to install
-            rules. This one is required, since on some systems, they
-            can both be present, or you want to use a wrapper for an
-            older version. Currently defaults to ipchains.
+            Define which kernel program you have to use to install rules.
+            This one is required, since on some systems, they can both be
+            present, or you want to use a wrapper for an older version.
+            Currently defaults to ipchains.
 
 SEE ALSO
     ipchains(8), ipfwadm(8), iptables(8)
 
 NOTES
-    A good firewall is not the only step in security, even the
-    firewall may be insecure, or someone breaks into your house and
-    steals the hard disk out of your PC. Do not rely on this
-    firewall tool for the use of mission critical or confidential
-    data. It is not fit for such a purpose!
+    A good firewall is not the only step in security, even the firewall may
+    be insecure, or someone breaks into your house and steals the hard disk
+    out of your PC. Do not rely on this firewall tool for the use of mission
+    critical or confidential data. It is not fit for such a purpose!
 
-    Instead, use this tool to expand your current use of ipchains(8)
-    and routing, create a flexible firewall and look out for
-    anything suspicious. Be carefull with open ports and servers,
-    always get the latest, patched versions. Read more about
-    firewalls before experimenting, you are warned! You might also
-    read the COPYING file provided with the package or visit
-    www.gnu.org to find more about the license.
+    Instead, use this tool to expand your current use of ipchains(8) and
+    routing, create a flexible firewall and look out for anything
+    suspicious. Be carefull with open ports and servers, always get the
+    latest, patched versions. Read more about firewalls before
+    experimenting, you are warned! You might also read the COPYING file
+    provided with the package or visit www.gnu.org to find more about the
+    license.
 
 EXAMPLES
-    The package comes with a directory full of goodies (examples)
-    that you can try, adjust for your system or just read if you
-    want to understand the syntax and it's possibilities. Look in
-    the "examples" directory.
+    The package comes with a directory full of goodies (examples) that you
+    can try, adjust for your system or just read if you want to understand
+    the syntax and it's possibilities. Look in the "examples" directory.
 
 REQUIREMENTS
   Operating system
-
-    The Operating system currently supported is only linux, although
-    it may be possible to port this program to support FreeBSD or
-    SOLARIS firewall systems, provided they supply a similar
-    firewalling scheme. (Does anybody known about that?)
+    The Operating system currently supported is only linux, although it may
+    be possible to port this program to support FreeBSD or SOLARIS firewall
+    systems, provided they supply a similar firewalling scheme. (Does
+    anybody known about that?)
 
   Software/packages
-
-    Required are 2 packages: Perl5, under which this ferm runs, and
-    one of the kernel firewall programs, suited for your system and
-    kernel version.
+    Required are 2 packages: Perl5, under which this ferm runs, and one of
+    the kernel firewall programs, suited for your system and kernel version.
 
   Kernel
-
-    The respective required kernel versions for each of the kernel
-    firewall programs (ipchains(8), ipfwadm(8) or iptables(8)) is
-    also needed. This means you have to have a kernel which can use
-    the firewalling thing, something you might have to compile a
-    kernel for, or set some switches in /proc. Look at the man pages
-    of those kernel programs for more information.
+    The respective required kernel versions for each of the kernel firewall
+    programs (ipchains(8), ipfwadm(8) or iptables(8)) is also needed. This
+    means you have to have a kernel which can use the firewalling thing,
+    something you might have to compile a kernel for, or set some switches
+    in /proc. Look at the man pages of those kernel programs for more
+    information.
 
 RESTRICTIONS
-    ferm allows almost anything the used firewall program allows, so
-    go ahead and specify complex port ranges, icmp by number or
-    worse. Just be warned.
+    ferm allows almost anything the used firewall program allows, so go
+    ahead and specify complex port ranges, icmp by number or worse. Just be
+    warned.
 
-    Although quite sophisticated, the kernel interface programs
-    ipchains(8) and iptables(8) are very limited in some respects.
-    ferm is only an interface to improve the handling of these
-    programs, and is therefore limited by the possibilities of these
-    programs.
+    Although quite sophisticated, the kernel interface programs ipchains(8)
+    and iptables(8) are very limited in some respects. ferm is only an
+    interface to improve the handling of these programs, and is therefore
+    limited by the possibilities of these programs.
 
-    Ipfwadm(8) is extremely limited in rule-building, upgrade or
-    succomb in it. Nothing ferm can do about it.
+    Ipfwadm(8) is extremely limited in rule-building, upgrade or succomb in
+    it. Nothing ferm can do about it.
 
 BUGS
-    The ipfwadm(8) interface is really limited due to being unable
-    to test it and having no experience with it at all. I'll be
-    concentration on iptables(8), which supports much more options
-    and will be quite more flexible.
+    The ipfwadm(8) interface is really limited due to being unable to test
+    it and having no experience with it at all. I'll be concentration on
+    iptables(8), which supports much more options and will be quite more
+    flexible.
 
-    Several nasty cleanups are not done well, which may result in
-    surviving data. Tried to remove all of them but suspect more of
-    them to occur.
+    Several nasty cleanups are not done well, which may result in surviving
+    data. Tried to remove all of them but suspect more of them to occur.
 
-    The --log-prefix construct does not allow certain characters to
-    be put between "". Make sure you don't use the bracket {} and []
-    characters, the ! and , are also not correctly parsed.
+    The --log-prefix construct does not allow certain characters to be put
+    between "". Make sure you don't use the bracket {} and [] characters,
+    the ! and , are also not correctly parsed.
 
 TODO
     * Improve ipfwadm(8) handling or removing it altogether
@@ -852,20 +989,20 @@ TODO
 
     * Review the second half of the manual page
 
-    * Make ferm bug you more about errors, i.e. increase validity
-    checking to high levels
+    * Make ferm bug you more about errors, i.e. increase validity checking
+    to high levels
 
 COPYRIGHT
-    Copyright (C) 2001, Auke Kok <koka@geo.vu.nl>
+    Copyright (C) 2001-2003, Auke Kok <auke.kok@planet.nl>
 
 LICENSE
-    ferm is released under the Gnu Public License, see the COPYING
-    file that came with the package or visit www.gnu.org.
+    ferm is released under the Gnu Public License, see the COPYING file that
+    came with the package or visit www.gnu.org.
 
-    This is free software; see the source for copying conditions.
-    There is NO warranty; not even for MERCHANTABILITY or FITNESS
-    FOR A PARTICULAR PURPOSE.
+    This is free software; see the source for copying conditions. There is
+    NO warranty; not even for MERCHANTABILITY or FITNESS FOR A PARTICULAR
+    PURPOSE.
 
 AUTHOR
-    Auke Kok (koka@geo.vu.nl)
+    Auke Kok (auke.kok@planet.nl)
 

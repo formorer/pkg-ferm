@@ -1,0 +1,2705 @@
+#!/usr/bin/perl
+
+#
+# ferm, a firewall setup program that makes firewall rules easy!
+#
+# Copyright (C) 2001-2005 Auke Kok, Max Kellermann
+#
+# Comments, questions, greetings and additions to this program
+# may be sent to <ferm@foo-projects.org>
+#
+
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+#
+
+# $Id: ferm 433 2005-05-23 19:24:15Z max $
+
+use strict;
+use IO::File;
+use Getopt::Long;
+use Pod::Usage;
+
+use vars qw($VERSION);
+
+$VERSION = '1.1+svn' . ('$Date: 2005-05-23 22:24:15 +0300 (Mon, 23 May 2005) $' =~ m,(\d{4})-(\d\d)-(\d\d), ? $1.$2.$3 : '');
+
+## interface variables
+# %option = command line and other options
+# $verbose = true in verbose mode
+use vars qw(%option $verbose);
+
+## parser variables
+# $script: current script file
+# %oldvars = ferm 1.1 compatibility variables, name => value
+# %vars = ferm variables, name => value
+# @rules = the rules which are being created
+use vars qw($script %oldvars @rules @stack);
+
+## netfilter variables
+# %domains = state information about all domains ("ip" and "ip6")
+# - enabled: is this domain enabled? (i.e. one or more rules present)
+# - location: frontend executable (iptables, ip6tables)
+# - chains{$table}{$chain}: ferm state information about the chains
+use vars qw(%domains);
+
+## functions
+use subs qw(initialize_netfilter open_script read_header prepare_tokens);
+
+## constants
+use vars qw(%deprecated_keywords %automod);
+# keywords from ferm 1.1 which are deprecated, and the new one; these
+# are automatically replaced, and a warning is printed
+%deprecated_keywords = ( macsource => 'mac-source',
+                         mac => 'mac-source',
+                         settos => 'set-tos',
+                         ttlset => 'ttl-set',
+                         ttldec => 'ttl-dec',
+                         ttlinc => 'ttl-inc',
+                         pkttype => 'pkt-type',
+                         uid => 'uid-owner',
+                         uidowner => 'uid-owner',
+                         gid => 'gid-owner',
+                         gidowner => 'gid-owner',
+                         pid => 'pid-owner',
+                         pidowner => 'pid-owner',
+                         sid => 'sid-owner',
+                         sidowner => 'sid-owner',
+                         ttleq => 'ttl-eq',
+                         ttllt => 'ttl-lt',
+                         ttlgt => 'ttl-gt',
+                         loglev => 'log-level',
+                         logprefix => 'log-prefix',
+                         logseq => 'log-tcp-sequence',
+                         logtcpopt => 'log-tcp-options',
+                         logipopt => 'log-ip-options',
+                         setmark => 'set-mark',
+                         toports => 'to-ports',
+                         rejectwith => 'reject-with',
+                         tosrc => 'to-source',
+                         todest => 'to-destination',
+                         burst => 'limit-burst',
+                         limitburst => 'limit-burst',
+                         match => 'module',
+                         frag => 'fragment',
+                         'out-interface' => 'outerface',
+                         icmptype => 'icmp-type',
+                         tcpflags => 'tcp-flags',
+                         tcpoption => 'tcp-option',
+                         iplimitabove => 'iplimit-above',
+                         iplimitmask => 'iplimit-mask',
+                         'ip-limit-above' => 'iplimit-above',
+                         'ip-limit-mask' => 'iplimit-mask',
+                         psdweightthreshold => 'psd-weight-threshold',
+                         psddelaythreshold => 'psd-delay-threshold',
+                         psdloportsweight => 'psd-lo-ports-weight',
+                         psdhiportsweight => 'psd-hi-ports-weight',
+                         MASQ => 'MASQUERADE',
+                         masq => 'MASQUERADE',
+                         masquerade => 'MASQUERADE',
+                         accept => 'ACCEPT',
+                         drop => 'DROP',
+                         return => 'RETURN',
+                         queue => 'QUEUE',
+                         nop => 'NOP',
+                         balance => 'BALANCE',
+                         dnat => 'DNAT',
+                         mirror => 'MIRROR',
+                         redirect => 'REDIRECT',
+                         reject => 'REJECT',
+                         snat => 'SNAT',
+                         tcpmss => 'TCPMSS',
+                         ttl => 'TTL',
+                         ulog => 'ULOG',
+                       );
+
+# support for the deprecated "automod" option. provide a mapping
+# between keywords and modules required for that
+%automod = ( tos => 'tos',
+             mark => 'mark',
+             'mac-source' => 'mac',
+             limit => 'limit',
+             'limit-burst' => 'limit',
+             'iplimit-above' => 'iplimit',
+             'iplimit-mask' => 'iplimit',
+             'uid-owner' => 'owner',
+             'gid-owner' => 'owner',
+             'pid-owner' => 'owner',
+             'sid-owner' => 'owner',
+             'psd-weight-threshold' => 'psd',
+             'psd-delay-threshold' => 'psd',
+             'psd-lo-ports-weight' => 'psd',
+             'psd-hi-ports-weight' => 'psd',
+             length => 'length',
+             average => 'random',
+             every => 'nth',
+             counter => 'nth',
+             start => 'nth',
+             packet => 'nth',
+             'pkt-type' => 'pkttype',
+             state => 'state',
+             'ttl-eq' => 'ttl',
+             'ttl-gt' => 'ttl',
+             'ttl-lt' => 'ttl',
+             timestart => 'time',
+             timestop => 'time',
+             days => 'time',
+             datestart => 'time',
+             datestop => 'time',
+           );
+
+# Get command line stuff
+{
+    my ($opt_noexec, $opt_lines,
+        $opt_debug,
+        $opt_location, $opt_clearall, $opt_flushall,
+        $opt_createchains, $opt_flushchains, $opt_help, $opt_automod,
+        $opt_version, $opt_use, $opt_test, $opt_fast, $opt_domain);
+
+    Getopt::Long::Configure('bundling', 'auto_help', 'no_ignore_case',
+                            'no_auto_abbrev');
+
+    GetOptions('noexec|n' => \$opt_noexec,
+               'lines|l' => \$opt_lines,
+               'verbose|v' => \$verbose,
+               'debug|d' => \$opt_debug,
+               'location=s' => \$opt_location,
+               clearall => \$opt_clearall,
+               flushall => \$opt_flushall,
+               createchains => \$opt_createchains,
+               flushchains => \$opt_flushchains,
+               'help|h' => \$opt_help,
+               automod => \$opt_automod,
+               'version|V' => \$opt_version,
+               'use=s' => \$opt_use,
+               test => \$opt_test,
+               fast => \$opt_fast,
+               'domain=s' => \$opt_domain,
+              );
+
+    pod2usage(-exitstatus => 0)
+      if defined $opt_help;
+
+    if (defined $opt_version) {
+        printversion();
+        exit 0;
+    };
+
+    $option{'noexec'} = (defined $opt_noexec);
+    $option{'lines'} = (defined $opt_lines);
+    $option{'automod'} = (defined $opt_automod);
+    $option{test} = (defined $opt_test);
+
+    if ($option{test}) {
+        $option{noexec} = 1;
+        $option{lines} = 1;
+    }
+
+    if (defined $opt_fast) {
+        unless ($option{noexec} or -x '/sbin/iptables-restore') {
+            print STDERR "Error: '/sbin/iptables-restore' not found\n";
+            exit 1;
+        }
+
+        $option{fast} = 1;
+    }
+
+    if (defined $opt_domain) {
+        unless ($opt_domain =~ /^ip6?$/) {
+            print STDERR "Invalid domain '$opt_domain'\n";
+            exit 1;
+        }
+
+        $option{domain} = $opt_domain;
+    }
+
+    print STDERR "Warning: --automod is deprecated\n"
+      if defined $opt_automod;
+
+    print STDERR "Warning: ignoring the obsolete --use/-s option\n"
+      if defined $opt_use;
+
+    print STDERR "Warning: ignoring the obsolete --debug option\n"
+      if defined $opt_debug;
+    print STDERR "Warning: ignoring the obsolete --clearall option\n"
+      if defined $opt_clearall;
+    print STDERR "Warning: ignoring the obsolete --flushall option\n"
+      if defined $opt_flushall;
+    print STDERR "Warning: ignoring the obsolete --flushchains option\n"
+      if defined $opt_flushchains;
+    print STDERR "Warning: ignoring the obsolete --createchains option\n"
+      if defined $opt_createchains;
+
+    if (defined $opt_location) {
+        $domains{ip}{location} = $opt_location;
+        if ( ! -X $domains{ip}{location}) {
+            mydie("Specified location is not executable or does not exist");
+        }
+    }
+}
+
+$verbose && printversion();
+
+&initialize_netfilter;
+
+pod2usage(-exitstatus => 1)
+  unless @ARGV == 1;
+
+push @stack, {};
+open_script($ARGV[0]);
+read_header;
+
+# option checks
+if (defined $domains{ip}{location}) {
+    mydie("Specified location is not executable or does not exist")
+      unless -X $domains{ip}{location};
+} else {
+    # set a default location
+    $domains{ip}{location} = 'iptables';
+}
+
+$domains{ip6}{location} = 'ip6tables';
+
+# parse all input recursively
+$verbose && print "Parsing files\n";
+enter(0);
+
+# check consistency
+check();
+
+# and execute all generated rules
+$verbose && print "\nExecuting rules\n";
+if ($option{fast}) {
+    execute_fast(rules_to_save(\@rules));
+} else {
+    execute();
+}
+
+$verbose && print "Done, exiting\n";
+exit 0;
+
+# end of program execution!
+
+
+# funcs
+
+sub printversion {
+    print "ferm $VERSION\n";
+    print "Copyright (C) 2001-2005 Auke Kok, Max Kellermann\n";
+    print "This program is free software released under GPLv2.\n";
+    print "See the included COPYING file for license details.\n";
+}
+
+
+sub mydie {
+    print STDERR @_;
+    print STDERR "\n";
+    exit 1;
+}
+
+
+sub error {
+    # returns a nice formatted error message, showing the
+    # location of the error.
+    my $tabs = 0;
+    my @lines;
+    my $l = 0;
+    my @words = @{$script->{past_tokens}};
+
+    for my $w ( 0 .. $#words ) {
+        if ($words[$w] eq "\x29")
+            { $l++ ; $lines[$l] = "    " x ($tabs-- -1) ;};
+        if ($words[$w] eq "\x28")
+            { $l++ ; $lines[$l] = "    " x $tabs++ ;};
+        if ($words[$w] eq "\x7d")
+            { $l++ ; $lines[$l] = "    " x ($tabs-- -1) ;};
+        if ($words[$w] eq "\x7b")
+            { $l++ ; $lines[$l] = "    " x $tabs++ ;};
+        if ( $l > $#lines ) { $lines[$l] = "" };
+        $lines[$l] .= $words[$w] . " ";
+        if ($words[$w] eq "\x28")
+            { $l++ ; $lines[$l] = "    " x $tabs ;};
+        if (($words[$w] eq "\x29") && ($words[$w+1] ne "\x7b"))
+            { $l++ ; $lines[$l] = "    " x $tabs ;};
+        if ($words[$w] eq "\x7b")
+            { $l++ ; $lines[$l] = "    " x $tabs ;};
+        if (($words[$w] eq "\x7d") && ($words[$w+1] ne "\x7d"))
+            { $l++ ; $lines[$l] = "    " x $tabs ;};
+        if (($words[$w] eq "\x3b") && ($words[$w+1] ne "\x7d"))
+            { $l++ ; $lines[$l] = "    " x $tabs ;}
+        if ($words[$w-1] eq "option")
+            { $l++ ; $lines[$l] = "    " x $tabs ;}
+    }
+    my $start = $#lines - 4;
+    if ($start < 0) { $start = 0 } ;
+    print STDERR "Error in $script->{filename} line $script->{line}:\n";
+    for $l ( $start .. $#lines)
+        { print STDERR $lines[$l]; if ($l != $#lines ) {print STDERR "\n"} ; };
+    print STDERR "<--\n";
+    mydie(@_);
+}
+
+sub warning {
+    print STDERR "Warning in $script->{filename} line $script->{line}: "
+      . (shift) . "\n";
+}
+
+sub read_file_words {
+    my $filename = shift;
+
+    local *FILE;
+    open FILE, $filename
+      or return;
+
+    my @words;
+
+    while (<FILE>) {
+        push @words, $1
+          if /(\w+)/;
+    }
+
+    return \@words;
+}
+
+sub initialize_netfilter {
+    foreach my $domain (qw(ip ip6)) {
+        my @tables;
+
+        unless ($option{test}) {
+            # read tables_matches
+            $domains{$domain}{tables_matches}
+              = read_file_words("/proc/net/${domain}_tables_matches");
+
+            # read tables_targets
+            $domains{$domain}{tables_targets}
+              = read_file_words("/proc/net/${domain}_tables_targets");
+
+            # read tables_names
+            my $tables = read_file_words("/proc/net/${domain}_tables_names");
+            @tables = @$tables
+              if defined $tables;
+        }
+
+        @tables = qw(filter nat mangle)
+          unless @tables;
+
+        $domains{$domain}{tables_names} = \@tables;
+    }
+}
+
+sub netfilter_match_available {
+    my ($domain, $match) = @_;
+
+    die unless exists $domains{$domain};
+
+    return 1 if $option{test};
+    return 1 unless defined $domains{$domain}{tables_matches};
+
+    return grep { $_ eq $match } @{$domains{$domain}{tables_matches}};
+}
+
+sub netfilter_target_available {
+    my ($domain, $match) = @_;
+
+    die unless exists $domains{$domain};
+
+    return 1 if $option{test};
+    return 1 unless defined $domains{$domain}{tables_targets};
+
+    return grep { $_ eq $match } @{$domains{$domain}{tables_targets}};
+}
+
+sub tokenize_string {
+    # split the an input string into words
+    my ($string) = @_;
+
+    my @ret;
+
+    foreach my $word ($string =~ m/(".*?"|'.*?'|`.*?`|[!,=&\$\%\(\){};]|[-+\w\/\.:]+)/g) {
+        push @ret, $word;
+    }
+
+    return @ret;
+}
+
+sub next_array_token {
+    my $array = shift;
+    shift @$array;
+}
+
+sub read_header {
+    die unless defined $script;
+    die if defined $script->{parent};
+
+    my $tokens = $script->{tokens};
+    die unless ref $tokens eq 'ARRAY';
+    die if @$tokens;
+
+    while (1) {
+        my $line = $script->{handle}->getline;
+        return unless defined $line;
+
+        $script->{line} ++;
+
+        # chop comments:
+        $line =~ s/#.*$//g;
+
+        my @line = tokenize_string($line);
+        next unless @line;
+
+        map { s/^(["'])(.*)\1$/$2/s } @line;
+
+        # look at the first word, then decide what to do. some special
+        # keywords are handled here, everything else gets added to @tokens
+        if ($line[0] eq 'option') {
+            # option: edit the %option hash
+            shift @line;
+            my $name = shift @line;
+            my $value = shift @line;
+
+            unless (defined $value) {
+                $value = 1;
+            } elsif ($value eq 'off') {
+                $value = undef;
+            }
+
+            if ($value and $name =~ /^(?:ipchains|iptables|ipfwadm)$/) {
+                print STDERR "The options ipchains, iptables and ipfwadm are obsolete, ignoring them\n";
+            } else {
+                $option{$name} = $value;
+            }
+        } elsif ($line[0] eq 'set') {
+            # set: set a variable
+            shift @line;
+            my $name = getvar(\&next_array_token, \@line);
+            my $value = getvalues(\&next_array_token, \@line);
+
+            warning('"set" is deprecated, please use "def $NAME = VALUE;"');
+
+            if (@line and $line[0] eq ',') {
+                warning('Arrays without parantheses are deprecated');
+
+                $value = [ $value ]
+                  unless ref $value;
+
+                do {
+                    shift @line;
+                    my $v = getvalues(\&next_array_token, \@line);
+                    push @$value, ref $v ? @$v : $v;
+                } while (@line and $line[0] eq ',');
+            }
+
+            error('spare tokens after "set"')
+              if @line;
+
+            $oldvars{$name} = $value;
+        } else {
+            # the next parser stage eats this
+            push @$tokens, @line;
+            last;
+        }
+    }
+
+    return 1;
+}
+
+sub prepare_tokens {
+    return
+      unless defined $script;
+
+    my $tokens = $script->{tokens};
+    die unless ref $tokens eq 'ARRAY';
+
+    while (@$tokens == 0) {
+        my $line = $script->{handle}->getline;
+        return unless defined $line;
+
+        $script->{line} ++;
+
+        # chop comments:
+        $line =~ s/#.*$//g;
+
+        my @line = tokenize_string($line);
+
+        # the next parser stage eats this
+        push @$tokens, @line;
+    }
+
+    return 1;
+}
+
+sub open_script {
+    my $filename = shift;
+
+    for (my $s = $script; defined $s; $s = $s->{parent}) {
+        mydie("Circular reference in $script->{filename} line $script->{line}: $filename")
+          if $s->{filename} eq $filename;
+    }
+
+    my $handle = new IO::File($filename);
+    mydie("Failed to open $filename: $!")
+      unless defined $handle;
+
+    $script = { filename => $filename,
+                handle => $handle,
+                line => 0,
+                past_tokens => [],
+                tokens => [],
+                parent => $script,
+              };
+
+    return $script;
+}
+
+sub collect_filenames {
+    my @ret;
+
+    # determine the current script's parent directory for relative
+    # file names
+    die unless defined $script;
+    my $parent_dir = $script->{filename} =~ m,^(.*/),
+      ? $1 : './';
+
+    foreach my $pathname (@_) {
+        # non-absolute file names are relative to the parent script's
+        # file name
+        $pathname = $parent_dir . $pathname
+          unless $pathname =~ m,^/,;
+
+        if ($pathname =~ m,/$,) {
+            # include all regular files in a directory
+
+            error("'$pathname' is not a directory")
+              unless -d $pathname;
+
+            local *DIR;
+            opendir DIR, $pathname
+              or error("Failed to open directory '$pathname': $!");
+            my @names = readdir DIR;
+            closedir DIR;
+
+            # sort those names for a well-defined order
+            foreach my $name (sort { $a cmp $b } @names) {
+                # don't include hidden and backup files
+                next if /^\.|~$/;
+
+                my $filename = $pathname . $name;
+                push @ret, $filename
+                  if -f $filename;
+            }
+        } elsif ($pathname =~ m,\|$,) {
+            # run a program and use its output
+            push @ret, $pathname;
+        } elsif ($pathname =~ m,^\|,) {
+            error('This kind of pipe is not allowed');
+        } else {
+            # include a regular file
+
+            error("'$pathname' is a directory; maybe use trailing '/' to include a directory?")
+              if -d $pathname;
+            error("'$pathname' is not a file")
+              unless -f $pathname;
+
+            push @ret, $pathname;
+        }
+    }
+
+    return @ret;
+}
+
+sub peek_token {
+    # get a token
+    prepare_tokens();
+
+    return
+      unless defined $script;
+
+    my $tokens = $script->{tokens};
+    die unless ref $tokens eq 'ARRAY';
+
+    return
+      unless @$tokens;
+
+    return $tokens->[0];
+}
+
+sub next_token {
+    # get a token
+    prepare_tokens();
+
+    return
+      unless defined $script;
+
+    my $tokens = $script->{tokens};
+    die unless ref $tokens eq 'ARRAY';
+
+    return
+      unless @$tokens;
+
+    my $token = shift @$tokens;
+
+    # update $script->{past_tokens}
+    my $past_tokens = $script->{past_tokens};
+    die unless ref $past_tokens eq 'ARRAY';
+
+    if (@$past_tokens and
+        ($past_tokens->[@$past_tokens - 1] eq '}' or
+         $past_tokens->[@$past_tokens - 1] eq ';')) {
+        # now this is tricky: $script->{past_tokens} is used in error
+        # messages. in the following lines, we filter out everything
+        # which has become irrelevant for error messages,
+        # i.e. previous (completed) commands
+
+        my $t = pop @$past_tokens;
+
+        # track the current level - a '}' means one level up (we are
+        # going backwards)
+        my $level = $t eq '}' ? 1 : 0;
+
+        while (@$past_tokens and $level >= 0) {
+            $t = pop @$past_tokens;
+
+            if ($level == 0 and ($t eq '}' or $t eq ';')) {
+                # don't delete another command
+                push @$past_tokens, $t;
+                last;
+            } elsif ($t eq '}') {
+                # one level up
+                $level++;
+            } elsif ($t eq '{') {
+                # one level down. stop here if we're already at level
+                # zero
+                if ($level == 0) {
+                    push @$past_tokens, $t;
+                    last;
+                }
+
+                $level--;
+            }
+        }
+    }
+
+    push @$past_tokens, $token;
+
+    # return
+    return $token;
+}
+
+sub require_next_token {
+    # require that another token exists, and that it's not a "special"
+    # token, e.g. ";" and "{"
+    my $code = shift || \&next_token;
+
+    my $token = &$code(@_);
+
+    error('unexpected end of file')
+      unless defined $token;
+
+    error("'$token' not allowed here")
+      if $token =~ /^[;{}]$/;
+
+    return $token;
+}
+
+sub old_variable_value {
+    # determine the value of a variable, die if the variable is
+    # unknown
+    my $name = shift;
+
+    error("no such variable: \%$name")
+      unless exists $oldvars{$name};
+
+    return $oldvars{$name};
+}
+
+sub string_old_variable_value {
+    # determine the value of a variable, die if the value is an array
+    my $name = shift;
+    my $value = old_variable_value($name);
+
+    error("variable '$name' must be a string, is an array")
+      if ref $value;
+
+    return $value;
+}
+
+sub resolve_old_variable_refs {
+    # resolve all variable references in the string - may be an array!
+    my $token = shift;
+
+    if ($token =~ /^\%(\w+)$/) {
+        # if the token only of the reference, return the pure value
+        return old_variable_value($1);
+    } else {
+        # a reference in the middle of the string. replace, but only
+        # allow string variables, no arrays here
+        $token =~ s/\%(\w+)/string_old_variable_value($1)/eg;
+
+        return $token;
+    }
+}
+
+sub variable_value {
+    my $name = shift;
+
+    foreach (@stack) {
+        return $_->{vars}{$name}
+          if exists $_->{vars}{$name};
+    }
+
+    return $stack[0]{auto}{$name}
+      if exists $stack[0]{auto}{$name};
+
+    return;
+}
+
+sub string_variable_value {
+    # determine the value of a variable, die if the value is an array
+    my $name = shift;
+    my $value = variable_value($name);
+
+    error("variable '$name' must be a string, is an array")
+      if ref $value;
+
+    return $value;
+}
+
+sub getvalues {
+    my ($code, $param) = (shift, shift);
+    my %options = @_;
+
+    # returns the next parameter, which may either be a scalar or an
+    # array
+    my $token = require_next_token($code, $param);
+
+    if ($token eq '(') {
+        # read an array until ")"
+        my @wordlist;
+
+        for (;;) {
+            $token = getvalues($code, $param,
+                               parenthesis_allowed => 1,
+                               comma_allowed => 1);
+
+            unless (ref $token) {
+                last if $token eq ')';
+
+                if ($token eq ',') {
+                    warning('Comma within arrays is deprecated, please use only a space');
+                    next;
+                }
+
+                error('items cannot be negated in a array')
+                  if $token eq '!';
+
+                push @wordlist, $token;
+            } elsif (ref $token eq 'ARRAY') {
+                push @wordlist, @$token;
+            } else {
+                error('unknown toke type');
+            }
+        }
+
+        error('empty array not allowed here')
+          unless @wordlist or not $options{non_empty};
+
+        return @wordlist == 1
+          ? $wordlist[0]
+            : \@wordlist;
+    } elsif ($token =~ /^\`(.*)\`$/s) {
+        # execute a shell command, insert output
+        my $command = $1;
+        my $output = `$command`;
+        unless ($? == 0) {
+            if ($? == -1) {
+                error("failed to execute: $!");
+            } elsif ($? & 0x7f) {
+                error("child died with signal " . ($? & 0x7f));
+            } elsif ($? >> 8) {
+                error("child exited with status " . ($? >> 8));
+            }
+        }
+
+        # remove comments
+        $output =~ s/#.*//mg;
+
+        # tokenize
+        my @tokens = split /\s+/, $output;
+
+        my @values;
+        while (@tokens) {
+            my $value = getvalues(\&next_array_token, \@tokens);
+            push @values, to_array($value);
+        }
+
+        # and recurse
+        return @values == 1
+          ? $values[0]
+            : \@values;
+    } elsif ($token =~ /^\'(.*)\'$/s) {
+        # single quotes: a string
+        return resolve_old_variable_refs($1);
+    } elsif ($token =~ /^\"(.*)\"$/s) {
+        # double quotes: a string with escapes
+        $token = resolve_old_variable_refs($1);
+        $token =~ s,\$(\w+),string_variable_value($1),eg;
+        return $token;
+    } elsif ($token eq '!') {
+        $token = getvalues($code, $param);
+
+        error('it is not possible to negate an array')
+          if ref $token;
+        error('double negation is not allowed')
+          if $token eq '!';
+
+        return '! ' . $token;
+    } elsif ($token =~ /^.+,.+$/) {
+        warning('Arrays within a string are deprecated, please use parantheses');
+
+        my @array = map {
+            my $value = resolve_old_variable_refs($_);
+            ref $value ? @$value : $value;
+        } split(/,/, $token);
+
+        return \@array;
+    } elsif ($token eq ',') {
+        return $token
+          if $options{comma_allowed};
+
+        error('comma is not allowed here');
+    } elsif ($token eq '=') {
+        error('equals operator ("=") is not allowed here');
+    } elsif ($token eq '$') {
+        my $name = require_next_token($code, $param);
+        error('variable name expected')
+          unless $name =~ /^\w+$/;
+
+        my $value = variable_value($name);
+
+        error("no such variable: \$$name")
+          unless defined $value;
+
+        return $value;
+    } elsif ($token eq '%') {
+        my $name = require_next_token($code, $param);
+        error('variable name expected')
+          unless $name =~ /^\w+$/;
+
+        return old_variable_value($name);
+    } elsif ($token eq '&') {
+        error("function calls are not allowed as keyword parameter");
+    } elsif ($token eq ')' and not $options{parenthesis_allowed}) {
+        error('Syntax error');
+    } else {
+        return resolve_old_variable_refs($token);
+    }
+}
+
+sub getvar {
+    # returns the next parameter, but only allow a scalar
+    my $token = getvalues(@_);
+
+    error('array not allowed here')
+      if ref $token;
+
+    return $token;
+}
+
+
+sub to_array {
+    # returns the specified value as an array. dereference arrayrefs
+    my $value = shift;
+    die unless wantarray;
+    die if @_;
+    unless (ref $value) {
+        return $value;
+    } elsif (ref $value eq 'ARRAY') {
+        return @$value;
+    } else {
+        die;
+    }
+}
+
+sub is_netfilter_core_target {
+    my $target = shift;
+    die unless defined $target and length $target;
+
+    return $target =~ /(?:ACCEPT|DROP|RETURN|QUEUE)$/;
+}
+
+sub is_netfilter_module_target {
+    my $target = shift;
+    die unless defined $target and length $target;
+
+    return $target =~ /(?:BALANCE|CLASSIFY|CLUSTERIP|CONNMARK
+                         |DNAT|DSCP|ECN|LOG|MARK|MASQUERADE
+                         |MIRROR|NETMAP|REDIRECT|REJECT|ROUTE
+                         |SNAT|TCPMSS|TOS|TRACE|TTL|ULOG
+                         |TARPIT
+                       )/x;
+}
+
+sub is_netfilter_builtin_chain {
+    my ($table, $chain) = @_;
+
+    return grep { $_ eq $chain }
+      qw(PREROUTING INPUT FORWARD OUTPUT POSTROUTING);
+}
+
+sub shell_escape {
+    my $token = shift;
+
+    if ($option{fast}) {
+        # iptables-save/iptables-restore are quite buggy concerning
+        # escaping and special characters... we're trying our best
+        # here
+
+        $token =~ s,",',g;
+        $token = '"' . $token . '"'
+          if $token =~ /[\s\'\\;]/s;
+    } else {
+        return $token
+          if $token =~ /^\`.*\`$/;
+        $token =~ s/'/\\'/g;
+        $token = '\'' . $token . '\''
+          if $token =~ /[\s\"\\;]/s;
+    }
+
+    return $token;
+}
+
+sub shell_append {
+    my $ref = shift;
+
+    foreach (@_) {
+        $$ref .= shell_escape($_) . ' ';
+    }
+}
+
+sub extract_negation {
+    local $_ = shift;
+    s/^!\s*//
+      ? ( '!', $_ )
+        : $_;
+}
+
+sub reset_domain {
+    my $domain = shift;
+
+    foreach my $table (@{$domains{$domain}{tables_names}}) {
+        my @chains;
+
+        if ($table eq 'filter') {
+            @chains = qw(INPUT FORWARD OUTPUT);
+        } elsif ($table eq 'nat') {
+            @chains = qw(PREROUTING POSTROUTING OUTPUT);
+        } elsif ($table eq 'mangle') {
+            @chains = qw(PREROUTING INPUT FORWARD OUTPUT POSTROUTING);
+        }
+
+        foreach my $chain (@chains) {
+            push @rules, "$domains{$domain}{location} -t $table -P $chain ACCEPT\n";
+        }
+
+        push @rules, "$domains{$domain}{location} -t $table -F\n";
+        push @rules, "$domains{$domain}{location} -t $table -X\n";
+    }
+
+}
+
+sub tables {
+    my $rule = shift;
+    my %rule = %$rule;
+
+    my $domain = $domains{$rule{domain}};
+    die unless $domain and $domain->{location};
+    my $chain = $domain->{chains}{$rule{table}}{$rule{chain}};
+    $chain = $domain->{chains}{$rule{table}}{$rule{chain}} = {}
+      unless defined $chain;
+
+    unless ($domains{$rule{domain}}{reset}) {
+        reset_domain($rule{domain});
+        $domains{$rule{domain}}{reset} = 1;
+    }
+
+    # iptables, for 2.3/2.4 kernels
+    my $rr = "";
+    my $rrr = "";
+
+    # pre-setup rrr for creation of chains
+    $rrr .= "$domain->{location} -t " . $rule{'table'} . " ";
+
+    # should we set a policy?
+    if (exists $chain->{set_policy}) {
+        my $policy = $chain->{policy};
+
+        push @rules, $rrr . "-P $rule{chain} $policy\n";
+
+        delete $chain->{set_policy};
+    }
+
+    # mark this chain as "non-empty" because we will add stuff to
+    # it now; this flag is later used to check if a custom chain
+    # referenced by "goto" was actually defined
+    $chain->{non_empty} = 1;
+
+    # check if the chain is already defined
+    unless (exists $chain->{was_created} or
+            is_netfilter_builtin_chain($rule{table}, $rule{chain})) {
+        push @rules, $rrr . "-N $rule{chain}\n";
+        $chain->{was_created} = 1;
+    }
+
+    # check for unknown jump target
+    if (defined $rule{action} and
+        not is_netfilter_core_target($rule{action}) and
+        not is_netfilter_module_target($rule{action}) and
+        $rule{action} ne 'NOP' and
+        not exists $domain->{chains}{$rule{table}}{$rule{action}}{was_created}) {
+        push @rules, $rrr . "-N $rule{action}\n";
+        $domain->{chains}{$rule{table}}{$rule{action}}{was_created} = 1;
+    }
+
+    # return if this is a policy-only rule
+    return
+      unless $rule{has_rule};
+
+    shell_append(\$rr, $domains{$rule{domain}}{location});
+
+    shell_append(\$rr, '-t', $rule{table})
+      if defined $rule{'table'};
+
+    shell_append(\$rr, '-A', $rule{chain});
+
+    # modules
+    if (exists $rule{modules}) {
+        shell_append(\$rr, '-m', $_)
+          foreach keys %{$rule{modules}};
+    }
+
+    # general iptables options
+    shell_append(\$rr, '-s', extract_negation $rule{saddr})
+      if defined $rule{saddr};
+    shell_append(\$rr, '-d', extract_negation $rule{daddr})
+      if defined $rule{daddr};
+
+    shell_append(\$rr, '-i', extract_negation $rule{interface})
+      if defined $rule{'interface'};
+    shell_append(\$rr, '-o', extract_negation $rule{outerface})
+      if defined $rule{'outerface'};
+
+    shell_append(\$rr, '-p', extract_negation $rule{proto})
+      if defined $rule{proto};
+
+    if (defined $rule{'fragment'}) {
+        shell_append(\$rr, '!')
+          unless $rule{fragment} eq 'set';
+
+        shell_append(\$rr, '-f')
+    }
+
+    #
+    # match module options
+    #
+
+    # ipt_addrtype parameters
+    shell_append(\$rr, '--src-type', $rule{'src-type'})
+      if exists $rule{'src-type'};
+    shell_append(\$rr, '--dst-type', $rule{'dst-type'})
+      if exists $rule{'dst-type'};
+
+    # ipt_ah/ipt_esp parameters
+    foreach (qw(ahspi espspi)) {
+        if (exists $rule{$_}) {
+            shell_append(\$rr, "--$_");
+            shell_append(\$rr, '!')
+              if $rule{$_} =~ s/^!\s*//;
+            shell_append(\$rr, $rule{$_});
+        }
+    }
+
+    # ipt_conntrack parameters
+    shell_append(\$rr, '--ctstate', $rule{ctstate})
+      if exists $rule{ctstate};
+
+    foreach (qw(ctproto ctorigsrc ctorigdst),
+             qw(ctreplsrc ctrepldst ctstatus ctexpire)) {
+        shell_append(\$rr, "--$_", extract_negation $rule{$_})
+          if exists $rule{$_};
+    }
+
+    # ipt_dscp parameters
+    shell_append(\$rr, '--dscp', $rule{dscp})
+      if exists $rule{dscp};
+
+    shell_append(\$rr, '--dscp-class', $rule{'dscp-class'})
+      if exists $rule{'dscp-class'};
+
+    # ipt_ecn parameters
+    foreach (qw(ecn-tcp-cwr ecn-tcp-ece)) {
+        shell_append(\$rr, "--$_")
+          if exists $rule{$_};
+    }
+
+    shell_append(\$rr, '--ecn-ip-ect', $rule{'ecn-ip-ect'})
+      if exists $rule{'ecn-ip-ect'};
+
+    # ipt_helper parameters
+    shell_append(\$rr, '--helper', $rule{helper})
+      if exists $rule{helper};
+
+    # ipt_icmp
+    if (defined $rule{proto} and $rule{proto} eq 'icmp' and
+        exists $rule{'icmp-type'}) {
+        shell_append(\$rr, '-m', 'icmp');
+
+        shell_append(\$rr, '--icmp-type', extract_negation $rule{'icmp-type'})
+          if defined $rule{'icmp-type'};
+    }
+
+    # ipt_icmpv6
+    if (defined $rule{proto} and
+        ($rule{proto} eq 'icmpv6' or $rule{proto} eq 'ipv6-icmp') and
+        exists $rule{'icmpv6-type'}) {
+        shell_append(\$rr, '-m', 'icmpv6');
+
+        shell_append(\$rr, '--icmpv6-type',
+                     extract_negation $rule{'icmpv6-type'});
+    }
+
+    # ipt_iplimit parameters
+    if (exists $rule{'iplimit-above'}) {
+        shell_append(\$rr, '!')
+          if $rule{'iplimit-above'} =~ s/^!\s*//;
+        shell_append(\$rr, '--iplimit-above', $rule{'iplimit-above'})
+    }
+    shell_append(\$rr, '--iplimit-mask', $rule{'iplimit-mask'})
+      if exists $rule{'iplimit-mask'};
+
+    # ipt_iplimit parameters
+    foreach (qw(src-range dst-range)) {
+        if (exists $rule{$_}) {
+            shell_append(\$rr, '!')
+              if $rule{$_} =~ s/^!\s*//;
+            shell_append(\$rr, "--$_", $rule{$_})
+        }
+    }
+
+    # ipt_length parameters
+    shell_append(\$rr, '--length', $rule{length})
+      if exists $rule{length};
+
+    # ipt_limit parameters
+    shell_append(\$rr, '--limit', $rule{limit})
+      if exists $rule{limit};
+    shell_append(\$rr, '--limit-burst', $rule{'limit-burst'})
+      if exists $rule{'limit-burst'};
+
+    # ipt_mac parameters
+    shell_append(\$rr, '--mac-source', extract_negation $rule{'mac-source'})
+      if exists $rule{'mac-source'};
+
+    # ipt_mark, ipt_connmark
+    shell_append(\$rr, '--mark', $rule{mark})
+      if defined $rule{mark};
+
+    # ipt_multiport parameters
+    foreach (qw(source-ports destination-ports ports)) {
+        shell_append(\$rr, "--$_", $rule{$_})
+          if exists $rule{$_};
+    }
+
+    # ipt_nth parameters
+    foreach (qw(every counter start packet)) {
+        shell_append(\$rr, "--$_", $rule{$_})
+          if exists $rule{$_};
+    }
+
+    # ipt_owner parameters
+    foreach (qw(uid gid pid sid cmd)) {
+        shell_append(\$rr, "--${_}-owner", $rule{${_} . '-owner'})
+          if exists $rule{${_} . '-owner'};
+    }
+
+    # ipt_pkttype switches
+    shell_append(\$rr, '--pkt-type', $rule{'pkt-type'})
+      if exists $rule{'pkt-type'};
+
+    # ipt_psd switches
+    foreach (qw(psd-weight-threshold psd-delay-threshold
+                psd-lo-ports-weight psd-hi-ports-weight)) {
+        shell_append(\$rr, "--$_", $rule{$_})
+          if exists $rule{$_};
+    }
+
+    # ipt_physdev switches
+    foreach (qw(physdev-in physdev-out)) {
+        shell_append(\$rr, "--$_", $rule{$_})
+          if exists $rule{$_};
+    }
+
+    foreach (qw(physdev-is-in physdev-is-out physdev-is-bridged)) {
+        shell_append(\$rr, "--$_")
+          if exists $rule{$_};
+    }
+
+    # ipt_random parameters
+    shell_append(\$rr, '--average', $rule{average})
+      if exists $rule{average};
+
+    # ipt_realm parameters
+    if (exists $rule{realm}) {
+        shell_append(\$rr, '--realm');
+        shell_append(\$rr, '!')
+          if $rule{realm} =~ s/^!\s*//;
+        shell_append(\$rr, $rule{realm});
+    }
+
+    # ipt_recent parameters
+    foreach (qw(name seconds hitcount)) {
+        shell_append(\$rr, "--$_", $rule{$_})
+          if exists $rule{$_};
+    }
+    foreach (qw(set rcheck update remove rttl)) {
+        shell_append(\$rr, "--$_")
+          if exists $rule{$_};
+    }
+
+    # ipt_state parameters
+    shell_append(\$rr, '--state', $rule{state})
+      if exists $rule{state};
+
+    # ipt_tcp
+    if (defined $rule{proto} and $rule{proto} eq 'tcp' and
+        grep { exists $rule{$_} } qw(sport dport syn mss tcp-flags tcp-option)) {
+        shell_append(\$rr, '-m', 'tcp');
+
+        shell_append(\$rr, '--sport', extract_negation $rule{sport})
+          if defined $rule{sport};
+        shell_append(\$rr, '--dport', extract_negation $rule{dport})
+          if defined $rule{dport};
+
+        if (defined $rule{'syn'}) {
+            shell_append(\$rr, '!')
+              unless $rule{syn} eq 'set';
+
+            shell_append(\$rr, '--syn')
+        }
+
+        shell_append(\$rr, '--mss', $rule{mss})
+          if exists $rule{mss};
+
+        shell_append(\$rr, '--tcp-flags',
+                     $rule{'tcp-flags.mask'}, $rule{'tcp-flags.match'})
+          if exists $rule{'tcp-flags'};
+
+        shell_append(\$rr, '--tcp-option', extract_negation $rule{'tcp-option'})
+          if exists $rule{'tcp-option'};
+    }
+
+    # ipt_time parameters
+    shell_append(\$rr, '--days', $rule{days})
+      if exists $rule{days};
+
+    foreach (qw(timestart timestop datestart datestop)) {
+        shell_append(\$rr, "--$_", $rule{$_})
+          if exists $rule{$_};
+    }
+
+    # ipt_tos parameters
+    if (exists $rule{tos}) {
+        # some translations for ferm 1.1 compatibility
+        $rule{tos} =~ s/^min-?cost$/0x02/;
+        $rule{tos} =~ s/^(?:reliability|reliable)$/0x04/;
+        $rule{tos} =~ s/^max-?throughput$/0x08/;
+        $rule{tos} =~ s/^(?:lowdelay|interactive|min-delay)$/0x10/;
+        $rule{tos} =~ s/^clear$/0x00/;
+
+        shell_append(\$rr, "--tos", $rule{tos})
+    }
+
+    # ipt_ttl parameters
+    foreach (qw(ttl-eq ttl-lt ttl-gt)) {
+        shell_append(\$rr, "--$_", $rule{$_})
+          if exists $rule{$_};
+    }
+
+    # ipt_udp parameters
+    if (defined $rule{proto} and $rule{proto} eq 'udp' and
+        grep { exists $rule{$_} } qw(sport dport)) {
+        shell_append(\$rr, '-m', 'udp');
+
+        shell_append(\$rr, '--sport', extract_negation $rule{sport})
+          if defined $rule{sport};
+        shell_append(\$rr, '--dport', extract_negation $rule{dport})
+          if defined $rule{dport};
+    }
+
+    #
+    # target options
+    #
+
+    my $action = $rule{action};
+
+    shell_append(\$rr, '-j', $action)
+      unless $action eq 'NOP';
+
+    # target module options
+
+    if ($action eq 'CLASSIFY') {
+        # target CLASSIFY
+        shell_append(\$rr, '--set-class', $rule{'set-class'})
+          if defined $rule{'set-class'};
+    } elsif ($action eq 'DNAT' or $action eq 'BALANCE') {
+        # target DNAT, BALANCE
+        shell_append(\$rr, '--to-destination', $rule{'to-destination'})
+          if defined $rule{'to-destination'};
+    } elsif ($action eq 'LOG') {
+        # target LOG
+        shell_append(\$rr, '--log-prefix', $rule{'log-prefix'})
+          if exists $rule{'log-prefix'};
+        shell_append(\$rr, '--log-level', $rule{'log-level'})
+          if defined $rule{'log-level'};
+        shell_append(\$rr, '--log-tcp-sequence')
+          if defined $rule{'log-tcp-sequence'};
+        shell_append(\$rr, '--log-tcp-options')
+          if defined $rule{'log-tcp-options'};
+        shell_append(\$rr, '--log-ip-options')
+          if defined $rule{'log-ip-options'};
+    } if ($action eq 'MARK' or $action eq 'CONNMARK') {
+        # target MARK, CONNMARK
+        shell_append(\$rr, '--set-mark', $rule{'set-mark'})
+          if exists $rule{'set-mark'};
+        shell_append(\$rr, '--save-mark')
+          if defined $rule{'save-mark'};
+        shell_append(\$rr, '--restore-mark')
+          if defined $rule{'restore-mark'};
+    } if ($action eq 'MASQUERADE' or $action eq 'REDIRECT') {
+        # target MASQUERADE, REDIRECT
+        shell_append(\$rr, '--to-ports', $rule{'to-ports'})
+          if defined $rule{'to-ports'};
+    } if ($action eq 'NETMAP') {
+        # target NETMAP
+        shell_append(\$rr, '--to', $rule{to})
+          if defined $rule{to};
+    } elsif ($action eq 'REJECT') {
+        # target REJECT
+        shell_append(\$rr, '--reject-with', $rule{'reject-with'})
+          if defined $rule{'reject-with'};
+    } elsif ($action eq 'ROUTE') {
+        # target ROUTE
+        foreach (qw(oif iif gw)) {
+            shell_append(\$rr, "--$_", $rule{$_})
+              if exists $rule{$_};
+        }
+
+        shell_append(\$rr, '--continue')
+          if exists $rule{continue};
+    } if ($action eq 'SNAT') {
+        # target SNAT
+        foreach (split /,/, $rule{'to-source'}) {
+            shell_append(\$rr, '--to-source', $_);
+        }
+    } elsif ($action eq 'TCPMSS') {
+        # target TCPMSS
+        shell_append(\$rr, '--set-mss', $rule{'set-mss'})
+          if defined $rule{'set-mss'};
+        shell_append(\$rr, '--clamp-mss-to-pmtu')
+          if defined $rule{'clamp-mss-to-pmtu'};
+    } elsif ($action eq 'TOS') {
+        # target TOS
+        if (defined $rule{'set-tos'} ) {
+            # some translations for ferm 1.1 compatibility
+            $rule{'set-tos'} =~ s/^min-?cost$/0x02/;
+            $rule{'set-tos'} =~ s/^(?:reliability|reliable)$/0x04/;
+            $rule{'set-tos'} =~ s/^max-?throughput$/0x08/;
+            $rule{'set-tos'} =~ s/^(?:lowdelay|interactive|min-delay)$/0x10/;
+            $rule{'set-tos'} =~ s/^clear$/0x00/;
+
+            shell_append(\$rr, '--set-tos', $rule{'set-tos'});
+        }
+    } elsif ($action eq 'TTL') {
+        # target TTL
+        foreach (qw(set inc dec)) {
+            shell_append(\$rr, "--ttl-$_", $rule{"ttl-$_"})
+              if defined $rule{"ttl-$_"};
+        }
+    } elsif ($action eq 'ULOG') {
+        # target ULOG
+        foreach (qw(nlgroup prefix cprange qthreshold)) {
+            shell_append(\$rr, "--ulog-$_", $rule{"ulog-$_"})
+              if defined $rule{"ulog-$_"};
+        }
+    }
+
+    # this line is done
+    $rr .= "\n";
+    push @rules, { rule => $rr,
+                   script => $rule{script},
+                 };
+};
+
+sub printrule {
+    my $rule = shift;
+
+    # prints all rules in a hash
+    tables($rule);
+}
+
+
+sub mkrules {
+    # compile the list hashes into rules
+    my $fw = shift;
+
+    if (exists $option{domain}) {
+        my @domains = to_array $fw->[0]{domain};
+
+        if (grep { $_ eq $option{domain} } @domains) {
+            # copy @$fw and limit to the selected domain
+            $fw = [ @$fw ];
+            $fw->[0] = {%{$fw->[0]}};
+            $fw->[0]{domain} = $option{domain};
+        } else {
+            # wrong domain - skip
+            return;
+        }
+    }
+
+    # pack the data in a handy format (list-of-hashes with one kw
+    # per level, so we can recurse...
+    my @fr;
+
+    foreach my $current (@$fw) {
+        while (my ($key, $value) = each %$current) {
+            push @fr, [ $key, $value ];
+        }
+    }
+
+    sub dofr {
+        my $rule = shift;
+        my $current = shift;
+
+        my ($key, $value_string) = @$current;
+
+        unless (ref $value_string) {
+                # set this one and recurse
+            $rule->{$key} = $value_string;
+
+            if (@_) {
+                dofr($rule, @_);
+            } else {
+                printrule($rule);
+            }
+
+            delete $rule->{$key};
+        } elsif (ref $value_string eq 'ARRAY') {
+            # recurse for every value
+            foreach my $value (@$value_string) {
+                $value =~ s/^!/! /;
+                # set this one and recurse
+                $rule->{$key} = $value;
+
+                if (@_) {
+                    dofr($rule, @_);
+                } else {
+                    printrule($rule);
+                }
+            }
+
+            delete $rule->{$key};
+        } elsif (ref $value_string eq 'HASH') {
+            # merge hashes
+            my $old = $rule->{$key};
+
+            $rule->{$key} = { ( defined $old
+                                ? %$old
+                                : ()
+                              ),
+                              %$value_string
+                            };
+
+            # recurse
+            if (@_) {
+                dofr($rule, @_);
+            } else {
+                printrule($rule);
+            }
+
+            # restore old value
+            if (defined $old) {
+                $rule->{$key} = $old;
+            } else {
+                delete $rule->{$key};
+            }
+        } else {
+            die ref $value_string;
+        }
+    }
+
+    dofr({}, @fr);
+}
+
+sub find_option {
+    my ($fw, $key) = @_;
+
+    my $item = (grep { exists $_->{$key} } reverse @$fw)[0];
+    return unless defined $item;
+
+    return $item->{$key};
+}
+
+sub enter {
+    my $lev = shift;  # current recursion depth
+    my @fw = @_; # fwset in list of hashes
+
+    die unless @fw == $lev;
+
+    # enter is the core of the firewall setup, it is a
+    # simple parser program that recognizes keywords and
+    # retreives parameters to set up the kernel routing
+    # chains
+
+    my $base_level = $script->{base_level} || 0;
+    die if $base_level > $lev;
+
+    my $current = {};
+    push @fw, $current;
+
+    my %modules = map { $_->{modules} ? %{$_->{modules}} : () } @fw;
+
+    # read keywords 1 by 1 and dump into parser
+    while (defined (my $keyword = next_token())) {
+        $verbose && print ".";
+
+        # check if the current rule should be negated
+        my $negated = $keyword eq '!';
+        if ($negated) {
+            # negation. get the next word which contains the 'real'
+            # rule
+            $keyword = getvar();
+            $verbose && print ".";
+
+            error('unexpected end of file after negation')
+              unless defined $keyword;
+
+            error('double negation')
+              if $keyword eq '!';
+        }
+
+        my $action = find_option(\@fw, 'action');
+
+        # the core: parse all data
+        SWITCH: for ($keyword)
+        {
+            # deprecated keyword?
+            if (exists $deprecated_keywords{$keyword}) {
+                my $new_keyword = $deprecated_keywords{$keyword};
+                warning("'$keyword' is deprecated, please use '$new_keyword' instead");
+                $keyword = $new_keyword;
+            }
+
+            # effectuation operator
+            if ($keyword eq ';') {
+                my $has_rule = find_option(\@fw, 'has_rule');
+                my $action = find_option(\@fw, 'action');
+                my $policy = find_option(\@fw, 'policy');
+
+                if ($has_rule and not defined $action) {
+                    # something is wrong when a rule was specifiedd,
+                    # but no action
+                    if (defined $policy) {
+                        # ferm 1.1 compatibility: default action is
+                        # policy
+                        warning('Using policy as action is deprecated');
+                        $current->{action} = $policy;
+                    } else {
+                        error('No action defined');
+                    }
+                }
+
+                $current->{script} = { filename => $script->{filename},
+                                       line => $script->{line},
+                                     };
+
+                mkrules(\@fw)
+                  if $has_rule or defined $policy;
+
+                # and clean up variables set in this level
+                %$current = ();
+
+                next;
+            }
+
+            # recursing operators
+            if ($keyword eq '{') {
+                # push stack
+                my $old_stack_depth = @stack;
+
+                unshift @stack, { auto => { %{$stack[0]{auto} || {}} } };
+
+                # recurse
+                enter($lev + 1, @fw);
+
+                # pop stack
+                shift @stack;
+                die unless @stack == $old_stack_depth;
+
+                # after a block, the command is finished, clear this
+                # level
+                %$current = ();
+
+                next;
+            }
+
+            if ($keyword eq '}') {
+                error('Unmatched "}"')
+                  if $lev <= $base_level;
+
+                # consistency check: check if they havn't forgotten
+                # the ';' before the last statement
+                error('Missing semicolon before "}"')
+                  if keys %$current;
+
+                # and exit
+                return;
+            }
+
+            # include another file
+            if ($keyword eq 'include') {
+                my $files = getvalues;
+
+                foreach my $filename (collect_filenames to_array $files) {
+                    # save old script, open new script
+                    my $old_script = $script;
+                    open_script($filename);
+                    $script->{base_level} = $lev + 1;
+
+                    # push stack
+                    my $old_stack_depth = @stack;
+
+                    my $stack = {};
+
+                    if (@stack > 0) {
+                        # include files may set variables for their parent
+                        $stack->{vars} = ($stack[0]{vars} ||= {});
+                        $stack->{functions} = ($stack[0]{functions} ||= {});
+                        $stack->{auto} = { %{ $stack[0]{auto} || {} } };
+                    }
+
+                    unshift @stack, $stack;
+
+                    # parse the script
+                    enter($lev + 1, @fw);
+
+                    # pop stack
+                    shift @stack;
+                    die unless @stack == $old_stack_depth;
+
+                    # restore old script
+                    $script = $old_script;
+                }
+
+                $keyword = next_token;
+                error('Missing ";" - "include FILENAME" must be the last command in a rule')
+                  unless defined $keyword and $keyword eq ';';
+
+                next;
+            }
+
+            # definition of a variable or function
+            if ($keyword eq 'def') {
+                error('"def" must be the first token in a command')
+                  if keys %$current;
+
+                my $type = require_next_token();
+                if ($type eq '$') {
+                    my $name = require_next_token();
+                    error('invalid variable name')
+                      unless $name =~ /^\w+$/;
+
+                    $keyword = require_next_token();
+                    error('"=" expected after variable name')
+                      unless $keyword eq '=';
+
+                    my $value = getvalues();
+
+                    $keyword = next_token();
+                    error('";" expected after variable declaration')
+                      unless defined $keyword and $keyword eq ';';
+
+                    $stack[0]{vars}{$name} = $value;
+                } elsif ($type eq '&') {
+                    my $name = require_next_token();
+                    error('invalid function name')
+                      unless $name =~ /^\w+$/;
+
+                    my @params;
+                    my $token = next_token();
+                    error('function parameter list or "()" expected')
+                      unless defined $token and $token eq '(';
+                    while (1) {
+                        $token = require_next_token();
+                        last if $token eq ')';
+
+                        if (@params > 0) {
+                            error('"," expected')
+                              unless $token eq ',';
+
+                            $token = require_next_token();
+                        }
+
+                        error('"$" and parameter name expected')
+                          unless $token eq '$';
+
+                        $token = require_next_token();
+                        error('invalid function parameter name')
+                          unless $token =~ /^\w+$/;
+
+                        push @params, $token;
+                    }
+
+                    my %function;
+
+                    $function{params} = \@params;
+
+                    $keyword = require_next_token;
+                    error('"=" expected')
+                      unless $keyword eq '=';
+
+                    my @level;
+                    my @tokens;
+
+                    while (1) {
+                        $keyword = next_token();
+                        error('unexpected end of file within function/variable declaration')
+                          unless defined $keyword;
+
+                        if ($keyword =~ /^[\{\(]$/) {
+                            push @level, $keyword;
+                            $function{block} = 1
+                              if $keyword eq '{';
+                        } elsif ($keyword =~ /^[\}\)]$/) {
+                            my $expected = $keyword;
+                            $expected =~ tr/\}\)/\{\(/;
+                            my $opener = pop @level;
+                            error("unmatched '$keyword'")
+                              unless defined $opener and $opener eq $expected;
+                        } elsif ($keyword eq ';' and @level == 0) {
+                            last;
+                        }
+
+                        push @tokens, $keyword;
+
+                        last
+                          if $keyword eq '}' and @level == 0;
+                    }
+
+                    $function{tokens} = \@tokens;
+
+                    $stack[0]{functions}{$name} = \%function;
+                } else {
+                    error('"$" (variable) or "&" (function) expected');
+                }
+
+                next;
+            }
+
+            # def references
+            if ($keyword eq '$') {
+                error('variable references are only allowed as keyword parameter');
+            }
+
+            if ($keyword eq '&') {
+                my $name = require_next_token;
+                error('function name expected')
+                  unless $name =~ /^\w+$/;
+
+                my $function;
+                foreach (@stack) {
+                    $function = $_->{functions}{$name};
+                    last if defined $function;
+                }
+                error("no such function: \&$name")
+                  unless defined $function;
+
+                my $token = next_token();
+                error('function name must be followed by "()"')
+                  unless defined $token and $token eq '(';
+
+                my $paramdef = $function->{params};
+                die unless defined $paramdef;
+                my @params;
+
+                $token = peek_token();
+                if ($token eq ')') {
+                    # eat the ')'
+                    require_next_token
+                } else {
+                    # parse parameter list
+
+                    while (1) {
+                        if (@params > 0) {
+                            $token = require_next_token();
+                            last
+                              if $token eq ')';
+
+                            error('"," expected')
+                              unless $token eq ',';
+                        }
+
+                        push @params, getvalues();
+                    }
+                }
+
+                error("Wrong number of parameters for function '\&$name': "
+                      . @$paramdef . " expected, " . @params . " given")
+                  unless @params == @$paramdef;
+
+                my %vars;
+                for (my $i = 0; $i < @params; $i++) {
+                    $vars{$paramdef->[$i]} = $params[$i];
+                }
+
+                if ($function->{block}) {
+                    # block {} always ends the current rule, so if the
+                    # function contains a block, we have to require
+                    # the calling rule also ends here
+                    my $token = next_token();
+                    error("';' expected after block function call '\&$name'")
+                      unless defined $token and $token eq ';';
+                }
+
+                my @tokens = @{$function->{tokens}};
+                for (my $i = 0; $i < @tokens; $i++) {
+                    if ($tokens[$i] eq '$' and $i + 1 < @tokens and
+                        exists $vars{$tokens[$i + 1]}) {
+                        my @value = to_array($vars{$tokens[$i + 1]});
+                        @value = ('(', @value, ')')
+                          unless @tokens == 1;
+                        splice(@tokens, $i, 2, @value);
+                        $i += @value - 2;
+                    }
+                }
+
+                unshift @{$script->{tokens}}, @tokens;
+
+                next;
+            }
+
+            # where to put the rule?
+            if ($keyword eq 'domain') {
+                error('Domain is already specified')
+                  if exists $current->{domain};
+                $current->{domain} = $stack[0]{auto}{DOMAIN} = getvalues();
+
+                foreach my $domain (to_array $current->{domain}) {
+                    error("Domain '$domain' is not supported")
+                      unless exists $domains{$domain}{location};
+                }
+
+                next;
+            }
+
+            if ($keyword eq 'table') {
+                error('Table is already specified')
+                  if exists $current->{table};
+                $current->{table} = $stack[0]{auto}{TABLE} = getvalues();
+
+                my $domain = find_option(\@fw, 'domain');
+                $current->{domain} = $domain = 'ip'
+                  unless defined $domain;
+
+                foreach my $table (to_array $current->{table}) {
+                    error("Table '$table' does not exist")
+                      unless grep { $_ eq $table } @{$domains{$domain}{tables_names}};
+                }
+
+                next;
+            }
+
+            if ($keyword eq 'chain') {
+                error('Chain is already specified')
+                  if exists $current->{chain};
+                $current->{chain} = $stack[0]{auto}{CHAIN} = getvalues();
+
+                # ferm 1.1 compatibility: uppercase built-in chain
+                # names
+                foreach (ref $current->{chain} ? @{$current->{chain}} : $current->{chain}) {
+                    s/^(?:input|forward|output|prerouting|postrouting)$/uc $&/e
+                      and warning('Please write built-in chain names in upper case');
+                }
+
+                $current->{domain} = 'ip'
+                  unless defined find_option(\@fw, 'domain');
+                $current->{table} = 'filter'
+                  unless defined find_option(\@fw, 'table');
+
+                next;
+            }
+
+            error('Chain and table must be specified')
+              unless defined find_option(\@fw, 'chain');
+
+            # policy for built-in chain
+            if ($keyword eq 'policy') {
+                my $domains = find_option(\@fw, 'domain');
+                my $tables = find_option(\@fw, 'table');
+                my $chains = find_option(\@fw, 'chain');
+
+                my $policy = uc getvar();
+                error("Invalid policy target: $keyword")
+                  unless $policy =~ /^(?:ACCEPT|DROP)$/;
+
+                foreach my $domain (to_array $domains) {
+                    foreach my $table (to_array $tables) {
+                        foreach my $chain (to_array $chains) {
+                            error("cannot set the policy for non-builtin chain '$chain'")
+                              unless grep { $_ eq $chain }
+                                qw(INPUT FORWARD OUTPUT PREROUTING POSTROUTING);
+
+                            if (exists $domains{$domain}{chains}{$table}{$chain}{policy}) {
+                                warning('policy for this chain is specified for the second time');
+                            } else {
+                                $domains{$domain}{chains}{$table}{$chain}{policy} = $policy;
+                                $domains{$domain}{chains}{$table}{$chain}{set_policy} = 1;
+                            }
+                        }
+                    }
+                }
+
+                $current->{policy} = $policy;
+                next;
+            }
+
+            # everything else must be part of a "real" rule, not just
+            # "policy only"
+            $current->{has_rule}++;
+
+            # choose a side
+            if ($keyword =~ /^(?:source|src)$/) {
+                warning("'$keyword' is deprecated, please use 'saddr' or 'sport'");
+                $current->{side} = 'source';
+                next;
+            }
+
+            if ($keyword =~ /^(?:destination|dest)$/) {
+                warning("'$keyword' is deprecated, please use 'daddr' or 'dport'");
+                $current->{side} = 'destination';
+                next;
+            }
+
+            if ($keyword =~ /^(?:port|addr)$/) {
+                error("source/destination not declared")
+                  unless exists $current->{side};
+                warning("'$keyword' is deprecated, please use 's$keyword' or 'd$keyword'");
+                if ($current->{side} eq 'source') {
+                    $keyword = 's' . $keyword;
+                } elsif ($current->{side} eq 'destination') {
+                    $keyword = 'd' . $keyword;
+                }
+            }
+
+            # routing base parameters
+            if (/^(?:interface|if)$/) {
+                $current->{interface} = getvalues();
+                next;
+            }
+            if (/^(?:outerface|of)$/) {
+                $current->{outerface} = getvalues();
+                next;
+            }
+            if (/^proto(?:col)?$/) {
+                $current->{proto} = getvalues();
+                next;
+            }
+
+            if (/^[sd]addr$/) {
+                $current->{$keyword} = getvalues();
+                next;
+            }
+
+            # extended parameters:
+            if (/^mod(?:ule)?$/) {
+                my $domains = find_option(\@fw, 'domain');
+
+                foreach my $module (to_array getvalues) {
+                    foreach my $domain (to_array $domains) {
+                        error("Module '$module' unavailable in domain '$domain'")
+                          unless netfilter_match_available($domain, $module);
+                    }
+
+                    $current->{modules}{$module} = 1;
+                    $modules{$module} = 1;
+                }
+                next;
+            }
+
+            # miscelleanous switches
+            if ($keyword eq 'fragment') {
+                if ($negated) {
+                    $current->{$keyword} = 'unset';
+                    undef $negated;
+                } else {
+                    $current->{$keyword} = 'set';
+                }
+                next;
+            }
+
+            ###
+            # actions
+            #
+
+            # jump action
+            if (/^(?:goto|jump)$/) {
+                error('There can only one action per rule')
+                  if exists $current->{action};
+                $current->{action} = getvar();
+                next;
+            };
+
+            # action keywords
+            if (is_netfilter_core_target($keyword) or $keyword eq 'NOP') {
+                error('There can only one action per rule')
+                  if exists $current->{action};
+                $current->{action} = $keyword;
+                next;
+            }
+
+            if (is_netfilter_module_target($keyword)) {
+                error('There can only one action per rule')
+                  if exists $current->{action};
+
+                my $domains = find_option(\@fw, 'domain');
+                foreach my $domain (to_array $domains) {
+                    error("Target '$keyword' unavailable in domain '$domain'")
+                      unless netfilter_target_available($domain, $keyword);
+                }
+
+                $current->{action} = $keyword;
+                next;
+            }
+
+            ###
+            # protocol specific options
+            #
+
+            my $proto = find_option(\@fw, 'proto');
+
+            # icmp protocol switches
+            if (defined $proto and
+                $proto eq 'icmp' and
+                $keyword eq 'icmp-type') {
+                $current->{$keyword} = getvalues();
+                next;
+            }
+
+            # icmpv6
+            if (defined $proto and
+                ($proto eq 'icmpv6' or $proto eq 'ipv6-icmp') and
+                $keyword eq 'icmpv6-type') {
+                $current->{$keyword} = getvalues();
+                next;
+            }
+
+            # tcp protocol switches
+            if (defined $proto and
+                grep { $_ eq 'tcp' } to_array $proto) {
+                if ($keyword =~ /^[sd]port$/) {
+                    $current->{$keyword} = getvalues();
+                    next;
+                }
+                if ($keyword eq 'tcp-flags') {
+                    my @mask = to_array getvalues(undef, undef,
+                                                  non_empty => 1);
+                    my @match = to_array getvalues(undef, undef,
+                                                   non_empty => 1);
+
+                    $current->{'tcp-flags'} = 1;
+                    $current->{'tcp-flags.mask'} = join(',', @mask);
+                    $current->{'tcp-flags.match'} = join(',', @match);
+                    next;
+                }
+                if ($keyword eq 'syn') {
+                    # match tcp packages with syn-byte set
+                    if ($negated) {
+                        $current->{syn} = 'unset';
+                        undef $negated;
+                    } else {
+                        $current->{syn} = 'set';
+                    }
+                    next;
+                }
+                if ($keyword =~ /^(?:tcp-option|mss)$/) {
+                    $current->{$keyword} = getvalues();
+                    next;
+                }
+            }
+
+            # udp protocol switches
+            if ($keyword =~ /^[sd]port$/) {
+                error('To use sport or dport, you have to specify "proto tcp" or "proto udp" first')
+                  unless defined $proto and grep { /^(?:tcp|udp)$/ } to_array $proto;
+
+                $current->{$keyword} = getvalues();
+                next;
+            }
+
+            ###
+            # module specific options
+            #
+
+            if ($option{automod} and exists $automod{$keyword}) {
+                # suport the deprecated 'automod' option
+                $current->{modules}{$automod{$keyword}} = 1;
+                $modules{$automod{$keyword}} = 1;
+            }
+
+            # ipt_addrtype switches
+            if (exists $modules{addrtype} and
+                /^(?:src|dst)-type$/) {
+                $current->{$_} = getvalues();
+                next;
+            }
+
+            # ipt_ah switches
+            if (exists $modules{ah} and $keyword eq 'ahspi') {
+                $current->{$keyword} = getvalues();
+                next;
+            }
+
+            # ipt_connmark switches
+            if (exists $modules{connmark} and $keyword eq 'mark') {
+                $current->{$keyword} = getvar();
+                next;
+            }
+
+            # ipt_conntrack switches
+            if (exists $modules{conntrack}) {
+
+                if ($keyword eq 'ctstate') {
+                    my @params = to_array getvalues(undef, undef,
+                                                    non_empty => 1);
+                    $current->{$keyword} = join(',', @params);
+                    next;
+                }
+
+                if (/^(?:ctproto|ct(?:orig|repl)(?:src|dst)|ctstatus|ctexpire)$/) {
+                    $current->{$keyword} = getvalues();
+                    next;
+                }
+
+                if ($keyword eq 'ctexpire') {
+                    $current->{$keyword} = getvar();
+                    next;
+                }
+            }
+
+            # ipt_dscp switches
+            if (exists $modules{dscp}) {
+                if ($keyword eq 'dscp' or $keyword eq 'dscp-class') {
+                    $current->{$keyword} = getvalues();
+                    next;
+                }
+            }
+
+            # ipt_ecn switches
+            if (exists $modules{ecn}) {
+                if ($keyword =~ /^ecn-tcp-(?:cwr|ece)$/) {
+                    $current->{$keyword} = 1;
+                    next;
+                }
+
+                if ($keyword eq 'ecn-ip-ect') {
+                    $current->{$keyword} = getvalues();
+                    next;
+                }
+            }
+
+            # ipt_esp switches
+            if (exists $modules{esp} and $keyword eq 'espspi') {
+                $current->{$keyword} = getvalues();
+                next;
+            }
+
+            # ipt_helper switches
+            if (exists $modules{helper} and $keyword eq 'helper') {
+                $current->{$keyword} = getvalues();
+                next;
+            }
+
+            # ipt_iplimit switches
+            if (exists $modules{iplimit}) {
+                if ($keyword eq 'iplimit-above') {
+                    $current->{$keyword} = getvar();
+                    next;
+                }
+                if ($keyword eq 'iplimit-mask') {
+                    $current->{$keyword} = getvar();
+                    next;
+                }
+            }
+
+            # ipt_iprange switches
+            if (exists $modules{iprange} and
+                $keyword =~ /^(?:src|dst)-range$/) {
+                $current->{$keyword} = getvalues();
+                next;
+            };
+
+            # ipt_length switches
+            if (exists $modules{length} and $keyword eq 'length') {
+                $current->{$keyword} = getvalues();
+                next;
+            }
+
+            # ipt_limit switches
+            if (exists $modules{limit} and $keyword =~ /^limit(?:-burst)?$/) {
+                $current->{$keyword} = getvar();
+                next;
+            }
+
+            # ipt_mac switches
+            if (exists $modules{mac} and $keyword eq 'mac-source') {
+                $current->{$keyword} = getvalues();
+                next;
+            }
+
+            # ipt_mark switches
+            if (exists $modules{mark} and $keyword eq 'mark') {
+                $current->{$keyword} = getvar();
+                next;
+            }
+
+            # ipt_multiport switches
+            if (exists $modules{multiport} and
+                $keyword =~ /^(?:(?:source-|destination-|)ports)$/) {
+                error('To use multiport options, you have to specify "proto tcp" or "proto udp" first')
+                  unless defined $proto and grep { /^(?:tcp|udp)$/ } to_array $proto;
+
+                # multiport only allows 15 ports at a time. For this
+                # reason, we do a little magic here: split the ports
+                # into portions of 15, and handle these portions as
+                # array elements
+
+                my @ports = to_array getvalues();
+                my @params;
+
+                while (@ports) {
+                    push @params, join(',', splice(@ports, 0, 15));
+                }
+
+                $current->{$keyword} = \@params;
+
+                next;
+            }
+
+            # ipt_nth switches
+            if (exists $modules{nth} and
+                /^every$|^counter$|^start$|^packet$/) {
+                $current->{$keyword} = getvar();
+                next;
+            }
+
+            # ipt_owner switches
+            if (exists $modules{owner} and /^(?:uid|gid|pid|sid|cmd)-owner$/) {
+                $current->{$keyword} = getvalues();
+                next;
+            }
+
+            # ipt_pkttype switches
+            if (exists $modules{pkttype} and $keyword eq 'pkt-type') {
+                $current->{$_} = getvalues();
+                next;
+            }
+
+            # ipt_psd switches
+            if (exists $modules{psd} and
+                /^psd-(?:(?:weight|delay)-threshold|(?:lo|hi)-ports-weight)$/) {
+                $current->{$keyword} = getvar();
+                next;
+            }
+
+            # ipt_physdev switches
+            if (exists $modules{physdev}) {
+                if (/^physdev-(?:in|out)$/) {
+                    $current->{$keyword} = getvalues();
+                    next;
+                }
+
+                if (/^physdev-is-(?:in|out|bridged)$/) {
+                    $current->{$keyword} = 1;
+                    next;
+                }
+            }
+
+            # ipt_random switches
+            if (exists $modules{random} and $keyword eq 'average') {
+                $current->{average} = getvar();
+                next;
+            }
+
+            # ipt_realm switches
+            if (exists $modules{realm} and $keyword eq 'realm') {
+                $current->{$keyword} = getvalues();
+                next;
+            }
+
+            # ipt_recent switches
+            if (exists $modules{recent}) {
+                if (/^(?:name|seconds|hitcount)$/) {
+                    $current->{$keyword} = getvar();
+                    next;
+                }
+                if (/^(?:set|rcheck|update|remove|rttl)$/) {
+                    $current->{$keyword} = 1;
+                    next;
+                }
+            }
+
+            # ipt_state switches
+            if (exists $modules{state} and $keyword eq 'state') {
+                my @params = to_array getvalues(undef, undef,
+                                                non_empty => 1);
+                $current->{state} = join(',', @params);
+                next;
+            }
+
+            # ipt_time switches
+            if (exists $modules{time}) {
+                if ($keyword eq 'days') {
+                    my @params = to_array getvalues(undef, undef,
+                                                    non_empty => 1);
+                    $current->{days} = join(',', @params);
+                    next;
+                }
+
+                if (/^(?:timestart|timestop|datestart|datestop)$/) {
+                    $current->{$keyword} = getvar();
+                    next;
+                }
+            }
+
+            # ipt_tos switches
+            if (exists $modules{tos} and $keyword eq 'tos') {
+                $current->{tos} = getvar();
+                next;
+            }
+
+            # ipt_ttl switches
+            if (exists $modules{ttl} and /^ttl-(?:eq|lt|gt)$/) {
+                $current->{$_} = getvar();
+                next;
+            }
+
+            ###
+            # target specific options
+            #
+
+            unless (defined $action) {
+                # no checks in this case
+            } elsif ($action eq 'CLASSIFY') {
+                # CLASSIFY target switches
+                if ($keyword eq 'set-class') {
+                    $current->{'set-class'} = getvar();
+                    next;
+                }
+            } elsif ($action eq 'BALANCE') {
+                # BALANCE target switches
+                if ($keyword =~ /^(?:to-destination|to)$/) {
+                    $current->{'to-destination'} = getvar();
+                    next;
+                }
+            } elsif ($action eq 'CONNMARK') {
+                # CONNMARK target switches
+                if ($keyword eq 'set-mark') {
+                    $current->{'set-mark'} = getvar();
+                    next;
+                } elsif ($keyword =~ /^(?:save|restore)-mark$/) {
+                    $current->{$keyword} = 1;
+                    next;
+                }
+            } elsif ($action eq 'DNAT') {
+                # DNAT target switches
+                if ($keyword =~ /^(?:to-destination|to)$/) {
+                    $current->{'to-destination'} = getvar();
+                    next;
+                }
+            } elsif ($action eq 'LOG') {
+                # LOG target switches
+                if ($keyword eq 'log-level') {
+                    $current->{$keyword} = getvar();
+                    next;
+                } elsif ($keyword eq 'log-prefix') {
+                    my $prefix = getvar();
+
+                    warning('log-prefix is too long; truncating to 29 characters')
+                      if $prefix =~ s,^(.{29}).+$,$1,;
+
+                    $current->{$keyword} = $prefix;
+                    next;
+                } elsif ($keyword =~ /^log-(?:tcp-sequence|tcp-options|ip-options)$/) {
+                    $current->{$keyword} = 1;
+                    next;
+                }
+            } elsif ($action eq 'MARK') {
+                # MARK target switches
+                if ($keyword eq 'set-mark') {
+                    $current->{$keyword} = getvar();
+                    next;
+                }
+            } elsif ($action eq 'MASQUERADE' or
+                     $action eq 'REDIRECT') {
+                # MASQUERADE/REDIRECT target switches
+                if ($keyword eq 'to-ports') {
+                    $current->{$keyword} = getvar();
+                    next;
+                }
+            } elsif ($action eq 'NETMAP') {
+                # NETMAP target switches
+                if ($keyword eq 'to') {
+                    $current->{to} = getvar();
+                    next;
+                }
+            } elsif ($action eq 'REJECT') {
+                # REJECT target switches
+                if ($keyword eq 'reject-with') {
+                    $current->{$keyword} = getvar();
+                    next;
+                }
+            } elsif ($action eq 'ROUTE') {
+                # ROUTE target switches
+                if ($keyword =~ /^(?:oif|iif|gw)$/) {
+                    $current->{$keyword} = getvar();
+                    next;
+                } elsif ($keyword =~ /^(?:continue)$/) {
+                    $current->{$keyword} = 1;
+                    next;
+                }
+            } elsif ($action eq 'SNAT') {
+                # SNAT target switches
+                if ($keyword =~ /^(?:to-source|to)$/) {
+                    my @params = to_array getvalues(undef, undef,
+                                                    non_empty => 1);
+                    $current->{'to-source'} = join(',', @params);
+                    next;
+                }
+            } elsif ($action eq 'TCPMSS') {
+                # TCPMSS target switches
+                if ($keyword eq 'set-mss') {
+                    $current->{$keyword} = getvar();
+                    next;
+                } elsif ($keyword eq 'clamp-mss-to-pmtu') {
+                    $current->{$keyword} = 'set';
+                    next;
+                }
+            } elsif ($action eq 'TOS') {
+                # TOS target switches
+                if ($keyword eq 'set-tos') {
+                    $current->{$keyword} = getvar();
+                    next;
+                }
+            } elsif ($action eq 'TTL') {
+                # TTL target switches
+                if ($keyword =~ /^ttl-(?:set|dec|inc)$/) {
+                    $current->{$keyword} = getvar();
+                    next;
+                }
+            } elsif ($action eq 'ULOG') {
+                # ULOG target switches
+                if ($keyword =~ /^ulog-(?:nlgroup|prefix|cprange|qthreshold)$/) {
+                    $current->{$keyword} = getvar();
+                    next;
+                }
+            }
+
+            # default
+            error("Unrecognized keyword: $keyword");
+        }
+
+        # if the rule didn't reset the negated flag, it's not
+        # supported
+        error("Doesn't support negation: $keyword")
+          if $negated;
+    }
+
+    error('Missing "}" at end of file')
+      if $lev > $base_level;
+
+    # consistency check: check if they havn't forgotten
+    # the ';' before the last statement
+    error("Missing semicolon before end of file")
+      if keys %$current;
+}
+
+sub check {
+    while (my ($domain_name, $domain) = each %domains) {
+        while (my ($table_name, $chains) = each %{$domain->{chains}}) {
+            while (my ($chain_name, $chain) = each %$chains) {
+                warning("chain $chain_name (domain $domain_name, table $table_name) was referenced, but not declared")
+                  if $chain->{was_created} and not $chain->{non_empty};
+            }
+        }
+    }
+}
+
+sub execute {
+    my $status;
+
+    foreach (@rules) {
+        my $script;
+
+        if (ref) {
+            $script = $_->{script};
+            $_ = $_->{rule};
+        }
+
+        s/^\s+//s;
+        print
+          if $option{lines};
+        next if $option{noexec};
+        next if /^#/;
+
+        my $ret = system($_);
+        unless ($ret == 0) {
+            if ($? == -1) {
+                print STDERR "failed to execute: $!\n";
+                exit 1;
+            } elsif ($? & 0x7f) {
+                printf STDERR "child died with signal %d\n", $? & 0x7f;
+                $status = 1;
+            } else {
+                print STDERR "(rule declared in $script->{filename}:$script->{line})\n"
+                  if defined $script;
+                $status = $? >> 8;
+            }
+        }
+
+        print "."
+          if $verbose and not $option{lines};
+    }
+
+    exit $status
+      if defined $status;
+}
+
+sub rules_to_save {
+    my $rules = shift;
+
+    my @chains = qw(PREROUTING INPUT FORWARD OUTPUT POSTROUTING);
+
+    # parse the current ruleset, ignore -X and -F, handle policies and
+    # custom chains
+    my %policies;
+    my %rules;
+    foreach my $rule (@$rules) {
+        $rule = $rule->{rule}
+          if ref $rule;
+
+        $rule =~ s/^\S+\s+//;
+        my $table = $rule =~ s/-t\s+(\w+)\s*//
+          ? $1 : 'filter';
+        if ($rule =~ /-P\s+(\S+)\s+(\w+)\s*/) {
+            $policies{$table}{$1} = $2;
+        } elsif ($rule =~ /-A\s+(\w+)/) {
+            push @{$rules{$table}{$1}}, $rule;
+        } elsif ($rule =~ /-N\s+(\S+)\s*/) {
+            $policies{$table}{$1} = '-';
+        }
+    }
+
+    # convert this into an iptables-save text
+    my $result = "# Generated by ferm $VERSION on " . localtime() . "\n";
+
+    foreach my $table (qw(nat filter mangle)) {
+        my $policies = $policies{$table};
+        my $r = $rules{$table};
+
+        next
+          unless defined $policies or defined $r;
+
+        # select table
+        $result .= '*' . $table . "\n";
+
+        # create chains / set policy
+        if (defined $policies) {
+            foreach my $chain (@chains) {
+                my $policy = $policies->{$chain};
+                $result .= ":$chain $policy\ [0:0]\n"
+                  if defined $policy;
+            }
+        }
+
+        # dump rules
+        if (defined $r) {
+            foreach my $chain (@chains) {
+                next unless exists $r->{$chain};
+                foreach (@{$r->{$chain}}) {
+                    $result .= $_;
+                }
+            }
+        }
+
+        # do it
+        $result .= "COMMIT\n";
+   }
+
+    return $result;
+}
+
+sub execute_fast {
+    my $save = shift;
+
+    print $save
+      if $option{lines};
+
+    return if $option{noexec};
+
+    local *RESTORE;
+    open RESTORE, '|/sbin/iptables-restore'
+      or die "Failed to run iptables-restore: $!";
+    print RESTORE $save;
+    close RESTORE
+      or die "Failed to run iptables-restore: $!";
+}
+
+# end of ferm
+
+__END__
+
+=head1 NAME
+
+ferm - a firewall rule parser for linux
+
+=head1 SYNOPSIS
+
+B<ferm> I<options> I<inputfiles>
+
+=head1 OPTIONS
+
+ -n, --noexec      Do not execute the rules, just simulate
+ -l, --lines       Show all rules that were created
+ --test            Test mode; ignore host specific configuration.
+                   This implies --noexec and --lines.
+ -v, --verbose     Show some more information
+ -V, --version     Show current version number
+ -h, --help        Look at this text
+ --use [kernel firewall program]
+                   Obsolete option, only iptables is supported
+ --location /path/to/iptables
+                   Specify the location and name of the kernel program
+ --fast            Generate an iptables-save file, used by iptables-restore
+ --domain {ip|ip6} Handle only the specified domain
+
+=cut

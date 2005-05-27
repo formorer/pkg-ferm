@@ -1,0 +1,11 @@
+Ferm for Debian
+===============
+
+There's an ifupdown pre-up hook defined for form.
+If you place your rules in /etc/network/rules.ferm,
+they will be loaded before any interface goes up.
+
+Additionally, specifying "ferm-fast yes" in /etc/network/interfaces
+for an interface makes ferm use the faster iptables-restore(8).
+
+ -- Tommi Virtanen <tv@debian.org>, Fri May 27 11:21:04 2005

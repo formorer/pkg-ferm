@@ -1,3 +1,21 @@
+ferm (1.1.0.trunk.r433-1) experimental; urgency=low
+
+  * Snapshot from upstream SVN r433. Needed packaging changes, so I went
+    ahead and redid the packaging with cdbs.
+  * Run ferm unit tests during build.
+  * Provide an ifupdown pre-up hook that loads /etc/network/rules.ferm
+    (Closes: #110928).
+  * Upstream changes relevant to bugs:
+    - Quoted comma-separated lists seem to work again (Closes: #241886).
+    - The new "def $VAR = `shell-command`" syntax seems to fit this
+      wishlist bug (Closes: #117730).
+    - Undefined variable references cause errors now (Closes: #271965).
+    - Support for multiport module (Closes: #252034).
+    - Include command (Closes: #207505).
+  * Bump standards-version to 3.6.1
+
+ -- Tommi Virtanen <tv@debian.org>  Fri, 27 May 2005 11:50:01 +0300
+
 ferm (1.1-1) unstable; urgency=low
 
   * New upstream release (Closes: #194170). Beware, there are syntax

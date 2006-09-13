@@ -1,2 +1,4 @@
-src/ferm usr/bin
-debian/if-pre-up.d/ferm etc/network/if-pre-up.d
+src/{import-,}ferm usr/sbin
+doc/{import-,}ferm.1 usr/share/man/man1
+doc/ferm.txt doc/ferm.html usr/share/doc/ferm
+examples usr/share/doc/ferm

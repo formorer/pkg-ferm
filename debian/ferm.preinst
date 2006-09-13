@@ -1,0 +1,23 @@
+#!/bin/sh
+set -e
+
+action=$1
+version=$2
+
+if [ "$action" = upgrade ]; then
+    # remove old cache files
+    rm -rf /var/cache/ferm/output /var/cache/ferm/output.tmp /var/cache/ferm/ip /var/cache/ferm/ip6
+fi
+
+if [ "$action" = upgrade -a -n "$version" ]; then
+    if dpkg --compare-versions "$version" lt "1.1.1" &&
+        dpkg --compare-versions "$version" gt "1.1-1"; then
+        # upgrade from the 1.2 alpha ("1.1+svnXX") releases
+
+        # this flag has been obsoleted, it is now a variable in
+        # /etc/default/ferm
+        rm -f /etc/ferm/disabled_on_bootup
+    fi
+fi
+
+#DEBHELPER#

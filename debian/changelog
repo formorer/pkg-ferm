@@ -1,20 +1,84 @@
-ferm (1.1.0.trunk.r433-1) experimental; urgency=low
+ferm (1.2-1) unstable; urgency=low
 
-  * Snapshot from upstream SVN r433. Needed packaging changes, so I went
-    ahead and redid the packaging with cdbs.
-  * Run ferm unit tests during build.
-  * Provide an ifupdown pre-up hook that loads /etc/network/rules.ferm
-    (Closes: #110928).
-  * Upstream changes relevant to bugs:
-    - Quoted comma-separated lists seem to work again (Closes: #241886).
-    - The new "def $VAR = `shell-command`" syntax seems to fit this
-      wishlist bug (Closes: #117730).
-    - Undefined variable references cause errors now (Closes: #271965).
-    - Support for multiport module (Closes: #252034).
-    - Include command (Closes: #207505).
-  * Bump standards-version to 3.6.1
+  * New maintainers
+  * New upstream version
+   - generate correct uid-owner rules (Closes: #308910)
+   - don't break on comma separated lists with quotes (Closes: #241886)
+   - allows inclusion of files (Closes: #207505)
+   - support multiport iptables modules (Closes: #252034)
+   - warn if using undefined variables (Closes: #271965)
+   - adds support for backticks (Closes: #117730)
+  * Add startup script (Closes: #110928)
+  * Remove dependencies on ipchains and ipfwadm (Closes: #382662)
 
- -- Tommi Virtanen <tv@debian.org>  Fri, 27 May 2005 11:50:01 +0300
+ -- Alexander Wirt <formorer@debian.org>  Wed, 13 Sep 2006 16:47:19 +0200
+
+ferm (1.1.1+1.2beta2-2) unstable; urgency=low
+
+  * build-depend on debhelper 5
+  * added author Max Kellermann to debian/copyright
+  * New maintainer(s) 
+
+ -- Alexander Wirt <formorer@debian.org>  Wed, 13 Sep 2006 16:41:32 +0200
+
+ferm (1.1.1+1.2beta2-1) unstable; urgency=low
+
+  * no deprecated syntax in configuration file
+  * mention /etc/default/ferm in debconf menu
+  * use ferm --flush for rc stop
+  * use ferm --shell for caching in fast mode
+  * clear cache on remove
+  * added README.Debian
+
+ -- Max Kellermann <max@duempel.org>  Sat,  9 Sep 2006 23:44:20 +0200
+
+ferm (1.1.1+1.2beta1-1) unstable; urgency=low
+
+  * store debconf variable "ferm/enable" in /etc/default/ferm
+
+ -- Max Kellermann <max@duempel.org>  Tue, 29 Aug 2006 12:15:08 +0200
+
+ferm (1.1+1.2beta1-1) unstable; urgency=low
+
+  * new upstream version
+  * bumped Standards-Version to 3.7.2
+  * changed Build-Depends-Indep to Build-Depends
+  * added hack to implement the "stop" command
+
+ -- Max Kellermann <max@duempel.org>  Tue, 29 Aug 2006 00:08:54 +0200
+
+ferm (1.1+svn20060320-1) unstable; urgency=low
+
+  * new upstream snapshot from subversion
+  * don't import /etc/firewall.conf in preinst
+  * updated default configuration
+  * install import-ferm
+
+ -- Max Kellermann <max@duempel.org>  Mon, 20 Mar 2006 13:53:59 +0100
+
+ferm (1.1+svn20050606-1) unstable; urgency=low
+
+  * new upstream snapshot from subversion
+  * added /etc/default/ferm
+  * support the --fast option, disabled by default
+  * cache the ferm output
+
+ -- Max Kellermann <max@duempel.org>  Mon,  6 Jun 2005 23:38:30 +0200
+
+ferm (1.1+svn20050313-1) unstable; urgency=low
+
+  * new upstream snapshot from subversion
+  * changed maintainer
+  * new standards-version
+  * using cdbs
+  * depend on perl >= 5.6
+  * provide a default configuration
+  * added debconf menu which enables or disables ferm on bootup
+  * conflict against (non-public) ferm-rc package; import
+    /etc/firewall.conf from this package
+  * imported description from upstream
+
+ -- Max Kellermann <max@duempel.org>  Sun, 13 Mar 2005 21:22:30 +0100
 
 ferm (1.1-1) unstable; urgency=low
 

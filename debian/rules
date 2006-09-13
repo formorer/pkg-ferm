@@ -1,6 +1,19 @@
 #!/usr/bin/make -f
-include /usr/share/cdbs/1/rules/debhelper.mk
-include /usr/share/cdbs/1/class/makefile.mk
+# -*- mode: makefile; coding: utf-8 -*-
 
-DEB_DH_ALWAYS_EXCLUDE := .svn
-DEB_MAKE_CHECK_TARGET := check
+VERSION := $(shell dpkg-parsechangelog | egrep '^Version:' | cut -f2 -d' ')
+UPSTREAM_VERSION := $(shell echo $(VERSION) | cut -f1 -d- | cut -f2- -d+)
+DEB_TAR_SRCDIR := ferm-$(UPSTREAM_VERSION)
+DEB_TARBALL := ferm-$(UPSTREAM_VERSION).tar.gz
+
+include /usr/share/cdbs/1/rules/debhelper.mk
+#include /usr/share/cdbs/1/rules/tarball.mk
+
+DEB_DH_INSTALL_SOURCEDIR := $(DEB_SRCDIR)
+
+DEB_INSTALL_DOCS_ferm := $(DEB_SRCDIR)/TODO
+
+common-install-arch common-install-indep:: common-install-local
+common-install-local::
+	install -d -m 0700 debian/ferm/etc/ferm
+	install -m 0600 debian/ferm.conf debian/ferm/etc/ferm

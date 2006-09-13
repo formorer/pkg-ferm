@@ -1,0 +1,39 @@
+# ferm gettext template.
+# Copyright (C) 2006
+# This file is distributed under the same license as the 2006 package.
+# Max Kelleramen (max@duempel.org).
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: PACKAGE VERSION\n"
+"Report-Msgid-Bugs-To: max@duempel.org\n"
+"POT-Creation-Date: 2006-09-13 16:13+0200\n"
+"PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
+"Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
+"Language-Team: ferm-maintainers@ned.snow-crash.org\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=CHARSET\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#. Type: boolean
+#. Description
+#: ../ferm.templates:1001
+msgid "Enable ferm on bootup?"
+msgstr ""
+
+#. Type: boolean
+#. Description
+#: ../ferm.templates:1001
+msgid ""
+"That means, ferm will load firewall rules on every bootup from /etc/ferm/"
+"ferm.conf."
+msgstr ""
+
+#. Type: boolean
+#. Description
+#: ../ferm.templates:1001
+msgid ""
+"The default configuration allows SSH login on port 22; if you are installing "
+"this package remotely on another port, you should answer \"no\" here, and "
+"edit /etc/default/ferm to enable ferm."
+msgstr ""

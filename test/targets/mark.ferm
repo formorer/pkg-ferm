@@ -1,4 +1,0 @@
-table filter chain input {
-    proto tcp MARK setmark 5;
-    proto udp MARK set-mark 7;
-}

@@ -1,4 +1,0 @@
-
-chain test_psd {
-	psd-weight-threshold 1 psd-delay-threshold 1 psd-lo-ports-weight 1 psd-hi-ports-weight 1 ACCEPT;
-}

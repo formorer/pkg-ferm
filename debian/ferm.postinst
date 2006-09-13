@@ -1,0 +1,35 @@
+#!/bin/sh
+set -e
+
+action=$1
+version=$2
+
+if [ "$action" = configure ]; then
+    . /usr/share/debconf/confmodule
+    db_version 2.0
+
+    if ! test -f /etc/default/ferm || ! grep -q ^ENABLED= /etc/default/ferm; then
+        # copy the enabled flag from debconf to /etc/default/ferm
+
+        db_get ferm/enable
+        if [ "$RET" = "false" ]; then
+            VALUE="no"
+        else
+            VALUE="yes"
+        fi
+
+        {
+            echo
+            echo "# Enable ferm on bootup?"
+            echo "ENABLED=$VALUE"
+        } >> /etc/default/ferm
+    fi
+
+    # make the firewall configuration readable only by root and group adm
+    if [ -d /etc/ferm ]; then
+        chown -R root:adm /etc/ferm
+        chmod 2750 /etc/ferm
+    fi
+fi
+
+#DEBHELPER#

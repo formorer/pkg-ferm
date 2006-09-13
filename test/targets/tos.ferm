@@ -1,7 +1,0 @@
-table filter chain input {
-    TOS set-tos Minimize-Delay;
-    TOS set-tos Maximize-Throughput;
-    TOS set-tos Maximize-Reliability;
-    TOS set-tos Minimize-Cost;
-    TOS set-tos Normal-Service;
-}

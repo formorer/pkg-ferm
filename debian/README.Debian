@@ -1,11 +1,29 @@
-Ferm for Debian
-===============
+The ferm debian package
+=======================
 
-There's an ifupdown pre-up hook defined for form.
-If you place your rules in /etc/network/rules.ferm,
-they will be loaded before any interface goes up.
+By default, ferm's configuration file is /etc/ferm/ferm.conf.  The
+directory /etc/ferm is reserved for includes you might want to write.
 
-Additionally, specifying "ferm-fast yes" in /etc/network/interfaces
-for an interface makes ferm use the faster iptables-restore(8).
+The init script itself is configured with /etc/default/ferm, which
+contains several variables.  Most important for now is "ENABLED=yes"
+if you want ferm to be run automatically on boot.
 
- -- Tommi Virtanen <tv@debian.org>, Fri May 27 11:21:04 2005
+Setting "FAST=yes" is, well, faster - but you shouldn't enable it on
+Debian Sarge because it ships iptables 1.2, which is know to be too
+bugged for ferm's fast mode.
+
+The cache ("CACHE=yes", enabled by default) also things up, too,
+because ferm will only be run when you modify its configuration, but
+this also means that ferm's rollback-on-error isn't assisting you.
+Also note that the init script doesn't notice when you change an
+include file.  To work around that, touch /etc/ferm/ferm.conf.
+
+I recommend you use ferm's so-called "interactive mode" while you
+develop firewall rules on remote machines.  In this mode, ferm applies
+the new firewall rules and asks you for confirmation.  If you don't
+confirm within 30 seconds, ferm reverts to the previous rule set.
+Run:
+
+  ferm --interactive /etc/ferm/ferm.conf
+
+ -- Max Kellermann <max@duempel.org>

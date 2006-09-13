@@ -1,3 +1,0 @@
-domain ip6 chain INPUT {
-        proto tcp dport ssh ACCEPT;
-}

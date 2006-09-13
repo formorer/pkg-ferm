@@ -1,7 +1,0 @@
-
-option iptables
-
-set B `echo %B`
-
-chain %B LOG;
-

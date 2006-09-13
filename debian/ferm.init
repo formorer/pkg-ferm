@@ -1,0 +1,115 @@
+#!/bin/bash
+#
+# ferm          Configure ferm firewall rules from /etc/ferm.conf
+#
+#               Written by Max Kellermann <max@duempel.org>
+#
+# Version:      $Revision: 118 $
+### BEGIN INIT INFO
+# Provides:          ferm
+# Required-Start:    $network $syslog
+# Required-Stop:     
+# Default-Start:     2 3 5 
+# Default-Stop:	     0 6 
+# Description: Starts ferm firewall configuration 
+# short-description: ferm firewall configuration
+# required-stop: $network 
+### END INIT INFO
+
+#includes lsb functions 
+source /lib/lsb/init-functions
+
+
+PATH=/usr/local/sbin:/usr/local/bin:/sbin:/bin:/usr/sbin:/usr/bin
+FERM=/usr/sbin/ferm
+CONFIG=/etc/ferm/ferm.conf
+NAME=ferm
+DESC="Firewall"
+CACHE_DIR=/var/cache/ferm
+
+test -x $FERM || exit 0
+test -f $CONFIG || exit 0
+
+umask 0077
+
+unset ENABLED
+FAST=no
+CACHE=no
+OPTIONS=
+unset DOMAINS
+[ -r /etc/default/ferm ] && source /etc/default/ferm
+
+if [ -n "$DOMAINS" ]; then
+    echo "Warning: the DOMAINS setting in /etc/default/ferm is deprecated." >&2
+fi
+
+if [ "$ENABLED" != "yes"  ]; then
+    if [ "$VERBOSE" != no ]; then
+        if [ -z "$ENABLED" ]; then
+            echo "Not starting ferm - run 'dpkg-reconfigure ferm' to enable it"
+        else
+            echo "Not starting ferm - edit /etc/default/ferm to enable it"
+        fi
+    fi
+    exit 0
+fi
+
+[ "$CACHE" = "yes" -a ! -d $CACHE_DIR ] && CACHE=no
+
+set -e
+
+function configure_ferm() {
+    local CACHE_NAME=${1:-start}
+
+    if [ "$CACHE" = "yes" ]; then
+        local CACHE_FILE=$CACHE_DIR/$CACHE_NAME.sh
+
+        if ! [ -f $CACHE_FILE -a \
+            $CACHE_FILE -nt $CONFIG -a \
+            $CACHE_FILE -nt /etc/default/ferm -a \
+            $CACHE_FILE -nt /etc/init.d/ferm -a \
+            $CACHE_FILE -nt $FERM ]; then
+            rm -f $CACHE_FILE{,.tmp} || return $?
+            if [ "$FAST" = "yes" ]; then
+                $FERM $OPTIONS --shell $CONFIG >$CACHE_FILE.tmp || return $?
+            else
+                $FERM $OPTIONS --lines $CONFIG >$CACHE_FILE.tmp || return $?
+            fi
+            mv $CACHE_FILE.tmp $CACHE_FILE || return $?
+        else
+            source $CACHE_FILE || return $?
+        fi
+    else
+        if [ "$FAST" = "yes" ]; then
+            $FERM $OPTIONS --fast $CONFIG || return $?
+        else
+            $FERM $OPTIONS $CONFIG || return $?
+        fi
+    fi
+}
+
+case "$1" in
+    start)
+        log_daemon_msg "Starting $DESC" "$NAME"
+        configure_ferm || log_end_msg 1
+        log_end_msg 0
+        ;;
+    stop)
+        log_daemon_msg "Stopping $DESC" "$NAME"
+        OPTIONS="$OPTIONS --flush"
+        configure_ferm stop || log_end_msg 1
+        log_end_msg 0  
+        ;;
+    reload|restart|force-reload)
+        log_action_begin_msg "Reloading $DESC configuration..."
+        configure_ferm || log_end_msg 1 
+        log_action_end_msg 0
+        ;;
+    *)
+        N=/etc/init.d/$NAME
+        log_action_msg "Usage: $N {start|stop|restart|reload|force-reload}"
+        exit 1
+        ;;
+esac
+
+exit 0

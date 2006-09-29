@@ -1,0 +1,3 @@
+version=3
+
+http://ferm.foo-projects.org/download/ferm-([0-9.]*)\.tar\.gz

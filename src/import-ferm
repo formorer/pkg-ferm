@@ -28,7 +28,7 @@
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #
 
-# $Id: import-ferm 688 2006-09-13 12:24:52Z max $
+# $Id: import-ferm 718 2006-09-14 20:27:51Z max $
 
 use strict;
 
@@ -56,6 +56,9 @@ strict next
 fragres fragfirst fragmore fraglast
 nodst
 ecn-tcp-remove
+ahres
+soft
+rt-0-res rt-0-not-strict
 EOT
 
 my %p1 = parse_table(<<EOT);
@@ -69,7 +72,7 @@ tcp-option mss set-mss
 ttl-set
 ulog-nlgroup ulog-prefix ulog-cprange ulog-qthreshold
 src-type dst-type
-ahspi
+ahspi ahlen
 ctstate ctproto ctorigsrc ctorigdst ctreplsrc ctrepldst ctstatus ctexpire
 dscp dscp-class
 dstlimit
@@ -106,6 +109,13 @@ fragid fraglen
 dccp-option
 queue-num
 set-dscp set-dscp-class
+quota
+condition
+lower-limit upper-limit
+hbh-len hbh-opts
+hl-eq hl-lt hl-gt
+rt-type rt-segsleft rt-len
+hl-set hl-dec hl-inc
 EOT
 
 my %p1c = parse_table(<<EOT);
@@ -113,6 +123,8 @@ state
 source-ports destination-ports ports
 dst-opts
 dccp-types
+header
+rt-0-addrs
 EOT
 
 my %p1multi = parse_table(<<EOT);
@@ -128,26 +140,34 @@ my @pre_negated = qw(fragment connbytes connlimit-above
 rr ts ra any-opt
 set rcheck update remove seconds hitcount
 syn mss
+physdev-is-in physdev-is-out physdev-is-bridged
 );
 
 my @mix_negated = qw(
 iplimit-above
 src-range dst-range
 realm
+tos
 );
 
 my @negated = qw(
 protocol saddr daddr interface outerface sport dport
-ahspi condition connrate
+ahspi ahlen condition connrate
 ctorigsrc ctorigdst ctreplsrc ctrepldst
 espspi src-cc dst-cc
 icmp-type icmpv6-type
 mac-source source-ports destination-ports ports
 genre realm chunk-types
 tcp-flags tcp-option
-dst-len
+dst-len hbh-len
 fragid fraglen
 dccp-types dccp-option
+condition
+hl-eq
+header
+length
+physdev-in physdev-out
+rt-type rt-segsleft rt-len
 );
 
 sub is_netfilter_core_target {
@@ -548,6 +568,9 @@ sub parse_option {
 
     my $cur = $line->{cur};
     die unless defined $cur;
+
+    $option = 'destination-ports' if $option eq 'dports';
+    $option = 'source-ports' if $option eq 'sports';
 
     if ($option eq 'p') {
         my $keyword = 'protocol';

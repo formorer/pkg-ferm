@@ -1,3 +1,12 @@
+ferm (1.2.1-1) unstable; urgency=low
+
+  [ Max Kellermann ]
+  * New upstream version
+    - updated documentation, support target "ECN" (Closes: #207502)
+  * rephrase debconf prompt in an interface neutral way (Closes: #388248)
+
+ -- Alexander Wirt <formorer@debian.org>  Fri, 29 Sep 2006 21:48:33 +0200
+
 ferm (1.2-1) unstable; urgency=low
 
   * New maintainers

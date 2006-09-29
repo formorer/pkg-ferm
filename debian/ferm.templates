@@ -2,9 +2,8 @@ Template: ferm/enable
 Type: boolean
 Default: true
 _Description: Enable ferm on bootup?
- That means, ferm will load firewall rules on every bootup from
- /etc/ferm/ferm.conf.
+ Ferm can load firewall rules on every bootup from /etc/ferm/ferm.conf.
  .
  The default configuration allows SSH login on port 22; if you are
- installing this package remotely on another port, you should answer "no"
- here, and edit /etc/default/ferm to enable ferm.
+ installing this package remotely on another port, you should not
+ choose this option, and later edit /etc/default/ferm to enable ferm.

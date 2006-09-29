@@ -1,16 +1,17 @@
-# ferm gettext template.
-# Copyright (C) 2006
-# This file is distributed under the same license as the 2006 package.
-# Max Kelleramen (max@duempel.org).
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
 #
+#, fuzzy
 msgid ""
 msgstr ""
 "Project-Id-Version: PACKAGE VERSION\n"
-"Report-Msgid-Bugs-To: max@duempel.org\n"
-"POT-Creation-Date: 2006-09-13 16:13+0200\n"
+"Report-Msgid-Bugs-To: ferm-maintainers@ned.snow-crash.org\n"
+"POT-Creation-Date: 2006-09-25 22:40+0200\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
-"Language-Team: ferm-maintainers@ned.snow-crash.org\n"
+"Language-Team: LANGUAGE <LL@li.org>\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=CHARSET\n"
 "Content-Transfer-Encoding: 8bit\n"
@@ -24,9 +25,7 @@ msgstr ""
 #. Type: boolean
 #. Description
 #: ../ferm.templates:1001
-msgid ""
-"That means, ferm will load firewall rules on every bootup from /etc/ferm/"
-"ferm.conf."
+msgid "Ferm can load firewall rules on every bootup from /etc/ferm/ferm.conf."
 msgstr ""
 
 #. Type: boolean
@@ -34,6 +33,6 @@ msgstr ""
 #: ../ferm.templates:1001
 msgid ""
 "The default configuration allows SSH login on port 22; if you are installing "
-"this package remotely on another port, you should answer \"no\" here, and "
-"edit /etc/default/ferm to enable ferm."
+"this package remotely on another port, you should not choose this option, "
+"and later edit /etc/default/ferm to enable ferm."
 msgstr ""

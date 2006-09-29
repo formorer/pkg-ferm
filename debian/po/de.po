@@ -6,9 +6,9 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: 1.2\n"
-"Report-Msgid-Bugs-To: max@duempel.org\n"
-"POT-Creation-Date: 2006-09-13 16:13+0200\n"
-"PO-Revision-Date: 2006-09-13 16:26+0100\n"
+"Report-Msgid-Bugs-To: ferm-maintainers@ned.snow-crash.org\n"
+"POT-Creation-Date: 2006-09-25 22:39+0200\n"
+"PO-Revision-Date: 2006-09-25 22:43+0200\n"
 "Last-Translator: Alexander Wirt <formorer@debian.org>\n"
 "Language-Team: ferm-maintainers@ned.snow-crash.org\n"
 "MIME-Version: 1.0\n"
@@ -24,12 +24,16 @@ msgstr "Ferm beim Systemstart aktivieren?"
 #. Type: boolean
 #. Description
 #: ../ferm.templates:1001
-msgid "That means, ferm will load firewall rules on every bootup from /etc/ferm/ferm.conf."
-msgstr "Die bedeutet das Ferm bei jedem Systemstart die Firewallregeln aus /etc/ferm/ferm.conf läd. "
+msgid "Ferm can load firewall rules on every bootup from /etc/ferm/ferm.conf."
+msgstr ""
+"Ferm kann die Firewallregeln bei jedem Systemstart aus /etc/ferm/ferm.conf "
+"laden."
 
 #. Type: boolean
 #. Description
 #: ../ferm.templates:1001
-msgid "The default configuration allows SSH login on port 22; if you are installing this package remotely on another port, you should answer \"no\" here, and edit /etc/default/ferm to enable ferm."
-msgstr "Die Standardkonfiguration beschränkt den Zugang auf SSH (Port 22); wenn Ihr SSH Dienst auf einem anderen Port läuft sollten Sie die Frage mit \"Nein\" beantworten und /etc/default/ferm manuell editieren um ferm zu aktivieren. "
-
+msgid ""
+"The default configuration allows SSH login on port 22; if you are installing "
+"this package remotely on another port, you should not choose this option, "
+"and later edit /etc/default/ferm to enable ferm."
+msgstr "Die Standardkonfiguration beschränkt den Zugang auf SSH (Port 22); wenn Ihr SSH Dienst auf einem anderen Port läuft, sollten Sie diese Option nicht wählen und später /etc/default/ferm manuell editieren um ferm zu aktivieren. "

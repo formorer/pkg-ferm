@@ -699,6 +699,18 @@ modules which are currently supported.</p>
 </p>
 <h2><a name="netfilter_match_modules">Netfilter match modules</a></h2>
 <dl>
+<dt><strong><a name="item_account"><strong>account</strong></a></strong>
+
+<dd>
+<p>Account traffic for all hosts in defined network/netmask.  This is one
+of the match modules which behave like a target, i.e. you will mostly
+have to use the <strong>NOP</strong> target.</p>
+</dd>
+<dd>
+<pre>
+    mod account aname mynetwork aaddr 192.168.1.0/24 ashort NOP;</pre>
+</dd>
+</li>
 <dt><strong><a name="item_addrtype"><strong>addrtype</strong></a></strong>
 
 <dd>
@@ -1627,6 +1639,21 @@ changes:</p>
 disable them.</p>
 </dd>
 </li>
+<dt><strong><a name="item_option_automod"><em>option automod</em></a></strong>
+
+<dd>
+<p>Automatic module loading is deprecated.  It still works for now, at
+least for modules which were already supported by ferm 1.1, but it is
+expected to be removed in ferm 1.3.</p>
+</dd>
+</li>
+<dt><strong><a name="item_option_location"><em>option location</em></a></strong>
+
+<dd>
+<p>ferm assumes that the iptables utilities are always installed in
+/sbin.</p>
+</dd>
+</li>
 <dt><strong><a name="item_chain_policies"><em>Chain policies</em></a></strong>
 
 <dd>
@@ -1662,6 +1689,33 @@ the new syntax:</p>
  chain INPUT proto tcp dport $FOO ACCEPT;</pre>
 </dd>
 </li>
+<dt><strong><a name="item_arrays"><em>Arrays</em></a></strong>
+
+<dd>
+<p>Arrays used to be specified with commas separating the items.  In ferm
+1.2, you separate array items only by whitespace.</p>
+</dd>
+</li>
+<dt><strong><a name="item_misc_syntax_changes"><em>Misc syntax changes</em></a></strong>
+
+<dd>
+<p>Other small syntax changes:</p>
+</dd>
+<ul>
+<li>
+<p>built-in target names must be upper case; chains are lower case</p>
+</li>
+<li>
+<p>MASQUERADE, not MASQ</p>
+</li>
+<li>
+<p>A lot of shortcuts are deprecated, since they are polluting the namespace, e.g. ``mac'', ``tosrc''.</p>
+</li>
+<li>
+<p>``source addr $A port $B'' is deprecated, use ``sdaddr $A sport $B''
+instead.  The same for ``destination''.</p>
+</li>
+</ul>
 </dl>
 <p>
 </p>

@@ -4,16 +4,15 @@
 #
 #               Written by Max Kellermann <max@duempel.org>
 #
-# Version:      $Revision: 118 $
+# Version:      $Revision: 155 $
 ### BEGIN INIT INFO
 # Provides:          ferm
-# Required-Start:    $network $syslog
-# Required-Stop:     
+# Required-Start:    $network
+# Required-Stop:     $network
 # Default-Start:     2 3 5 
 # Default-Stop:	     0 6 
 # Description: Starts ferm firewall configuration 
 # short-description: ferm firewall configuration
-# required-stop: $network 
 ### END INIT INFO
 
 #includes lsb functions 

@@ -25,7 +25,7 @@
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #
 
-# $Id: ferm 726 2006-09-25 20:09:16Z max $
+# $Id: ferm 735 2006-11-16 07:02:22Z max $
 
 use strict;
 use IO::File;
@@ -34,10 +34,10 @@ use Getopt::Long;
 use vars qw($DATE $VERSION);
 
 # subversion keyword magic
-$DATE = '$Date: 2006-09-25 22:09:16 +0200 (Mon, 25 Sep 2006) $' =~ m,(\d{4})-(\d\d)-(\d\d), ? $1.$2.$3 : '';
+$DATE = '$Date: 2006-11-16 08:02:22 +0100 (Thu, 16 Nov 2006) $' =~ m,(\d{4})-(\d\d)-(\d\d), ? $1.$2.$3 : '';
 
-$VERSION = '1.2.1';
-#$VERSION .= '+svn' . $DATE;
+$VERSION = '1.2.2';
+#$VERSION .= '~svn' . $DATE;
 
 ## interface variables
 # %option = command line and other options
@@ -212,7 +212,7 @@ use vars qw(%proto_defs %match_defs %target_defs);
 # foo&bar       one argument; call the perl function '&bar()' which parses
 #               the argument
 #
-# !foo          negation is allowed an the '!' is written before the keyword
+# !foo          negation is allowed and the '!' is written before the keyword
 #
 # foo!          same as above, but '!' is after the keyword and before the
 #               parameters
@@ -273,6 +273,7 @@ add_proto_def 'sctp', qw(chunk-types!=sc);
 add_proto_def 'tcp', qw(tcp-flags!=cc !syn*0 tcp-option! mss);
 add_proto_def 'udp', qw();
 
+add_match_def 'account', qw(aaddr=s aname=s ashort*0);
 add_match_def 'addrtype', qw(src-type dst-type);
 add_match_def 'ah', qw(ahspi! ahlen! ahres*0);
 add_match_def 'comment', qw(comment=s);
@@ -363,10 +364,11 @@ sub multiport_params {
                           allow_negation => 1,
                           allow_array_negation => 1);
     if (ref $value and ref $value eq 'ARRAY') {
+        my @value = @$value;
         my @params;
 
-        while (@$value) {
-            push @params, join(',', splice(@$value, 0, 15));
+        while (@value) {
+            push @params, join(',', splice(@value, 0, 15));
         }
 
         return @params == 1
@@ -1810,7 +1812,7 @@ sub enter {
                         warning('Using policy as action is deprecated');
                         $current->{action} = $policy;
                     } else {
-                        error('No action defined');
+                        error('No action defined; did you mean "NOP"?');
                     }
                 }
 

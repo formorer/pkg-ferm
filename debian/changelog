@@ -1,3 +1,19 @@
+ferm (1.2.2-1) unstable; urgency=low
+
+  [ Max Kellermann ]
+  * new upstream release
+    - don't make "mod multiport" reset variables (Closes: #398867)
+    - mention deprecation of the "automod" feature in the manpage
+      (Closes: #397517)
+  * removed duplicate "Required-Stop" from init script
+  * removed "syslog" from "Required-Start"
+
+  [ Alexander Wirt ]
+  * Add french po translation (Closes: #389909)
+  * Add czech po translation (Closes: #391476)
+  
+ -- Alexander Wirt <formorer@debian.org>  Sat, 18 Nov 2006 00:33:04 +0100
+
 ferm (1.2.1-1) unstable; urgency=low
 
   [ Max Kellermann ]

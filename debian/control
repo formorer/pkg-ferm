@@ -4,11 +4,11 @@ Priority: optional
 Maintainer: ferm maintainers <ferm-maintainers@ned.snow-crash.org>
 Uploaders: Alexander Wirt <formorer@debian.org>, Max Kellermann <max@duempel.org>
 Standards-Version: 3.7.2
-Build-Depends: cdbs (>= 0.4.26), debhelper (>= 5), po-debconf
+Build-Depends: debhelper (>= 5), po-debconf
 
 Package: ferm
 Architecture: all
-Depends: perl (>= 5.6), iptables, debconf (>= 1.2.0), lsb-base (>= 3.0-6)
+Depends: perl (>= 5.6), iptables (>= 1.3), debconf (>= 1.2.0), lsb-base (>= 3.0-6)
 Description: maintain and setup complicated firewall rules
  ferm is a frontend for iptables. It reads the rules from a
  structured configuration file and calls iptables(8) to insert them

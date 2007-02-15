@@ -1,0 +1,67 @@
+# Ferm translation to spanish
+# Copyright (C) 2007 Free Software Foundation, Inc.
+# This file is distributed under the same license as the package.
+#
+# Changes:
+# - Initial translation
+#     Javier Ruano Ruano , 2007
+#
+#
+#  Traductores, si no conoce el formato PO, merece la pena leer la
+#  documentación de gettext, especialmente las secciones dedicadas a este
+#  formato, por ejemplo ejecutando:
+#         info -n '(gettext)PO Files'
+#         info -n '(gettext)Header Entry'
+#
+# Equipo de traducción al español, por favor lean antes de traducir
+# los siguientes documentos:
+#
+# - El proyecto de traducción de Debian al español
+#   http://www.debian.org/intl/spanish/
+#   especialmente las notas y normas de traducción en
+#   http://www.debian.org/intl/spanish/notas
+#
+# - La guía de traducción de po's de debconf:
+#   /usr/share/doc/po-debconf/README-trans
+#   o http://www.debian.org/intl/l10n/po-debconf/README-trans
+#
+# Si tiene dudas o consultas sobre esta traducción consulte con el último
+# traductor (campo Last-Translator) y ponga en copia a la lista de
+# traducción de Debian al español (<debian-l10n-spanish@lists.debian.org>)
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: Ferm\n"
+"Report-Msgid-Bugs-To: ferm-maintainers@ned.snow-crash.org\n"
+"POT-Creation-Date: 2006-09-25 22:40+0200\n"
+"PO-Revision-Date: 2007-01-13 18x:00+0200\n"
+"Last-Translator: Javier Ruano Ruano <adrakoa@es.gnu.org>\n"
+"Language-Team: Debian L10n Spanish <debian-l10n-spanish@lists.debian.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#. Type: boolean
+#. Description
+#: ../ferm.templates:1001
+msgid "Enable ferm on bootup?"
+msgstr "¿Iniciar ferm durante el arranque?"
+
+#. Type: boolean
+#. Description
+#: ../ferm.templates:1001
+msgid "Ferm can load firewall rules on every bootup from /etc/ferm/ferm.conf."
+msgstr "Ferm cargará las reglas del cortafuegos durante el arranque desde "
+"«/etc/ferm/ferm.conf»."
+
+#. Type: boolean
+#. Description
+#: ../ferm.templates:1001
+msgid ""
+"The default configuration allows SSH login on port 22; if you are installing "
+"this package remotely on another port, you should not choose this option, "
+"and later edit /etc/default/ferm to enable ferm."
+msgstr ""
+"La configuración por omisión permite el acceso por SSH a través del puerto 22;"
+" Si está intalando esta paquete remotamente a través de otro puerto, no debería"
+" elegir esta opción, y más tarde para activar ferm, edite «/etc/default/ferm»."

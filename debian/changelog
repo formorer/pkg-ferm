@@ -1,3 +1,19 @@
+ferm (1.2.3-1) unstable; urgency=low
+
+  [ Max Kellermann ]
+  * new upstream release
+    - don't copy module references to subchain (Closes: #407353)
+  * don't build with cdbs anymore
+  * enable ferm's fast mode by default
+  * depend on iptables >= 1.3, because older versions of iptables-restore
+    have known bugs triggered by ferm's fast mode
+
+  [ Alexander Wirt ]
+  * Add spanish translation (Closes: #411001)
+  * Update README.Debian
+
+ -- Alexander Wirt <formorer@debian.org>  Thu, 15 Feb 2007 09:33:54 +0100
+
 ferm (1.2.2-1) unstable; urgency=low
 
   [ Max Kellermann ]

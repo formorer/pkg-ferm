@@ -1,7 +1,7 @@
 # configuration for /etc/init.d/ferm
 
 # use iptables-restore for fast firewall initialization?
-FAST=no
+FAST=yes
 
 # cache the output of ferm --lines in /var/cache/ferm?
 CACHE=yes

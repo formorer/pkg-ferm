@@ -1,19 +1,43 @@
 #!/usr/bin/make -f
 # -*- mode: makefile; coding: utf-8 -*-
 
-VERSION := $(shell dpkg-parsechangelog | egrep '^Version:' | cut -f2 -d' ')
-UPSTREAM_VERSION := $(shell echo $(VERSION) | cut -f1 -d- | cut -f2- -d+)
-DEB_TAR_SRCDIR := ferm-$(UPSTREAM_VERSION)
-DEB_TARBALL := ferm-$(UPSTREAM_VERSION).tar.gz
+# Uncomment this to turn on verbose mode.
+#export DH_VERBOSE=1
 
-include /usr/share/cdbs/1/rules/debhelper.mk
-#include /usr/share/cdbs/1/rules/tarball.mk
+export DH_COMPAT = 5
 
-DEB_DH_INSTALL_SOURCEDIR := $(DEB_SRCDIR)
+build:
 
-DEB_INSTALL_DOCS_ferm := $(DEB_SRCDIR)/TODO
+clean:
+	dh_testdir
+	dh_testroot
+	rm -f debian/stamp-*
+	dh_clean
 
-common-install-arch common-install-indep:: common-install-local
-common-install-local::
-	install -d -m 0700 debian/ferm/etc/ferm
-	install -m 0600 debian/ferm.conf debian/ferm/etc/ferm
+# Build architecture-independent files here.
+binary-indep:
+	dh_testdir -i
+	dh_testroot -i
+	dh_installdocs
+	dh_installchangelogs -i
+	dh_installinit -i
+	dh_installdebconf
+	dh_install -i
+	dh_link -i
+	dh_strip -i
+	dh_compress -i
+	dh_fixperms -i
+	dh_installdeb -i
+	dh_shlibdeps -i
+	dh_gencontrol -i
+	dh_md5sums -i
+	dh_builddeb -i
+
+# Build architecture-dependent files here.
+binary-arch:
+
+source diff:								  
+	@echo >&2 'source and diff are obsolete - use dpkg-source -b'; false
+
+binary: binary-indep binary-arch
+.PHONY: build clean binary-indep binary-arch binary

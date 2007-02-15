@@ -3,7 +3,7 @@
 #
 # ferm, a firewall setup program that makes firewall rules easy!
 #
-# Copyright (C) 2001-2006 Auke Kok, Max Kellermann
+# Copyright (C) 2001-2007 Auke Kok, Max Kellermann
 #
 # Comments, questions, greetings and additions to this program
 # may be sent to <ferm@foo-projects.org>
@@ -28,7 +28,7 @@
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #
 
-# $Id: import-ferm 730 2006-10-20 06:37:04Z max $
+# $Id: import-ferm 761 2007-02-14 21:35:41Z max $
 
 use strict;
 

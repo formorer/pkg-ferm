@@ -1,0 +1,40 @@
+# Portuguese translation of ferm's debconf messages.
+# Copyright (C) 2007
+# This file is distributed under the same license as the ferm package.
+# Ricardo Silva <ardoric@gmail.com>, YEAR.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: ferm 1.2.3-1\n"
+"Report-Msgid-Bugs-To: ferm-maintainers@ned.snow-crash.org\n"
+"POT-Creation-Date: 2006-09-25 22:40+0200\n"
+"PO-Revision-Date: 2007-03-20 09:19+0000\n"
+"Last-Translator: Ricardo Silva <ardoric@gmail.com>\n"
+"Language-Team: Portuguese <traduz@debianpt.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#. Type: boolean
+#. Description
+#: ../ferm.templates:1001
+msgid "Enable ferm on bootup?"
+msgstr "Activar o ferm no arranque?"
+
+#. Type: boolean
+#. Description
+#: ../ferm.templates:1001
+msgid "Ferm can load firewall rules on every bootup from /etc/ferm/ferm.conf."
+msgstr "O ferm pode carregar regras de firewall do ficheiro /etc/ferm/ferm.conf em cada arranque."
+
+#. Type: boolean
+#. Description
+#: ../ferm.templates:1001
+msgid ""
+"The default configuration allows SSH login on port 22; if you are installing "
+"this package remotely on another port, you should not choose this option, "
+"and later edit /etc/default/ferm to enable ferm."
+msgstr ""
+"A configuração por omissão permite login por SSH no porto 22; Se está a "
+"instalar este pacote remotamente noutro porto, não deve escolher esta opção, "
+"e posteriormente editar o ficheiro /etc/default/ferm para activar o ferm."

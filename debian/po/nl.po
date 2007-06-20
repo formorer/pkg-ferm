@@ -1,0 +1,36 @@
+# SOME DESCRIPTIVE TITLE.
+# Copyright (C) YEAR THE PACKAGE'S COPYRIGHT HOLDER
+# This file is distributed under the same license as the PACKAGE package.
+# FIRST AUTHOR <EMAIL@ADDRESS>, YEAR.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: ferm\n"
+"Report-Msgid-Bugs-To: ferm-maintainers@ned.snow-crash.org\n"
+"POT-Creation-Date: 2006-09-25 22:40+0200\n"
+"PO-Revision-Date: 2007-04-29 12:42+0100\n"
+"Last-Translator: Bart Cornelis <cobaco@skolelinux.no>\n"
+"Language-Team: debian-l10n-dutch <debian-l10n-dutch@lists.debian.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Poedit-Language: Dutch\n"
+
+#. Type: boolean
+#. Description
+#: ../ferm.templates:1001
+msgid "Enable ferm on bootup?"
+msgstr "Wilt u ferm activeren tijdens het opstarten van het systeem?"
+
+#. Type: boolean
+#. Description
+#: ../ferm.templates:1001
+msgid "Ferm can load firewall rules on every bootup from /etc/ferm/ferm.conf."
+msgstr "Ferm kan firewall-regels laden van /etc/ferm/ferm.conf bij elke systeemstart."
+
+#. Type: boolean
+#. Description
+#: ../ferm.templates:1001
+msgid "The default configuration allows SSH login on port 22; if you are installing this package remotely on another port, you should not choose this option, and later edit /etc/default/ferm to enable ferm."
+msgstr "De standaardconfiguratie laat aanmelden via SSH op poort 22 toe; als u dit pakket van op afstand via een andere poort installeert slaat u deze optie best af, om dan later ferm te activeren door /etc/default/ferm handmatig aan te passen."
+

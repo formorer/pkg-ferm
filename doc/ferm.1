@@ -129,7 +129,7 @@
 .\" ========================================================================
 .\"
 .IX Title "FERM 1"
-.TH FERM 1 "2007-02-14" "ferm 1.2.3" "FIREWALL RULES MADE EASY"
+.TH FERM 1 "2007-05-24" "ferm 1.2.4" "FIREWALL RULES MADE EASY"
 .SH "NAME"
 \&\fBferm\fR \- a firewall rule parser for linux
 .SH "SYNOPSIS"
@@ -890,6 +890,20 @@ Matches the IPv6 extension header (ip6).
 \&    mod ipv6header header !(hop frag) ACCEPT;
 \&    mod ipv6header header (auth dst) ACCEPT;
 .Ve
+.IP "\fBhashlimit\fR" 8
+.IX Item "hashlimit"
+Similar to 'mod limit', but adds the ability to add per-destination or
+per-port limits managed in a hash table.
+.Sp
+.Vb 2
+\&    mod hashlimit  hashlimit 10/minute  hashlimit\-burst 30/minute
+\&      hashlimit\-mode dstip  hashlimit\-name foobar  ACCEPT;
+.Ve
+.Sp
+Possible values for hashlimit\-mode: dstip dstport srcip srcport.
+.Sp
+There are more possible settings, type \*(L"iptables \-m hashlimit \-h\*(R" for
+documentation.
 .IP "\fBlength\fR" 8
 .IX Item "length"
 Check the package length.
@@ -1062,6 +1076,15 @@ This module is automatically loaded when you use \*(L"protocol sctp\*(R".
 .Ve
 .Sp
 Use "iptables \-p sctp \f(CW\*(C`\-h\*(C'\fR" to obtain a list of valid chunk types.
+.IP "\fBset\fR" 8
+.IX Item "set"
+Checks the source or destination IP/Port/MAC against a set.
+.Sp
+.Vb 1
+\&    mod set set badguys src DROP;
+.Ve
+.Sp
+See <http://ipset.netfilter.org/> for more information.
 .IP "\fBstate\fR" 8
 .IX Item "state"
 Checks the connection tracking state.
@@ -1138,6 +1161,17 @@ further parameters.
 .IX Subsection "Netfilter target modules"
 The following additional targets are available in ferm, provided that
 you enabled them in your kernel:
+.IP "\fB\s-1CONNMARK\s0\fR" 8
+.IX Item "CONNMARK"
+Sets the netfilter mark value associated with a connection.
+.Sp
+.Vb 5
+\&    CONNMARK set\-mark 42;
+\&    CONNMARK save\-mark;
+\&    CONNMARK restore\-mark;
+\&    CONNMARK save\-mark mask 0x7fff;
+\&    CONNMARK restore\-mark mask 0x8000;
+.Ve
 .IP "\fB\s-1DNAT\s0 to [ip\-address|ip\-range|ip\-port\-range]\fR" 8
 .IX Item "DNAT to [ip-address|ip-range|ip-port-range]"
 Change the destination address of the packet.
@@ -1239,6 +1273,13 @@ machine itself.
 .Sp
 .Vb 1
 \&    proto tcp dport http REDIRECT to\-ports 3128;
+.Ve
+.IP "\fB\s-1SET\s0 [add\-set|del\-set] [setname] [flag(s)]\fR" 8
+.IX Item "SET [add-set|del-set] [setname] [flag(s)]"
+Add the \s-1IP\s0 to the specified set. See <http://ipset.netfilter.org/>
+.Sp
+.Vb 1
+\&    proto icmp icmp\-type echo\-request SET add\-set badguys src;
 .Ve
 .IP "\fB\s-1SNAT\s0 to [ip\-address|ip\-range|ip\-port\-range]\fR" 8
 .IX Item "SNAT to [ip-address|ip-range|ip-port-range]"
@@ -1429,6 +1470,18 @@ directory are included, sorted alphabetically:
 .Vb 1
 \&    include 'ferm.d/';
 .Ve
+.Sh "Hooks"
+.IX Subsection "Hooks"
+To run custom commands, you may install hooks:
+.PP
+.Vb 2
+\&    hook pre "echo 0 >/proc/sys/net/ipv4/conf/eth0/forwarding";
+\&    hook post "echo 1 >/proc/sys/net/ipv4/conf/eth0/forwarding";
+.Ve
+.PP
+The specified command is executed using the shell.  \*(L"pre\*(R" means run
+the command before applying the firewall rules, and \*(L"post\*(R" means run
+the command afterwards.  You may install any number of hooks.
 .SH "RECIPES"
 .IX Header "RECIPES"
 The \fI./examples/\fR directory contains numerous ferm configuration

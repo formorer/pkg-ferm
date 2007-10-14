@@ -25,7 +25,7 @@
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #
 
-# $Id: ferm 795 2007-05-14 11:43:57Z max $
+# $Id: ferm 811 2007-10-14 17:37:36Z max $
 
 use strict;
 use IO::File;
@@ -34,9 +34,9 @@ use Getopt::Long;
 use vars qw($DATE $VERSION);
 
 # subversion keyword magic
-$DATE = '$Date: 2007-05-14 13:43:57 +0200 (Mon, 14 May 2007) $' =~ m,(\d{4})-(\d\d)-(\d\d), ? $1.$2.$3 : '';
+$DATE = '$Date: 2007-10-14 19:37:36 +0200 (Sun, 14 Oct 2007) $' =~ m,(\d{4})-(\d\d)-(\d\d), ? $1.$2.$3 : '';
 
-$VERSION = '1.2.4';
+$VERSION = '1.2.5';
 #$VERSION .= '~svn' . $DATE;
 
 ## interface variables
@@ -542,7 +542,7 @@ foreach my $cmd (@pre_hooks) {
 
 while (my ($domain, $rules) = each %rules) {
     my $s = $option{fast}
-      ? execute_fast($domain, rules_to_save($rules))
+      ? execute_fast($domain, rules_to_save($domain, $rules))
         : execute_slow($domain, $rules);
     $status = $s if defined $s;
 }
@@ -570,7 +570,7 @@ exit 0;
 
 sub printversion {
     print "ferm $VERSION\n";
-    print "Copyright (C) 2001-2006 Auke Kok, Max Kellermann\n";
+    print "Copyright (C) 2001-2007 Auke Kok, Max Kellermann\n";
     print "This program is free software released under GPLv2.\n";
     print "See the included COPYING file for license details.\n";
 }
@@ -1385,10 +1385,13 @@ sub tables {
 
     shell_append(\$rr, '-A', $chain);
 
-    # modules
+    # modules; copy the hash because we might add automatic protocol
+    # modules later
+    my %modules;
     if (exists $rule{modules}) {
+        %modules = %{$rule{modules}};
         shell_append(\$rr, '-m', $_)
-          foreach keys %{$rule{modules}};
+          foreach keys %modules;
     }
 
     # general iptables options
@@ -1428,9 +1431,9 @@ sub tables {
                 my $value = $rule->{$key};
 
                 my $module = $proto eq 'icmpv6' ? 'icmp6' : $proto;
-                unless (exists $rule{modules}{$module}) {
+                unless (exists $modules{$module}) {
                     shell_append(\$rr, '-m', $module);
-                    $rule{modules}{$module} = 1;
+                    $modules{$module} = 1;
                 }
 
                 shell_append_option(\$rr, $k, $keyword, $value);
@@ -1440,9 +1443,9 @@ sub tables {
         # special case: --dport and --sport for TCP/UDP
         if ((exists $rule{dport} or exists $rule{sport}) and
             $proto =~ /^(?:tcp|udp|dccp|sctp)$/) {
-            unless (exists $rule{modules}{$proto}) {
+            unless (exists $modules{$proto}) {
                 shell_append(\$rr, '-m', $proto);
-                $rule{modules}{$proto} = 1;
+                $modules{$proto} = 1;
             }
 
             shell_append_option(\$rr, { params => 1,
@@ -2506,13 +2509,13 @@ sub execute_slow {
 }
 
 sub rules_to_save {
-    my $rules = shift;
+    my ($domain, $rules) = @_;
 
     # parse the current ruleset, ignore -X and -F, handle policies and
     # custom chains
     my %policies;
     my %rules;
-    foreach my $rule (@$rules) {
+    foreach my $rule (reset_domain($domain), @$rules) {
         $rule = $rule->{rule}
           if ref $rule;
 

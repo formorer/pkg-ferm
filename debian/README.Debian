@@ -16,7 +16,7 @@ If you want to use ferm on sarge you have use iptables 1.3 or remove the 1.3
 dependency and set FAST=no in /etc/default/ferm (the latter is done for the
 packages on backports.org). 
 
-The cache ("CACHE=yes", enabled by default) also things up, too,
+The cache ("CACHE=yes", enabled by default) speeds things up, too,
 because ferm will only be run when you modify its configuration, but
 this also means that ferm's rollback-on-error isn't assisting you.
 Also note that the init script doesn't notice when you change an

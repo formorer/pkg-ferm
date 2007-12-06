@@ -7,6 +7,40 @@
     Max Kellermann <max@foo-projects.org>
 
 
+v1.3 - 6 Dec 2007
+  - reserve tokens starting with "@" as ferm keywords
+  - implemented conditionals with @if/@else
+  - added @include/@def/@subchain as alias to include/def/subchain
+  - redirect STDOUT into STDERR --shell mode; this way, iptables warnings
+    are separated from the ferm shell script output
+  - microperl compatiblity:
+    - don't require strict.pm / vars.pm
+    - don't use IO::File
+    - added simple Getopt::Long emulation
+  - look for iptables in PATH
+  - added function @resolve which resolves host names to IPv4 addresses
+  - import-ferm supports ip6tables-save files
+  - support "proto icmp" in the ip6 domain
+  - make "goto" deprecated to remap it to "--goto" later
+  - implemented "--goto" support, keyword is "realgoto"
+  - don't default to policy if rule action is missing
+  - support protocol modules
+    * mh
+    * udplite (sport, dport, mod multiport)
+  - support netfilter modules:
+    * connbytes
+    * connlimit
+    * u32
+  - support netfilter targets:
+    * CONNSECMARK
+    * SECMARK
+  - abort when there is an unrecognized command line option (reported by
+    Han Holl)
+  - import-ferm: don't generate NOP action before a block
+  - import-ferm: quote array values
+  - quote the ampersand
+
+
 v1.2.5 - 14 Oct 2007
   - make --flush do something in fast mode (reported by Hans-Georg Bork)
   - fix automatic protocol modules when used in an expanded array

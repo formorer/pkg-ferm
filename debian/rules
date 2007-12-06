@@ -19,7 +19,7 @@ binary-indep:
 	dh_installdirs -i
 	dh_installdocs
 	dh_installchangelogs -i
-	dh_installinit -i
+	dh_installinit -i -- start 41 S . start 36 0 6 .
 	dh_installdebconf
 	dh_install -i
 	dh_link -i

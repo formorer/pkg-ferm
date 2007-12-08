@@ -25,7 +25,7 @@
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #
 
-# $Id: ferm 977 2007-11-30 15:43:41Z max $
+# $Id: ferm 985 2007-12-08 23:35:29Z max $
 
 BEGIN {
     eval { require strict; import strict; };
@@ -34,6 +34,8 @@ BEGIN {
         # we need no vars.pm if there is not even strict.pm
         $INC{'vars.pm'} = 1;
         *vars::import = sub {};
+    } else {
+        require IO::Handle;
     }
 
     eval { require Getopt::Long; import Getopt::Long; };
@@ -45,9 +47,9 @@ use vars qw($has_strict $has_getopt);
 use vars qw($DATE $VERSION);
 
 # subversion keyword magic
-$DATE = '$Date: 2007-11-30 16:43:41 +0100 (Fri, 30 Nov 2007) $' =~ m,(\d{4})-(\d\d)-(\d\d), ? $1.$2.$3 : '';
+$DATE = '$Date: 2007-12-09 00:35:29 +0100 (Sun, 09 Dec 2007) $' =~ m,(\d{4})-(\d\d)-(\d\d), ? $1.$2.$3 : '';
 
-$VERSION = '1.3';
+$VERSION = '1.3.1';
 #$VERSION .= '~svn' . $DATE;
 
 ## interface variables
@@ -544,6 +546,7 @@ if ($has_getopt) {
         } elsif ($_ eq '--fast') {
             $option{fast} = 1;
         } elsif ($_ eq '--test') {
+            $option{test} = 1;
             $option{noexec} = 1;
             $option{lines} = 1;
         } elsif ($_ eq '--shell') {

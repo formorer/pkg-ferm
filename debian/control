@@ -4,7 +4,8 @@ Priority: optional
 Maintainer: ferm maintainers <ferm-maintainers@ned.snow-crash.org>
 Uploaders: Alexander Wirt <formorer@debian.org>, Max Kellermann <max@duempel.org>
 Standards-Version: 3.7.3
-Build-Depends: debhelper (>= 5), po-debconf
+Build-Depends: debhelper (>= 5)
+Build-Depends-Indep: po-debconf
 
 Package: ferm
 Architecture: all

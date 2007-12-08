@@ -65,3 +65,4 @@ msgstr ""
 "La configuración predeterminada permite el acceso por SSH a través del puerto 22;"
 " Si está instalando este paquete remotamente a través de otro puerto, no debería"
 " elegir esta opción, edite más tarde «/etc/default/ferm» para activarlo."
+

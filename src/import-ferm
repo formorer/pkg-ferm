@@ -28,7 +28,7 @@
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #
 
-# $Id: import-ferm 973 2007-11-29 11:06:33Z max $
+# $Id: import-ferm 1066 2007-12-19 07:23:55Z max $
 
 use strict;
 
@@ -54,13 +54,15 @@ log-tcp-sequence log-tcp-options log-ip-options log-uid
 continue tee
 strict next
 fragres fragfirst fragmore fraglast
-nodst
+nodst random
 ecn-tcp-remove
 ahres
 soft
 rt-0-res rt-0-not-strict
 ashort
 save restore
+new
+ssrr lsrr no-srr rr ts ra any-opt
 EOT
 
 my %p1 = parse_table(<<EOT);
@@ -68,7 +70,7 @@ i=interface o=outerface
 s=saddr d=daddr
 dport sport
 reject-with icmp-type icmpv6-type
-to-destination to-ports to
+to-ports to
 tos mark
 tcp-option mss set-mss
 ttl-set
@@ -128,6 +130,8 @@ selctx
 mh-type
 probability
 nflog-group nflog-prefix nflog-range nflog-threshold
+hashmode clustermac total-nodes local-node hash-init
+algo from string hex-string
 EOT
 
 my %p1c = parse_table(<<EOT);
@@ -141,6 +145,7 @@ EOT
 
 my %p1multi = parse_table(<<EOT);
 to-source
+to-destination
 u32
 EOT
 

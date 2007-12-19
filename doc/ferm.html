@@ -1031,6 +1031,23 @@ called <strong>icmpv6</strong> in <em>ip6tables</em>.</p>
     mod iprange dst-range ! 192.168.6.0-192.168.6.255;</pre>
 </dd>
 </li>
+<dt><strong><a name="item_ipv4options"><strong>ipv4options</strong></a></strong>
+
+<dd>
+<p>Match on IPv4 header options like source routing, record route,
+timestamp and router-alert.</p>
+</dd>
+<dd>
+<pre>
+    mod ipv4options ssrr ACCEPT;
+    mod ipv4options lsrr ACCEPT;
+    mod ipv4options no-srr ACCEPT;
+    mod ipv4options !rr ACCEPT;
+    mod ipv4options !ts ACCEPT;
+    mod ipv4options !ra ACCEPT;
+    mod ipv4options !any-opt ACCEPT;</pre>
+</dd>
+</li>
 <dt><strong><a name="item_ipv6header"><strong>ipv6header</strong></a></strong>
 
 <dd>
@@ -1339,6 +1356,17 @@ This module is automatically loaded when you use ``protocol sctp''.</p>
     mod statistic mode nth every 5 packet 0 DROP;</pre>
 </dd>
 </li>
+<dt><strong><a name="item_string"><strong>string</strong></a></strong>
+
+<dd>
+<p>Matches a string.</p>
+</dd>
+<dd>
+<pre>
+    mod string string &quot;foo bar&quot; ACCEPT;
+    mod string algo kmp from 64 to 128 hex-string &quot;deadbeef&quot; ACCEPT;</pre>
+</dd>
+</li>
 <dt><strong><a name="item_tcp"><strong>tcp</strong></a></strong>
 
 <dd>
@@ -1441,6 +1469,28 @@ further parameters.</p>
 <p>The following additional targets are available in ferm, provided that
 you enabled them in your kernel:</p>
 <dl>
+<dt><strong><a name="item_classify"><strong>CLASSIFY</strong></a></strong>
+
+<dd>
+<p>Set the CBQ class.</p>
+</dd>
+<dd>
+<pre>
+    CLASSIFY set-class 3:50;</pre>
+</dd>
+</li>
+<dt><strong><a name="item_clusterip"><strong>CLUSTERIP</strong></a></strong>
+
+<dd>
+<p>Configure a simple cluster of nodes that share a certain IP and MAC
+address.  Connections are statically distributed between the nodes.</p>
+</dd>
+<dd>
+<pre>
+    CLUSTERIP new hashmode sourceip clustermac 00:12:34:45:67:89
+      total-nodes 4 local-node 2 hash-init 12345;</pre>
+</dd>
+</li>
 <dt><strong><a name="item_connmark"><strong>CONNMARK</strong></a></strong>
 
 <dd>
@@ -1503,6 +1553,17 @@ It can only be used in the mangle table.</p>
     HL hl-set 5;
     HL hl-dec 2;
     HL hl-inc 1;</pre>
+</dd>
+</li>
+<dt><strong><a name="item_ipv4optsstrip"><strong>IPV4OPTSSTRIP</strong></a></strong>
+
+<dd>
+<p>Strip all the IP options from a packet.  This module does not take any
+options.</p>
+</dd>
+<dd>
+<pre>
+    IPV4OPTSSTRIP;</pre>
 </dd>
 </li>
 <dt><strong><a name="item_log"><strong>LOG</strong></a></strong>
@@ -1617,6 +1678,19 @@ machine itself.</p>
 <dd>
 <pre>
     proto tcp dport http REDIRECT to-ports 3128;</pre>
+</dd>
+</li>
+<dt><strong><a name="item_same"><strong>SAME</strong></a></strong>
+
+<dd>
+<p>Similar to SNAT, but a client is mapped to the same source IP for all
+its connections.</p>
+</dd>
+<dd>
+<pre>
+    SAME to 1.2.3.4-1.2.3.7;
+    SAME to 1.2.3.8-1.2.3.15 nodst;
+    SAME to 1.2.3.16-1.2.3.31 random;</pre>
 </dd>
 </li>
 <dt><strong><a name="item_secmark"><strong>SECMARK</strong></a></strong>

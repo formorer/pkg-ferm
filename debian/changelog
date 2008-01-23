@@ -1,3 +1,11 @@
+ferm (1.3.3-1) unstable; urgency=low
+
+  [ Max Kellermann ]
+  * new upstream release
+  * check the time stamp of all files in /etc/ferm for cache validation
+
+ -- Alexander Wirt <formorer@debian.org>  Wed, 23 Jan 2008 12:11:18 +0100
+
 ferm (1.3.2-1) unstable; urgency=low
 
   [ Max Kellermann ]

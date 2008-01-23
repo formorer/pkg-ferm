@@ -4,7 +4,7 @@
 #
 #               Written by Max Kellermann <max@duempel.org>
 #
-# Version:      $Revision: 155 $
+# Version:      $Revision: 257 $
 ### BEGIN INIT INFO
 # Provides:          ferm
 # Required-Start:    $network
@@ -65,6 +65,7 @@ function configure_ferm() {
 
         if ! [ -f $CACHE_FILE -a \
             $CACHE_FILE -nt $CONFIG -a \
+            -z "`find /etc/ferm -maxdepth 2 -newer $CACHE_FILE 2>/dev/null`" -a \
             $CACHE_FILE -nt /etc/default/ferm -a \
             $CACHE_FILE -nt /etc/init.d/ferm -a \
             $CACHE_FILE -nt $FERM ]; then

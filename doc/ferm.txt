@@ -71,7 +71,7 @@ INTRODUCTION
 
         # this line enables transparent http-proxying for the internal network:
         proto tcp if eth0 daddr ! 192.168.0.0/255.255.255.0
-            dport http REDIRECT 3128;
+            dport http REDIRECT to-ports 3128;
 
     You will be thankful for it later!
 
@@ -1392,7 +1392,7 @@ BUGS
     If you find a bug, please tell us: ferm@foo-projects.org
 
 COPYRIGHT
-    Copyright (C) 2001-2007 Auke Kok <sofar@foo-projects.org>, Max
+    Copyright (C) 2001-2008 Auke Kok <sofar@foo-projects.org>, Max
     Kellermann <max@foo-projects.org>
 
     This program is free software; you can redistribute it and/or modify it

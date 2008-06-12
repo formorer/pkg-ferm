@@ -3,7 +3,7 @@
 #
 # ferm, a firewall setup program that makes firewall rules easy!
 #
-# Copyright (C) 2001-2007 Auke Kok, Max Kellermann
+# Copyright (C) 2001-2008 Auke Kok, Max Kellermann
 #
 # Comments, questions, greetings and additions to this program
 # may be sent to <ferm@foo-projects.org>
@@ -25,7 +25,7 @@
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #
 
-# $Id: ferm 1092 2008-01-22 16:35:35Z max $
+# $Id: ferm 1208 2008-05-28 15:06:12Z max $
 
 BEGIN {
     eval { require strict; import strict; };
@@ -47,9 +47,9 @@ use vars qw($has_strict $has_getopt);
 use vars qw($DATE $VERSION);
 
 # subversion keyword magic
-$DATE = '$Date: 2008-01-22 17:35:35 +0100 (Tue, 22 Jan 2008) $' =~ m,(\d{4})-(\d\d)-(\d\d), ? $1.$2.$3 : '';
+$DATE = '$Date: 2008-05-28 17:06:12 +0200 (Wed, 28 May 2008) $' =~ m,(\d{4})-(\d\d)-(\d\d), ? $1.$2.$3 : '';
 
-$VERSION = '1.3.3';
+$VERSION = '1.3.4';
 #$VERSION .= '~svn' . $DATE;
 
 ## interface variables
@@ -635,7 +635,7 @@ exit 0;
 
 sub printversion {
     print "ferm $VERSION\n";
-    print "Copyright (C) 2001-2007 Auke Kok, Max Kellermann\n";
+    print "Copyright (C) 2001-2008 Auke Kok, Max Kellermann\n";
     print "This program is free software released under GPLv2.\n";
     print "See the included COPYING file for license details.\n";
 }
@@ -1410,15 +1410,15 @@ sub shell_escape($) {
         # escaping and special characters... we're trying our best
         # here
 
-        $token =~ s,",',g;
+        $token =~ s,",\\",g;
         $token = '"' . $token . '"'
-          if $token =~ /[\s\'\\;&]/s;
+          if $token =~ /[\s\'\\;&]/s or length($token) == 0;
     } else {
         return $token
           if $token =~ /^\`.*\`$/;
-        $token =~ s/'/\\'/g;
+        $token =~ s/'/'\\''/g;
         $token = '\'' . $token . '\''
-          if $token =~ /[\s\"\\;<>&|]/s;
+          if $token =~ /[\s\"\\;<>&|]/s or length($token) == 0;
     }
 
     return $token;
@@ -2069,6 +2069,7 @@ sub enter($@) {
 
                 # and clean up variables set in this level
                 %$current = ();
+                %modules = map { $_->{modules} ? %{$_->{modules}} : () } @fw;
 
                 next;
             }

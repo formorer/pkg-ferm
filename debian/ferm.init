@@ -4,7 +4,7 @@
 #
 #               Written by Max Kellermann <max@duempel.org>
 #
-# Version:      $Revision: 257 $
+# Version:      $Revision: 270 $
 ### BEGIN INIT INFO
 # Provides:          ferm
 # Required-Start:    $network
@@ -32,7 +32,7 @@ test -f $CONFIG || exit 0
 umask 0077
 
 unset ENABLED
-FAST=no
+FAST=yes
 CACHE=no
 OPTIONS=
 unset DOMAINS
@@ -73,7 +73,7 @@ function configure_ferm() {
             if [ "$FAST" = "yes" ]; then
                 $FERM $OPTIONS --shell $CONFIG >$CACHE_FILE.tmp || return $?
             else
-                $FERM $OPTIONS --lines $CONFIG >$CACHE_FILE.tmp || return $?
+                $FERM $OPTIONS --shell --slow $CONFIG >$CACHE_FILE.tmp || return $?
             fi
             mv $CACHE_FILE.tmp $CACHE_FILE || return $?
         else
@@ -81,9 +81,9 @@ function configure_ferm() {
         fi
     else
         if [ "$FAST" = "yes" ]; then
-            $FERM $OPTIONS --fast $CONFIG || return $?
-        else
             $FERM $OPTIONS $CONFIG || return $?
+        else
+            $FERM $OPTIONS --slow $CONFIG || return $?
         fi
     fi
 }

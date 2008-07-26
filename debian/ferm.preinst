@@ -6,7 +6,7 @@ version=$2
 
 if [ "$action" = upgrade ]; then
     # remove old cache files
-    rm -rf /var/cache/ferm/output /var/cache/ferm/output.tmp /var/cache/ferm/ip /var/cache/ferm/ip6
+    rm -f /var/cache/ferm/*.sh /var/cache/ferm/*.tmp
 fi
 
 if [ "$action" = upgrade -a -n "$version" ]; then

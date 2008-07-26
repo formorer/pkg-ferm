@@ -1,6 +1,6 @@
 #!/bin/sh
 set -e
 
-rm -f /var/cache/ferm/start.sh /var/cache/ferm/stop.sh
+rm -f /var/cache/ferm/*.sh /var/cache/ferm/*.tmp
 
 #DEBHELPER#

@@ -3,7 +3,7 @@
 #
 # ferm, a firewall setup program that makes firewall rules easy!
 #
-# Copyright (C) 2001-2008 Auke Kok, Max Kellermann
+# Copyright (C) 2001-2008 Max Kellermann, Auke Kok
 #
 # Comments, questions, greetings and additions to this program
 # may be sent to <ferm@foo-projects.org>
@@ -28,190 +28,45 @@
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #
 
-# $Id: import-ferm 1208 2008-05-28 15:06:12Z max $
+# $Id: import-ferm 1263 2008-07-24 06:36:33Z max $
 
 use strict;
 
 use Data::Dumper;
 
+BEGIN {
+    # find the main "ferm" program
+    my $ferm;
+    if ($0 =~ /^(.*)\//) {
+        $ferm = "$1/ferm";
+    } else {
+        $ferm = 'ferm';
+    }
+
+    # import its module tables
+    require $ferm;
+
+    # delete conflicting symbols
+    delete $main::{$_} for qw(merge_keywords parse_option);
+}
+
+use vars qw(%aliases);
+%aliases = (
+    i => 'interface',
+    o => 'outerface',
+    p => 'protocol',
+    d => 'daddr',
+    s => 'saddr',
+    m => 'match',
+    j => 'jump',
+    g => 'goto',
+);
+
 use vars qw($indent $table $chain @rules $domain $next_domain);
 
-sub parse_table {
-    map {
-        /(.+)=(.+)/ ? ( $1 => $2 ) : ( $_ => $_ )
-    } split(/\s+/s, shift);
-}
-
-my %p0 = parse_table(<<EOT);
-f=fragment
-syn
-clamp-mss-to-pmtu
-ecn-tcp-cwr ecn-tcp-ece
-physdev-is-in physdev-is-out physdev-is-bridged
-set rcheck update remove rttl rsource rdest
-save-mark restore-mark
-log-tcp-sequence log-tcp-options log-ip-options log-uid
-continue tee
-strict next
-fragres fragfirst fragmore fraglast
-nodst random
-ecn-tcp-remove
-ahres
-soft
-rt-0-res rt-0-not-strict
-ashort
-save restore
-new
-ssrr lsrr no-srr rr ts ra any-opt
-utc localtz
-EOT
-
-my %p1 = parse_table(<<EOT);
-i=interface o=outerface
-s=saddr d=daddr
-dport sport
-reject-with icmp-type icmpv6-type
-to-ports to
-tos mark
-tcp-option mss set-mss
-ttl-set
-ulog-nlgroup ulog-prefix ulog-cprange ulog-qthreshold
-src-type dst-type
-ahspi ahlen
-ctstate ctproto ctorigsrc ctorigdst ctreplsrc ctrepldst ctstatus ctexpire
-dscp dscp-class
-dstlimit
-ecn-ip-ect
-espspi
-helper
-iplimit-above iplimit-mask
-src-range dst-range
-length
-limit limit-burst
-mac-source
-every counter start packet
-uid-owner gid-owner pid-owner sid-owner cmd-owner
-physdev-in physdev-out
-pkt-type
-psd-weight-threshold psd-delay-threshold
-psd-lo-ports-weight psd-hi-ports-weight
-average
-realm
-name seconds hitcount
-timestart timestop days datestart datestop
-tos
-ttl-eq ttl-gt ttl-lt
-set-class
-set-mark set-xmark and-mark or-mark xor-mark mask
-log-level log-prefix
-oif iif gw
-set-tos
-ttl-set ttl-dec ttl-inc
-comment
-dir pol reqid spi proto mode tunnel-src tunnel-dst
-dst-len
-fragid fraglen
-dccp-option
-queue-num
-set-dscp set-dscp-class
-quota
-condition
-lower-limit upper-limit
-hbh-len hbh-opts
-hl-eq hl-lt hl-gt
-rt-type rt-segsleft rt-len
-hl-set hl-dec hl-inc
-aaddr aname
-hashlimit hashlimit-burst hashlimit-mode hashlimit-name
-hashlimit-htable-size hashlimit-htable-max
-hashlimit-htable-expire hashlimit-htable-gcinterval
-connlimit-above connlimit-mask
-connbytes connbytes-dir connbytes-mode
-selctx
-mh-type
-probability
-nflog-group nflog-prefix nflog-range nflog-threshold
-hashmode clustermac total-nodes local-node hash-init
-algo from string hex-string
-and-tos or-tos xor-tos
-EOT
-
-my %p1c = parse_table(<<EOT);
-state
-source-ports destination-ports ports
-dst-opts
-dccp-types
-header
-rt-0-addrs
-monthday weekdays
-EOT
-
-my %p1multi = parse_table(<<EOT);
-to-source
-to-destination
-u32
-EOT
-
-my %p2c = parse_table(<<EOT);
-tcp-flags
-chunk-types
-add-set del-set
-EOT
-
-my @pre_negated = qw(fragment connbytes connlimit-above
-rr ts ra any-opt
-set rcheck update remove seconds hitcount
-syn mss
-physdev-is-in physdev-is-out physdev-is-bridged
-);
-
-my @negated = qw(
-iplimit-above
-src-range dst-range
-realm
-tos
-protocol saddr daddr interface outerface sport dport
-ahspi ahlen condition connrate
-ctorigsrc ctorigdst ctreplsrc ctrepldst
-espspi src-cc dst-cc
-icmp-type icmpv6-type
-mac-source source-ports destination-ports ports
-genre realm chunk-types
-tcp-flags tcp-option
-dst-len hbh-len
-fragid fraglen
-dccp-types dccp-option
-condition
-hl-eq
-header
-length
-physdev-in physdev-out
-rt-type rt-segsleft rt-len
-mh-type
-);
-
-sub is_netfilter_core_target {
-    my $target = shift;
-    die unless defined $target and length $target;
-
-    return $target =~ /(?:ACCEPT|DROP|RETURN|QUEUE|NOP)$/;
-}
-
-sub is_netfilter_module_target {
-    my $target = shift;
-    die unless defined $target and length $target;
-
-    return $target =~ /(?:BALANCE|CLASSIFY|CLUSTERIP|CONNMARK
-                         |DNAT|DSCP|ECN|LOG|MARK|MASQUERADE
-                         |MIRROR|NETMAP|REDIRECT|REJECT|ROUTE
-                         |SNAT|TCPMSS|TOS|TRACE|TTL|ULOG
-                         |TARPIT
-                       )/x;
-}
-
-sub ferm_escape {
+sub ferm_escape($) {
     local $_ = shift;
-    return $_ unless /[^-\w.:]/s;
+    return $_ unless /[^-\w.:\/]/s;
     return "\'$_\'";
 }
 
@@ -248,13 +103,9 @@ sub module_match_count {
 }
 
 sub prefix_matches {
-    my ($prefix, $rule) = @_;
-    return unless exists $rule->{match};
-    while (my ($key, $value) = each %$prefix) {
-        return unless exists $rule->{match}{$key}
-          and Dumper($rule->{match}{$key}) eq Dumper($value);
-    }
-    return 1;
+    my ($a, $b) = @_;
+    return @{$b->{match}} > 0 &&
+      (Dumper($a->{match}[0]) eq Dumper($b->{match}[0]));
 }
 
 sub prefix_match_count {
@@ -274,24 +125,28 @@ sub is_merging_array_member {
        ref $value eq 'ARRAY');
 }
 
-sub array_matches {
-    my ($key, $rule1, $rule2) = @_;
-    return unless is_merging_array_member($rule1->{match}{$key});
-    return unless is_merging_array_member($rule2->{match}{$key});
+sub array_matches($$) {
+    my ($rule1, $rule2) = @_;
+    return if @{$rule1->{match}} == 0 or @{$rule2->{match}} == 0;
+    return unless is_merging_array_member($rule1->{match}[0][1]);
+    return unless is_merging_array_member($rule2->{match}[0][1]);
+    return unless @{$rule2->{match}} > 0;
+    return unless $rule1->{match}[0][0] eq $rule2->{match}[0][0];
     my %r1 = %$rule1;
     my %r2 = %$rule2;
-    $r1{match} = {%{$r1{match}}};
-    $r2{match} = {%{$r2{match}}};
-    delete $r1{match}{$key};
-    delete $r2{match}{$key};
+    $r1{match} = [ @{$r1{match}} ];
+    $r2{match} = [ @{$r2{match}} ];
+    shift @{$r1{match}};
+    shift @{$r2{match}};
     return Dumper(\%r1) eq Dumper(\%r2);
 }
 
-sub array_match_count {
-    my ($key, $first, $rules) = @_;
+sub array_match_count($\@) {
+    my ($first, $rules) = @_;
+    return 0 unless @{$first->{match}} > 0;
     my $count = 0;
     foreach (@$rules) {
-        last unless array_matches($key, $first, $_);
+        last unless array_matches($first, $_);
         $count++;
     }
     return $count;
@@ -299,84 +154,6 @@ sub array_match_count {
 
 sub optimize {
     my @result;
-
-    # try to combine rules with arrays:
-    # saddr 1.2.3.4 proto tcp ACCEPT;
-    # saddr 5.6.7.8 proto tcp ACCEPT;
-    # ->
-    # saddr (1.2.3.4 5.6.7.8) proto tcp ACCEPT;
-    while (@_ > 0) {
-        my $rule = shift;
-        if (exists $rule->{match}) {
-            my $match_key;
-            my $match_count = 0;
-            my %match_copy = %{$rule->{match}};
-            while (my ($key, $value) = each %match_copy) {
-                next unless defined $value;
-                next if ref $value and ref $value eq 'HASH';
-                my $match_count2 = array_match_count($key, $rule, \@_);
-                if ($match_count2 > $match_count) {
-                    $match_key = $key;
-                    $match_count = $match_count2;
-                }
-            }
-
-            if ($match_count > 0) {
-                my @values = map {
-                    my $value = $_->{match}{$match_key};
-                    ref $value ? @$value : $value;
-                } ($rule, splice(@_, 0, $match_count));
-                $rule->{match}{$match_key} = \@values;
-                unshift @_, $rule;
-            } else {
-                push @result, $rule;
-            }
-        } else {
-            push @result, $rule;
-        }
-    }
-
-    @_ = @result;
-    undef @result;
-
-    # try to find a common prefix for modules
-    # mod state state INVALID DROP;
-    # mod state state (ESTABLISHED RELATED) ACCEPT;
-    # ->
-    # mod state {
-    #     state INVALID DROP;
-    #     state (ESTABLISHED RELATED) ACCEPT;
-    # }
-    while (@_ > 0) {
-        my $rule = shift;
-        if (exists $rule->{mod}) {
-            my $match_module;
-            my $match_count = 0;
-            foreach my $module (keys %{$rule->{mod}}) {
-                my $match_count2 = module_match_count($module, \@_);
-                if ($match_count2 > $match_count) {
-                    $match_module = $module;
-                    $match_count = $match_count2;
-                }
-            }
-            if ($match_count > 0) {
-                my @block = map {
-                    delete $_->{mod}{$match_module};
-                    $_;
-                } ($rule, splice(@_, 0, $match_count));
-                push @result, { mod => { $match_module => 1 },
-                                block => [ optimize(@block) ],
-                              };
-            } else {
-                push @result, $rule;
-            }
-        } else {
-            push @result, $rule;
-        }
-    }
-
-    @_ = @result;
-    undef @result;
 
     # try to find a common prefix and put rules in a block:
     # saddr 1.2.3.4 proto tcp dport ssh ACCEPT;
@@ -388,28 +165,26 @@ sub optimize {
     # }
     while (@_ > 0) {
         my $rule = shift;
-        if (exists $rule->{match}) {
-            my %prefix;
-            my $match_count = 0;
-            while (my ($key, $value) = each %{$rule->{match}}) {
-                my $prefix2 = { $key => $value };
-                my $match_count2 = prefix_match_count($prefix2, \@_);
-                if ($match_count2 > $match_count) {
-                    %prefix = %$prefix2;
-                    $match_count = $match_count2;
-                }
-            }
+        if (@{$rule->{match}} > 0) {
+            my $match_count = prefix_match_count($rule, \@_);
+
             if ($match_count > 0) {
-                my @block = map {
-                    foreach my $key (keys %prefix) {
-                        delete $_->{match}{$key};
-                    }
-                    #delete @_->{match}{keys %prefix};
-                    $_;
-                } ($rule, splice(@_, 0, $match_count));
-                push @result, { match => \%prefix,
-                                block => [ optimize(@block) ]
-                              };
+                my $match = $rule->{match}[0];
+                my @matching = ( $rule, splice(@_, 0, $match_count) );
+                map { shift @{$_->{match}} } @matching;
+
+                my @block = optimize(@matching);
+
+                if (@block == 1) {
+                    $rule = $block[0];
+                    unshift @{$rule->{match}}, $match;
+                    push @result, $rule;
+                } else {
+                    push @result, {
+                        match => [ $match ],
+                        block => \@block,
+                    };
+                }
             } else {
                 push @result, $rule;
             }
@@ -418,32 +193,31 @@ sub optimize {
         }
     }
 
-    # combine simple closures:
-    # proto tcp { dport http { LOG; ACCEPT; } }
+    @_ = @result;
+    undef @result;
+
+    # try to combine rules with arrays:
+    # saddr 1.2.3.4 proto tcp ACCEPT;
+    # saddr 5.6.7.8 proto tcp ACCEPT;
     # ->
-    # proto tcp dport http { LOG; ACCEPT; }
-    foreach my $rule (@result) {
-        next unless exists $rule->{block} && @{$rule->{block}} == 1;
+    # saddr (1.2.3.4 5.6.7.8) proto tcp ACCEPT;
+    while (@_ > 0) {
+        my $rule = shift;
+        my $match_count = array_match_count($rule, @_);
 
-        # a block with only one item can be merged
-        my $inner = $rule->{block}[0];
-        delete $rule->{block};
+        if ($match_count > 0) {
+            my $option = $rule->{match}[0][0];
+            my @matching = ( $rule, splice(@_, 0, $match_count) );
+            my @params = map {
+                (ref $_ and ref $_ eq 'ARRAY') ? @$_ : $_
+            } map {
+                $_->{match}[0][1]
+            } @matching;
 
-        # merge modules
-
-        # merge rule
-        foreach (qw(match jump target)) {
-            next unless exists $inner->{$_};
-            while (my ($key, $value) = each %{$inner->{$_}}) {
-                $rule->{$_}{$key} = $value;
-            }
-            delete $inner->{$_};
+            $rule->{match}[0][1] = \@params;
         }
 
-        # inherit everything else
-        while (my ($key, $value) = each %$inner) {
-            $rule->{$key} = $value;
-        }
+        push @result, $rule;
     }
 
     return @result;
@@ -452,23 +226,20 @@ sub optimize {
 sub flush_option {
     my ($line, $key, $value) = @_;
 
-    if (ref($value) and ref($value) eq 'HASH' and
-        $value->{wrap} eq 'pre-negation') {
+    if (ref($value) and ref($value) eq 'pre_negated') {
         push @$line, '!';
-        $value = $value->{value};
+        $value = $value->[0];
     }
 
     push @$line, $key;
 
-    if (ref($value) and ref($value) eq 'HASH' and
-        $value->{wrap} eq 'negation') {
+    if (ref($value) and ref($value) eq 'negated') {
         push @$line, '!';
-        $value = $value->{value};
+        $value = $value->[0];
     }
 
-    if (ref($value) and ref($value) eq 'HASH' and
-        $value->{wrap} eq 'multi') {
-        foreach (@{$value->{values}}) {
+    if (ref($value) and ref($value) eq 'params') {
+        foreach (@$value) {
             push @$line, format_array($_);
         }
     } elsif (defined $value) {
@@ -481,26 +252,32 @@ sub flush {
 
     my @r = @_ ? @_ : @rules;
     @r = optimize(@r);
+
     foreach my $rule (@r) {
         my @line;
         # assemble the line, match stuff first, then target parameters
-        foreach my $mod (keys %{$rule->{mod} || {}}) {
-            push @line, 'mod', $mod;
-        }
-
-        if ($rule->{match}{proto}) {
-            flush_option(\@line, 'proto', $rule->{match}{proto});
-            delete $rule->{match}{proto};
-        }
-
-        foreach (qw(match jump target)) {
-            unless (exists $rule->{$_}) {
-                push @line, 'NOP' if $_ eq 'jump' and not exists $rule->{block};
-                next;
+        if (exists $rule->{match}) {
+            foreach (@{$rule->{match}}) {
+                flush_option(\@line, @$_);
             }
+        }
 
-            while (my ($key, $value) = each %{$rule->{$_}}) {
-                flush_option(\@line, $key, $value);
+        if (exists $rule->{jump}) {
+            if (is_netfilter_core_target($rule->{jump}) ||
+                is_netfilter_module_target('ip', $rule->{jump})) {
+                push @line, $rule->{jump};
+            } else {
+                flush_option(\@line, 'jump', $rule->{jump});
+            }
+        } elsif (exists $rule->{goto}) {
+            flush_option(\@line, 'realgoto', $rule->{goto});
+        } elsif (not exists $rule->{block}) {
+            push @line, 'NOP';
+        }
+
+        if (exists $rule->{target}) {
+            foreach (@{$rule->{target}}) {
+                flush_option(\@line, @$_);
             }
         }
 
@@ -517,7 +294,7 @@ sub flush {
     undef @rules;
 }
 
-sub flush_domain {
+sub flush_domain() {
     flush;
     write_line '}' if defined $chain;
     write_line '}' if defined $table;
@@ -528,7 +305,7 @@ sub flush_domain {
     undef $domain;
 }
 
-sub tokenize {
+sub tokenize($) {
     local $_ = shift;
     my @result;
     while (s/^\s*"([^"]+)"//s || s/^\s*(!)// || s/^\s*(\S+)//s) {
@@ -537,135 +314,157 @@ sub tokenize {
     return @result;
 }
 
-sub wrap_pre_negated {
-    my ($option, $negated_ref, $value) = @_;
-    return $value unless $negated_ref && $$negated_ref;
-
-    my $wrap;
-    if (grep { $_ eq $option } @pre_negated) {
-        $wrap = 'pre-negation';
-    } elsif (grep { $_ eq $option } @negated) {
-        $wrap = 'negation';
-    }
-
-    die "option '$option' in line $. cannot be pre-negated\n"
-      unless defined $wrap;
-
-    undef $$negated_ref;
-
-    return { wrap => $wrap,
-             value => $value,
-           };
-}
-
-sub fetch_token {
+sub fetch_token($\@) {
     my ($option, $tokens) = @_;
     die "not enough arguments for option '$option' in line $."
       unless @$tokens > 0;
     shift @$tokens;
 }
 
-sub fetch_token_comma {
-    [ split(',', fetch_token(@_)) ]
+sub fetch_negated(\@) {
+    my $tokens = shift;
+    @$tokens > 0 && $tokens->[0] eq '!' && shift @$tokens;
 }
 
-sub fetch_two_tokens_comma {
-    return { wrap => 'multi',
-             values => [ fetch_token_comma(@_),
-                         fetch_token_comma(@_) ],
-           };
+sub merge_keywords(\%$) {
+    my ($rule, $keywords) = @_;
+    while (my ($name, $def) = each %$keywords) {
+        $rule->{keywords}{$name} = $def;
+    }
 }
 
-sub wrap_negated {
-    my ($option, $tokens, $fetch) = (shift, shift, shift);
+sub parse_def_option($\%$\@) {
+    my ($option, $def, $negated, $tokens) = @_;
 
-    my $negated = @$tokens > 0 && $tokens->[0] eq '!' && shift @$tokens;
+    my $params = $def->{params};
+    my $value;
 
-    die "option '$option' in line $. cannot be negated\n"
-      if $negated and not grep { $_ eq $option } @negated;
+    $negated = 1 if fetch_negated(@$tokens);
 
-    my $value = &$fetch($option, $tokens, @_);
+    unless (defined $params) {
+        undef $value;
+    } elsif (ref $params && ref $params eq 'CODE') {
+        # XXX we assume this is ipt_multiport
+        $value = [ split /,/, fetch_token($option, @$tokens) ];
+    } elsif ($params eq 'm') {
+        $value = bless [ fetch_token($option, @$tokens) ], 'multi';
+    } elsif ($params =~ /^[a-z]/) {
+        die if @$tokens < length($params);
 
-    $value = { wrap => 'negation',
-               value => $value,
-             }
+        my @params;
+        foreach my $p (split(//, $params)) {
+            if ($p eq 's') {
+                push @params, shift @$tokens;
+            } elsif ($p eq 'c') {
+                push @params, [ split /,/, shift @$tokens ];
+            } else {
+                die;
+            }
+        }
+
+        $value = @params == 1
+          ? $params[0]
+            : bless \@params, 'params';
+    } elsif ($params == 1) {
+        $value = fetch_token($option, @$tokens);
+    } else {
+        $value = bless [ map {
+            fetch_token($option, @$tokens)
+        } (1..$params) ], 'multi';
+    }
+
+    $value = bless [ $value ], exists $def->{pre_negation} ? 'pre_negated' : 'negated'
       if $negated;
 
     return $value;
 }
 
-sub parse_option {
+sub parse_option(\%$$\@) {
     my ($line, $option, $pre_negated, $tokens) = @_;
 
     my $cur = $line->{cur};
     die unless defined $cur;
 
+    $option = $aliases{$option} if exists $aliases{$option};
     $option = 'destination-ports' if $option eq 'dports';
     $option = 'source-ports' if $option eq 'sports';
 
-    if ($option eq 'p') {
-        my $keyword = 'protocol';
-        my $param = wrap_negated($keyword, $tokens, \&fetch_token);
-        # protocol implicitly loads the module
-        unless (ref $param) {
-            my $mod = $param eq 'ipv6-icmp' ? 'icmp6' : $param;
-            delete $line->{mod}{$mod};
+    if ($option eq 'protocol') {
+        my %def = ( params => 1 );
+        my $value = parse_def_option($option, %def, $pre_negated, @$tokens);
+        $line->{proto} = $value;
+        push @$cur, [ 'proto', $value ];
+
+        my $module = netfilter_canonical_protocol($value);
+        if (exists $proto_defs{ip}{$module}) {
+            merge_keywords(%$line, $proto_defs{ip}{$module}{keywords});
         }
-        $cur->{proto} = $param;
-    } elsif ($option eq 'm') {
+
+        if ($value =~ /^(?:tcp|udp|udplite|dccp|sctp)$/) {
+            my %def = (
+                params => 1,
+                negation => 1,
+               );
+            $line->{keywords}{sport} = { name => 'sport', %def };
+            $line->{keywords}{dport} = { name => 'dport', %def };
+        }
+    } elsif ($option eq 'match') {
         die unless @$tokens;
         my $param = shift @$tokens;
+        $line->{mod}{$param} = 1;
         # we don't need this module if the protocol with the
         # same name is already specified
-        $line->{mod}{$param} = 1
-          unless exists $cur->{proto} and
-            ($cur->{proto} eq $param or
-             $cur->{proto} =~ /^(ipv6-icmp|icmpv6)$/s and $param eq 'icmp6');
-    } elsif ($option eq 'set' and exists $line->{mod}{set}) {
-        $cur->{$option} = fetch_two_tokens_comma($option, $tokens);
-    } elsif (exists $p0{$option}) {
-        my $keyword = $p0{$option};
-        $cur->{$keyword} = wrap_pre_negated($keyword, \$pre_negated, undef);
-    } elsif (exists $p1{$option}) {
-        my $keyword = $p1{$option};
-        my $param = wrap_negated($keyword, $tokens, \&fetch_token);
-        $cur->{$keyword} = wrap_pre_negated($keyword, \$pre_negated, $param);
-        delete $cur->{$keyword}
-          if $keyword =~ /^[sd]addr$/ && $cur->{$keyword} eq '::/0';
-    } elsif (exists $p1c{$option}) {
-        my $keyword = $p1c{$option};
-        my $param = wrap_negated($keyword, $tokens, \&fetch_token_comma);
-        $cur->{$keyword} = wrap_pre_negated($keyword, \$pre_negated, $param);
-    } elsif (exists $p1multi{$option}) {
-        my $keyword = $p1multi{$option};
-        my $param = wrap_negated($keyword, $tokens, \&fetch_token);
-        $cur->{$keyword} ||= [];
-        push @{$cur->{$keyword}},
-          wrap_pre_negated($option, \$pre_negated, $param);
-    } elsif (exists $p2c{$option}) {
-        my $keyword = $p2c{$option};
-        my $param = wrap_negated($keyword, $tokens, \&fetch_two_tokens_comma);
-        $cur->{$keyword} = wrap_pre_negated($keyword, \$pre_negated, $param);
-    } elsif ($option eq 'j') {
+        push @$cur, [ 'mod', $param ]
+          unless exists $line->{proto} and
+            ($line->{proto} eq $param or
+             $line->{proto} =~ /^(ipv6-icmp|icmpv6)$/s and $param eq 'icmp6');
+
+        my $module = $param eq 'icmp6' ? 'icmpv6' : $param;
+        if (exists $match_defs{ip}{$module}) {
+            merge_keywords(%$line, $match_defs{ip}{$module}{keywords});
+        } elsif (exists $proto_defs{ip}{$module}) {
+            merge_keywords(%$line, $proto_defs{ip}{$module}{keywords});
+        }
+
+        if ($param =~ /^(?:tcp|udp|udplite|dccp|sctp)$/) {
+            my %def = (
+                params => 1,
+                negation => 1,
+               );
+            $line->{keywords}{sport} = { name => 'sport', %def };
+            $line->{keywords}{dport} = { name => 'dport', %def };
+        }
+    } elsif (exists $line->{keywords}{$option}) {
+        my $def = $line->{keywords}{$option};
+        my $value = parse_def_option($option, %$def, $pre_negated, @$tokens);
+
+        if (ref $value and ref $value eq 'multi' and
+              @{$line->{cur}} > 0 and $line->{cur}[-1][0] eq $option and
+                ref $line->{cur}[-1][1] eq 'multi') {
+            # merge multiple "--u32" into a ferm array
+            push @{$line->{cur}[-1][1]}, @$value;
+            return;
+        }
+
+        undef $pre_negated;
+        push @{$line->{cur}}, [ $def->{ferm_name} || $def->{name}, $value ];
+    } elsif ($option eq 'jump') {
         die unless @$tokens;
         my $target = shift @$tokens;
         # store the target in $line->{jump}
-        $cur = $line->{jump} = {};
-        unless (is_netfilter_core_target($target) ||
-                is_netfilter_module_target($target)) {
-            $cur->{jump} = $target;
-        } else {
-            $cur->{$target} = undef;
-        }
+        $line->{jump} = $target;
         # what now follows is target parameters; set $cur
         # correctly
-        $line->{cur} = $line->{target} = {};
-    } elsif ($option eq 'g') {
+        $line->{cur} = $line->{target} = [];
+
+        $line->{keywords} = {};
+        merge_keywords(%$line, $target_defs{ip}{$target}{keywords})
+          if exists $target_defs{ip}{$target};
+    } elsif ($option eq 'goto') {
         die unless @$tokens;
         my $target = shift @$tokens;
         # store the target in $line->{jump}
-        $cur = $line->{jump} = {};
-        $cur->{realgoto} = $target;
+        $line->{goto} = $target;
     } else {
         die "option '$option' in line $. not understood\n";
     }
@@ -681,8 +480,8 @@ if (grep { $_ eq '-h' || $_ eq '--help' } @ARGV) {
 }
 
 if (@ARGV == 0 && -t STDIN) {
-    open STDIN, "/sbin/iptables-save|"
-      or die "Failed run to /sbin/iptables-save: $!";
+    open STDIN, "iptables-save|"
+      or die "Failed run to iptables-save: $!";
 } elsif (grep { /^-./ } @ARGV) {
     require Pod::Usage;
     Pod::Usage::pod2usage(-exitstatus => 1,
@@ -694,6 +493,8 @@ print "# http://ferm.foo-projects.org/\n";
 
 $next_domain = $ENV{FERM_DOMAIN} || 'ip';
 
+my %policies;
+
 while (<>) {
     if (/^(?:#.*)?$/) {
         # empty or comment
@@ -701,6 +502,13 @@ while (<>) {
         $next_domain = $1 if /^#.*\b(ip|ip6)tables(?:-save)\b/;
     } elsif (/^\*(\w+)$/) {
         # table
+
+        if (keys %policies > 0) {
+            while (my ($chain, $policy) = each %policies) {
+                write_line('chain', $chain, 'policy', $policy, ';');
+            }
+            undef %policies;
+        }
 
         unless (defined $domain and $domain eq $next_domain) {
             flush_domain;
@@ -718,7 +526,7 @@ while (<>) {
     } elsif (/^:(\S+)\s+(\w+)\s+/) {
         # built-in chain
         die unless defined $table;
-        write_line('chain', $1, 'policy', $2, ';');
+        $policies{$1} = $2;
     } elsif (s/^-A (\S+)\s+//) {
         # a rule
         unless (defined $chain) {
@@ -732,22 +540,30 @@ while (<>) {
             write_line('chain', $chain, '{');
         }
 
+        if (exists $policies{$chain}) {
+            write_line('policy', $policies{$chain}, ';');
+            delete $policies{$chain};
+        }
+
         my @tokens = tokenize($_);
 
         my %line;
-        # separate 'match' parameters from 'targe't parameters; $cur
+        $line{keywords} = {};
+        merge_keywords(%line, $match_defs{ip}{''}{keywords});
+
+        # separate 'match' parameters from 'target' parameters; $cur
         # points to the current position
-        $line{cur} = $line{match} = {};
+        $line{cur} = $line{match} = [];
         while (@tokens) {
             local $_ = shift @tokens;
             if (/^-(\w)$/ || /^--(\S+)$/) {
-                parse_option(\%line, $1, undef, \@tokens);
+                parse_option(%line, $1, undef, @tokens);
             } elsif ($_ eq '!') {
                 die unless @tokens;
                 $_ = shift @tokens;
                 /^-(\w)$/ || /^--(\S+)$/
                   or die "option expected in line $.\n";
-                parse_option(\%line, $1, 1, \@tokens);
+                parse_option(%line, $1, 1, @tokens);
             } else {
                 print STDERR "warning: unknown token '$_' in line $.\n";
             }
@@ -763,6 +579,12 @@ while (<>) {
         }
     } else {
         print STDERR "line $. was not understood, ignoring it\n";
+    }
+}
+
+if (keys %policies > 0) {
+    while (my ($chain, $policy) = each %policies) {
+        write_line('chain', $chain, 'policy', $policy, ';');
     }
 }
 

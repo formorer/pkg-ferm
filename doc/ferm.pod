@@ -5,7 +5,7 @@
 #
 # ferm, a firewall setup program that makes firewall rules easy!
 #
-# Copyright (C) 2001-2008  Auke Kok, Max Kellermann
+# Copyright (C) 2001-2008 Max Kellermann, Auke Kok
 #
 # Comments, questions, greetings and additions to this program
 # may be sent to <ferm@foo-projects.org>
@@ -449,7 +449,7 @@ you may feel that using B<@subchain> requires less typing.
 =back
 
 
-=head2 Basic match keywords
+=head2 Basic iptables match keywords
 
 =over 8
 
@@ -583,7 +583,7 @@ ferm tries to keep up with supporting them all. This chapter describes
 modules which are currently supported.
 
 
-=head2 Netfilter match modules
+=head2 iptables match modules
 
 =over 8
 
@@ -1094,7 +1094,7 @@ further parameters.
 =back
 
 
-=head2 Netfilter target modules
+=head2 iptables target modules
 
 The following additional targets are available in ferm, provided that
 you enabled them in your kernel:
@@ -1316,6 +1316,102 @@ Log packets to a userspace program.
 
 =back
 
+=head1 OTHER DOMAINS
+
+Since version 2.0, B<ferm> supports not only I<ip> and I<ip6>, but
+also I<arp> (ARP tables) and I<eb> (ethernet bridging tables).  The
+concepts are similar to I<iptables>.
+
+=head2 arptables keywords
+
+=over 8
+
+=item B<source-ip>, B<destination-ip>
+
+Matches the source or destination IPv4 address.  Same as B<saddr> and
+B<daddr> in the I<ip> domain.
+
+=item B<source-mac>, B<destination-mac>
+
+Matches the source or destination MAC address.
+
+=item B<interface>, B<outerface>
+
+Input and output interface.
+
+=item B<h-length>
+
+Hardware length of the packet.
+
+    chain INPUT h-length 64 ACCEPT;
+
+=item B<opcode>
+
+Operation code, for details see the iptables(8).
+
+    opcode 9 ACCEPT;
+
+=item B<h-type>
+
+Hardware type.
+
+    h-type 1 ACCEPT;
+
+=item B<proto-type>
+
+Protocol type.
+
+    proto-type 0x800 ACCEPT;
+
+=item B<Mangling>
+
+The keywords B<mangle-ip-s>, B<mangle-ip-d>, B<mangle-mac-s>,
+B<mangle-mac-d>, B<mangle-target> may be used for ARP mangling.  See
+iptables(8) for details.
+
+=back
+
+=head2 ebtables keywords
+
+=over 8
+
+=item B<proto>
+
+Matches the protocol which created the frame, e.g. I<IPv4> or B<PPP>.
+For a list, see F</etc/ethertypes>.
+
+=item B<interface>, B<outerface>
+
+Physical input and output interface.
+
+=item B<logical-in>, B<logical-out>
+
+The logical bridge interface.
+
+=item B<saddr>, B<daddr>
+
+Matches source or destination MAC address.
+
+=item B<Match modules>
+
+The following match modules are supported: 802.3, arp, ip, mark_m,
+pkttype, stp, vlan, log.
+
+=item B<Target extensions>
+
+The following target extensions are supported: arpreply, dnat, mark,
+redirect, snat.
+
+Please note that there is a conflict between I<--mark> from the
+I<mark_m> match module and I<-j mark>.  Since both would be
+implemented with the ferm keyword B<mark>, we decided to solve this by
+writing the target's name in uppercase, like in the other domains.
+The following example rewrites mark 1 to 2:
+
+    mark 1 MARK 2;
+
+=back
+
 =head1 ADVANCED FEATURES
 
 =head2 Variables
@@ -1374,7 +1470,7 @@ just like any other variable.
 
 =item B<$DOMAIN>
 
-The current domain. "ip" or "ip6".
+The current domain.  One of I<ip>, I<ip6>, I<arp>, I<eb>.
 
 =item B<$TABLE>
 
@@ -1459,6 +1555,7 @@ string are false, everything else is true.  Examples for true values:
     (a b); 1; 'foo'; (0 0)
 
 Examples for false values:
+
     (); 0; '0'; ''
 
 There is also B<@else>:
@@ -1548,91 +1645,6 @@ Example for OpenWRT:
     scp mywrt/firewall.user mywrt.local.net:/etc/
     ssh mywrt.local.net /etc/firewall.user
 
-=head1 TRANSITION FROM FERM 1.1
-
-ferm 1.2 aims to be 100% compatible with ferm 1.1, i.e. old
-configuration files should work as expected.  For a "clean" ferm 1.2
-configuration without warnings, here is a list of the most important
-changes:
-
-=over 8
-
-=item I<ipfwadm and ipchains>
-
-Support for these has been removed.
-
-=item I<options B<clearall>, B<flushall>, B<flushchains>, B<createchains>>
-
-All these options are always implied.  There is no option anymore to
-disable them.
-
-=item I<option automod>
-
-Automatic module loading is deprecated.  It still works for now, at
-least for modules which were already supported by ferm 1.1, but it is
-expected to be removed in ferm 1.3.
-
-=item I<option location>
-
-ferm assumes that the iptables utilities are always installed in
-/sbin.
-
-=item I<Chain policies>
-
-Chain policies should be written in a dedicated statement; ferm 1.1:
-
- chain INPUT policy DROP {
-   # ...
- }
-
-ferm 1.2:
-
- chain INPUT {
-   policy DROP;
-   # ...
- }
-
-=item I<Variables>
-
-The concept of variables has been overhauled in ferm 1.2; you can now
-declare functions which take parameters.  Besides that, you should use
-the new syntax:
-
- @def $FOO = (http ssh);
- chain INPUT proto tcp dport $FOO ACCEPT;
-
-=item I<Arrays>
-
-Arrays used to be specified with commas separating the items.  In ferm
-1.2, you separate array items only by whitespace.
-
-=item I<Misc syntax changes>
-
-Other small syntax changes:
-
-=over
-
-=item *
-
-built-in target names must be upper case; chains are lower case
-
-=item *
-
-MASQUERADE, not MASQ
-
-=item *
-
-A lot of shortcuts are deprecated, since they are polluting the namespace, e.g. "mac", "tosrc".
-
-=item *
-
-"source addr $A port $B" is deprecated, use "sdaddr $A sport $B"
-instead.  The same for "destination".
-
-=back
-
-=back
-
 =head1 OPTIONS
 
 =over 12
@@ -1676,8 +1688,13 @@ Enable fast mode: ferm generates an iptables-save(8) file, and
 installs it with iptables-restore(8). This is much faster, because
 ferm calls iptables(8) once for every rule by default.
 
-Watch out for iptables versions older than 1.3, they might not work
-with this option due to quoting bugs.
+Fast mode is enabled by default since B<ferm> 2.0, deprecating this
+option.
+
+=item B<--slow>
+
+Disable fast mode, i.e. run iptables(8) for every rule, and don't use
+iptables-restore(8).
 
 =item B<--shell>
 
@@ -1725,8 +1742,8 @@ If you find a bug, please tell us: ferm@foo-projects.org
 
 =head1 COPYRIGHT
 
-Copyright (C) 2001-2008 Auke Kok <sofar@foo-projects.org>, Max
-Kellermann <max@foo-projects.org>
+Copyright (C) 2001-2008 Max Kellermann <max@foo-projects.org>, Auke
+Kok <sofar@foo-projects.org>
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -1745,7 +1762,7 @@ USA
 
 =head1 AUTHOR
 
-Auke Kok <sofar@foo-projects.org>, Max Kellermann
-<max@foo-projects.org>
+Max Kellermann <max@foo-projects.org>, Auke Kok
+<sofar@foo-projects.org>
 
 =cut

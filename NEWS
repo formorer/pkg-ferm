@@ -3,8 +3,56 @@
 
     version history for ferm
 
-    Auke Kok <sofar@foo-projects.org>
     Max Kellermann <max@foo-projects.org>
+    Auke Kok <sofar@foo-projects.org>
+
+
+v2.0.2 - 26 Jul 2008
+  - allow duplicate specification of "table" and "chain", for better
+    1.3.x compatibility.  Support for this will be removed in a later
+    release.  This does not apply to "domain".
+
+
+v2.0.1 - 24 Jul 2008
+  - generate "COMMIT" lines when flushing in fast mode
+  - don't hard-code the path of iptables-save
+  - install manpages in PREFIX/share/man
+
+
+v2.0 - 22 Jul 2008
+  - don't hard code built-in match modules
+  - support for arptables and ebtables
+  - removed support for deprecated ferm 1.1 syntax
+    - removed the "set" and the "option" keyword
+    - removed support for array-in-string
+    - cleared the deprecated keyword translation table
+    - removed TOS parameter shortcuts
+    - don't default to policy if no action is specified
+    - don't allow lower case built-in chain or policy names
+    - removed --automod, --use, --clearall, --flushall, --flushchains,
+      --createchains, --location, --debug, --verbose
+    - comma in array is forbidden
+    - removed "source" and "destination" as prefix for "addr" and "port" 
+  - don't allow match rules before and after "policy"
+  - removed support for deprecated netfilter modules
+    - dst
+    - frag
+    - iplimit
+  - rewrote the internal rule storage
+    - honor the order of match modules
+  - import-ferm rewrite
+    - use module data from ferm
+    - write policy in chain block
+  - do not generate implicit protocol modules
+  - do not allow targets options after "jump"
+  - fixed rollback when there is no iptables-save
+  - enable fast mode by default, can be disabled with --slow
+
+
+v1.3.5 - 21 Jul 2008
+  - don't ignore unknown keywords after target (reported by Kai
+    Sassmannshausen)
+  - don't include hidden files (reported by Florian Reitmeir)
 
 
 v1.3.4 - 28 May 2008

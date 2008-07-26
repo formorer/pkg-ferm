@@ -129,7 +129,7 @@
 .\" ========================================================================
 .\"
 .IX Title "FERM 1"
-.TH FERM 1 "2008-05-28" "ferm 1.3.4" "FIREWALL RULES MADE EASY"
+.TH FERM 1 "2008-07-24" "ferm 2.0.2" "FIREWALL RULES MADE EASY"
 .SH "NAME"
 \&\fBferm\fR \- a firewall rule parser for linux
 .SH "SYNOPSIS"
@@ -572,8 +572,8 @@ Optionally, you may define the name of the sub chain:
 .Sp
 You can achieve the same by explicitly declaring a custom chain, but
 you may feel that using \fB@subchain\fR requires less typing.
-.Sh "Basic match keywords"
-.IX Subsection "Basic match keywords"
+.Sh "Basic iptables match keywords"
+.IX Subsection "Basic iptables match keywords"
 .IP "\fBinterface [interface\-name]\fR" 8
 .IX Item "interface [interface-name]"
 Define the interface name, your outside network card, like eth0,
@@ -685,8 +685,8 @@ Netfilter is modular. Modules may provide additional targets and match
 keywords. The list of netfilter modules is constantly growing, and
 ferm tries to keep up with supporting them all. This chapter describes
 modules which are currently supported.
-.Sh "Netfilter match modules"
-.IX Subsection "Netfilter match modules"
+.Sh "iptables match modules"
+.IX Subsection "iptables match modules"
 .IP "\fBaccount\fR" 8
 .IX Item "account"
 Account traffic for all hosts in defined network/netmask.  This is one
@@ -1245,8 +1245,8 @@ filter in a ferm list; these are not expanded into multiple rules.
 .IX Item "unclean"
 Matches packets which seem malformed or unusual. This match has no
 further parameters.
-.Sh "Netfilter target modules"
-.IX Subsection "Netfilter target modules"
+.Sh "iptables target modules"
+.IX Subsection "iptables target modules"
 The following additional targets are available in ferm, provided that
 you enabled them in your kernel:
 .IP "\fB\s-1CLASSIFY\s0\fR" 8
@@ -1488,6 +1488,89 @@ Log packets to a userspace program.
 \&    ULOG ulog\-cprange 256;
 \&    ULOG ulog\-qthreshold 10;
 .Ve
+.SH "OTHER DOMAINS"
+.IX Header "OTHER DOMAINS"
+Since version 2.0, \fBferm\fR supports not only \fIip\fR and \fIip6\fR, but
+also \fIarp\fR (\s-1ARP\s0 tables) and \fIeb\fR (ethernet bridging tables).  The
+concepts are similar to \fIiptables\fR.
+.Sh "arptables keywords"
+.IX Subsection "arptables keywords"
+.IP "\fBsource-ip\fR, \fBdestination-ip\fR" 8
+.IX Item "source-ip, destination-ip"
+Matches the source or destination IPv4 address.  Same as \fBsaddr\fR and
+\&\fBdaddr\fR in the \fIip\fR domain.
+.IP "\fBsource-mac\fR, \fBdestination-mac\fR" 8
+.IX Item "source-mac, destination-mac"
+Matches the source or destination \s-1MAC\s0 address.
+.IP "\fBinterface\fR, \fBouterface\fR" 8
+.IX Item "interface, outerface"
+Input and output interface.
+.IP "\fBh\-length\fR" 8
+.IX Item "h-length"
+Hardware length of the packet.
+.Sp
+.Vb 1
+\&    chain INPUT h\-length 64 ACCEPT;
+.Ve
+.IP "\fBopcode\fR" 8
+.IX Item "opcode"
+Operation code, for details see the \fIiptables\fR\|(8).
+.Sp
+.Vb 1
+\&    opcode 9 ACCEPT;
+.Ve
+.IP "\fBh\-type\fR" 8
+.IX Item "h-type"
+Hardware type.
+.Sp
+.Vb 1
+\&    h\-type 1 ACCEPT;
+.Ve
+.IP "\fBproto-type\fR" 8
+.IX Item "proto-type"
+Protocol type.
+.Sp
+.Vb 1
+\&    proto\-type 0x800 ACCEPT;
+.Ve
+.IP "\fBMangling\fR" 8
+.IX Item "Mangling"
+The keywords \fBmangle-ip-s\fR, \fBmangle-ip-d\fR, \fBmangle-mac-s\fR,
+\&\fBmangle-mac-d\fR, \fBmangle-target\fR may be used for \s-1ARP\s0 mangling.  See
+\&\fIiptables\fR\|(8) for details.
+.Sh "ebtables keywords"
+.IX Subsection "ebtables keywords"
+.IP "\fBproto\fR" 8
+.IX Item "proto"
+Matches the protocol which created the frame, e.g. \fIIPv4\fR or \fB\s-1PPP\s0\fR.
+For a list, see \fI/etc/ethertypes\fR.
+.IP "\fBinterface\fR, \fBouterface\fR" 8
+.IX Item "interface, outerface"
+Physical input and output interface.
+.IP "\fBlogical-in\fR, \fBlogical-out\fR" 8
+.IX Item "logical-in, logical-out"
+The logical bridge interface.
+.IP "\fBsaddr\fR, \fBdaddr\fR" 8
+.IX Item "saddr, daddr"
+Matches source or destination \s-1MAC\s0 address.
+.IP "\fBMatch modules\fR" 8
+.IX Item "Match modules"
+The following match modules are supported: 802.3, arp, ip, mark_m,
+pkttype, stp, vlan, log.
+.IP "\fBTarget extensions\fR" 8
+.IX Item "Target extensions"
+The following target extensions are supported: arpreply, dnat, mark,
+redirect, snat.
+.Sp
+Please note that there is a conflict between \fI\-\-mark\fR from the
+\&\fImark_m\fR match module and \fI\-j mark\fR.  Since both would be
+implemented with the ferm keyword \fBmark\fR, we decided to solve this by
+writing the target's name in uppercase, like in the other domains.
+The following example rewrites mark 1 to 2:
+.Sp
+.Vb 1
+\&    mark 1 MARK 2;
+.Ve
 .SH "ADVANCED FEATURES"
 .IX Header "ADVANCED FEATURES"
 .Sh "Variables"
@@ -1550,7 +1633,7 @@ Some variables are set internally by ferm. Ferm scripts can use them
 just like any other variable.
 .IP "\fB$DOMAIN\fR" 8
 .IX Item "$DOMAIN"
-The current domain. \*(L"ip\*(R" or \*(L"ip6\*(R".
+The current domain.  One of \fIip\fR, \fIip6\fR, \fIarp\fR, \fIeb\fR.
 .IP "\fB$TABLE\fR" 8
 .IX Item "$TABLE"
 The current netfilter table.
@@ -1647,7 +1730,10 @@ string are false, everything else is true.  Examples for true values:
 .Ve
 .PP
 Examples for false values:
-    (); 0; '0'; ''
+.PP
+.Vb 1
+\&    (); 0; '0'; ''
+.Ve
 .PP
 There is also \fB@else\fR:
 .PP
@@ -1743,76 +1829,6 @@ Example for OpenWRT:
 \&    scp mywrt/firewall.user mywrt.local.net:/etc/
 \&    ssh mywrt.local.net /etc/firewall.user
 .Ve
-.SH "TRANSITION FROM FERM 1.1"
-.IX Header "TRANSITION FROM FERM 1.1"
-ferm 1.2 aims to be 100% compatible with ferm 1.1, i.e. old
-configuration files should work as expected.  For a \*(L"clean\*(R" ferm 1.2
-configuration without warnings, here is a list of the most important
-changes:
-.IP "\fIipfwadm and ipchains\fR" 8
-.IX Item "ipfwadm and ipchains"
-Support for these has been removed.
-.IP "\fIoptions \f(BIclearall\fI, \f(BIflushall\fI, \f(BIflushchains\fI, \f(BIcreatechains\fI\fR" 8
-.IX Item "options clearall, flushall, flushchains, createchains"
-All these options are always implied.  There is no option anymore to
-disable them.
-.IP "\fIoption automod\fR" 8
-.IX Item "option automod"
-Automatic module loading is deprecated.  It still works for now, at
-least for modules which were already supported by ferm 1.1, but it is
-expected to be removed in ferm 1.3.
-.IP "\fIoption location\fR" 8
-.IX Item "option location"
-ferm assumes that the iptables utilities are always installed in
-/sbin.
-.IP "\fIChain policies\fR" 8
-.IX Item "Chain policies"
-Chain policies should be written in a dedicated statement; ferm 1.1:
-.Sp
-.Vb 3
-\& chain INPUT policy DROP {
-\&   # ...
-\& }
-.Ve
-.Sp
-ferm 1.2:
-.Sp
-.Vb 4
-\& chain INPUT {
-\&   policy DROP;
-\&   # ...
-\& }
-.Ve
-.IP "\fIVariables\fR" 8
-.IX Item "Variables"
-The concept of variables has been overhauled in ferm 1.2; you can now
-declare functions which take parameters.  Besides that, you should use
-the new syntax:
-.Sp
-.Vb 2
-\& @def $FOO = (http ssh);
-\& chain INPUT proto tcp dport $FOO ACCEPT;
-.Ve
-.IP "\fIArrays\fR" 8
-.IX Item "Arrays"
-Arrays used to be specified with commas separating the items.  In ferm
-1.2, you separate array items only by whitespace.
-.IP "\fIMisc syntax changes\fR" 8
-.IX Item "Misc syntax changes"
-Other small syntax changes:
-.RS 8
-.IP "*" 4
-built-in target names must be upper case; chains are lower case
-.IP "*" 4
-\&\s-1MASQUERADE\s0, not \s-1MASQ\s0
-.IP "*" 4
-A lot of shortcuts are deprecated, since they are polluting the namespace, e.g. \*(L"mac\*(R", \*(L"tosrc\*(R".
-.IP "*" 4
-\&\*(L"source addr \f(CW$A\fR port \f(CW$B\fR\*(R" is deprecated, use \*(L"sdaddr \f(CW$A\fR sport \f(CW$B\fR\*(R"
-instead.  The same for \*(L"destination\*(R".
-.RE
-.RS 8
-.RE
 .SH "OPTIONS"
 .IX Header "OPTIONS"
 .IP "\fB\-\-noexec\fR" 12
@@ -1848,8 +1864,12 @@ Enable fast mode: ferm generates an \fIiptables\-save\fR\|(8) file, and
 installs it with \fIiptables\-restore\fR\|(8). This is much faster, because
 ferm calls \fIiptables\fR\|(8) once for every rule by default.
 .Sp
-Watch out for iptables versions older than 1.3, they might not work
-with this option due to quoting bugs.
+Fast mode is enabled by default since \fBferm\fR 2.0, deprecating this
+option.
+.IP "\fB\-\-slow\fR" 12
+.IX Item "--slow"
+Disable fast mode, i.e. run \fIiptables\fR\|(8) for every rule, and don't use
+\&\fIiptables\-restore\fR\|(8).
 .IP "\fB\-\-shell\fR" 12
 .IX Item "--shell"
 Generate a shell script which calls \fIiptables\-restore\fR\|(8) and prints it.
@@ -1884,8 +1904,8 @@ Bugs? What bugs?
 If you find a bug, please tell us: ferm@foo\-projects.org
 .SH "COPYRIGHT"
 .IX Header "COPYRIGHT"
-Copyright (C) 2001\-2008 Auke Kok <sofar@foo\-projects.org>, Max
-Kellermann <max@foo\-projects.org>
+Copyright (C) 2001\-2008 Max Kellermann <max@foo\-projects.org>, Auke
+Kok <sofar@foo\-projects.org>
 .PP
 This program is free software; you can redistribute it and/or modify
 it under the terms of the \s-1GNU\s0 General Public License as published by
@@ -1903,5 +1923,5 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, \s-1MA\s0 02111\-1307
 \&\s-1USA\s0
 .SH "AUTHOR"
 .IX Header "AUTHOR"
-Auke Kok <sofar@foo\-projects.org>, Max Kellermann
-<max@foo\-projects.org>
+Max Kellermann <max@foo\-projects.org>, Auke Kok
+<sofar@foo\-projects.org>

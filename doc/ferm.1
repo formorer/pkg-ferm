@@ -129,7 +129,7 @@
 .\" ========================================================================
 .\"
 .IX Title "FERM 1"
-.TH FERM 1 "2008-07-24" "ferm 2.0.2" "FIREWALL RULES MADE EASY"
+.TH FERM 1 "2008-09-30" "ferm 2.0.3~svn20080930" "FIREWALL RULES MADE EASY"
 .SH "NAME"
 \&\fBferm\fR \- a firewall rule parser for linux
 .SH "SYNOPSIS"
@@ -1063,6 +1063,10 @@ Matches IPsec policy being applied to this packet.
 \&    mod policy mode tunnel tunnel\-dst 192.168.2.1 ACCEPT;
 \&    mod policy strict next reqid 24 spi 0x11 ACCEPT;
 .Ve
+.Sp
+Note that the keyword \fIproto\fR is also used as a shorthand version of
+\&\fIprotocol\fR (built\-in match module).  You can fix this conflict by
+always using the long keyword \fIprotocol\fR.
 .IP "\fBpsd\fR" 8
 .IX Item "psd"
 Detect \s-1TCP/UDP\s0 port scans.

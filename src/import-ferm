@@ -28,7 +28,7 @@
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #
 
-# $Id: import-ferm 1263 2008-07-24 06:36:33Z max $
+# $Id: import-ferm 1279 2008-09-30 17:55:09Z max $
 
 use strict;
 
@@ -393,7 +393,7 @@ sub parse_option(\%$$\@) {
         my %def = ( params => 1 );
         my $value = parse_def_option($option, %def, $pre_negated, @$tokens);
         $line->{proto} = $value;
-        push @$cur, [ 'proto', $value ];
+        push @$cur, [ 'protocol', $value ];
 
         my $module = netfilter_canonical_protocol($value);
         if (exists $proto_defs{ip}{$module}) {

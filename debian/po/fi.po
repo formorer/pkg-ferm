@@ -1,0 +1,32 @@
+msgid ""
+msgstr ""
+"Project-Id-Version: ferm\n"
+"Report-Msgid-Bugs-To: ferm-maintainers@ned.snow-crash.org\n"
+"POT-Creation-Date: 2006-09-25 22:40+0200\n"
+"PO-Revision-Date: \n"
+"Last-Translator: Esko Arajärvi <edu@iki.fi>\n"
+"Language-Team: Finnish <debian-l10n-finnish@lists.debian.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"X-Poedit-Language: Finnish\n"
+"X-Poedit-Country: FINLAND\n"
+
+#. Type: boolean
+#. Description
+#: ../ferm.templates:1001
+msgid "Enable ferm on bootup?"
+msgstr "Käynnistetäänkö ferm käynnistettäessä tietokone?"
+
+#. Type: boolean
+#. Description
+#: ../ferm.templates:1001
+msgid "Ferm can load firewall rules on every bootup from /etc/ferm/ferm.conf."
+msgstr "Ferm voi ladata palomuurisäännöt tiedostosta /etc/ferm/ferm.conf jokaisen käynnistyksen yhteydessä."
+
+#. Type: boolean
+#. Description
+#: ../ferm.templates:1001
+msgid "The default configuration allows SSH login on port 22; if you are installing this package remotely on another port, you should not choose this option, and later edit /etc/default/ferm to enable ferm."
+msgstr "Oletusasetukset sallivat SSH-kirjautumiset portissa 22. Jos asennat tätä pakettia etänä toisen portin kautta, älä valitse tätä vaihtoehtoa, vaan muokkaa myöhemmin tiedostoa /etc/default/ferm ottaaksesi fermin käyttöön."
+

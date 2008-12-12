@@ -9,8 +9,10 @@
 
 <body style="background-color: white">
 
-<p><a name="__index__"></a></p>
+
 <!-- INDEX BEGIN -->
+<div name="index">
+<p><a name="__index__"></a></p>
 
 <ul>
 
@@ -86,9 +88,11 @@
 	<li><a href="#copyright">COPYRIGHT</a></li>
 	<li><a href="#author">AUTHOR</a></li>
 </ul>
+
+<hr name="index" />
+</div>
 <!-- INDEX END -->
 
-<hr />
 <p>
 </p>
 <h1><a name="name">NAME</a></h1>
@@ -113,7 +117,7 @@ good rules than the proper implementation of the rule.</p>
 language, which allows variables, functions, arrays, blocks. It also
 allows you to include other files, allowing you to create libraries of
 commonly used structures and functions.</p>
-<p><strong>ferm</strong>, pronounced ``firm'', stands for ``For Easy Rule Making''.</p>
+<p><strong>ferm</strong>, pronounced &quot;firm&quot;, stands for &quot;For Easy Rule Making&quot;.</p>
 <p>
 </p>
 <hr />
@@ -209,7 +213,7 @@ Every firewall consists of two things: First, look if network
 traffic matches certain conditions, and second, what to do
 with that traffic.</p>
 <p>You may specify conditions that are valid for the kernel
-interface program you are using, probably iptables(8). For
+interface program you are using, probably <code>iptables(8)</code>. For
 instance, in iptables, when you are trying to match tcp
 packets, you would say:</p>
 <pre>
@@ -232,56 +236,35 @@ breaks, meaning the above example is identical to the following:</p>
       ACCEPT;</pre>
 <p>Here's a list of the special characters:</p>
 <dl>
-<dt><strong><a name="item__3b"><strong>;</strong></a></strong>
+<dt><strong><a name="_" class="item"><strong>;</strong></a></strong></dt>
 
 <dd>
 <p>This character finalizes a rule.</p>
-</dd>
-<dd>
 <p>Separated by semicolons, you may write multiple rules in one line,
 although this decreases readability:</p>
-</dd>
-<dd>
 <pre>
     protocol tcp ACCEPT; protocol udp DROP;</pre>
 </dd>
-</li>
-<dt><strong><a name="item__7b_7d"><strong>{}</strong></a></strong>
+<dt><strong><a name="__" class="item"><strong>{}</strong></a></strong></dt>
 
 <dd>
 <p>The nesting symbol defines a 'block' of rules.</p>
-</dd>
-<dd>
 <p>The curly brackets contain any number of nested rules. All matches
 before the block are carried forward to these.</p>
-</dd>
-<dd>
 <p>The closing curly bracket finalizes the rule set. You should not write
 a ';' after that, because that would be an empty rule.</p>
-</dd>
-<dd>
 <p>Example:</p>
-</dd>
-<dd>
 <pre>
     chain INPUT proto icmp {
         icmp-type echo-request ACCEPT;
         DROP;
     }</pre>
-</dd>
-<dd>
 <p>This block shows two rules inside a block, which will both be merged
 with anything in front of it, so you will get two rules:</p>
-</dd>
-<dd>
 <pre>
     iptables -A INPUT -p icmp --icmp-type echo-request -j ACCEPT
     iptables -A INPUT -p icmp -j DROP</pre>
-</dd>
-<dd>
 <p>There can be multiple nesting levels:</p>
-</dd>
-<dd>
 <pre>
     chain INPUT {
         proto icmp {
@@ -290,147 +273,104 @@ with anything in front of it, so you will get two rules:</p>
         }
         daddr 172.16.0.0/12 REJECT;
     }</pre>
-</dd>
-<dd>
 <p>Note that the 'REJECT' rule is not affected by 'proto icmp', although
 there is no ';' after the closing curly brace. Translated to iptables:</p>
-</dd>
-<dd>
 <pre>
     iptables -A INPUT -p icmp --icmp-type echo-request -j ACCEPT
     iptables -A INPUT -p icmp -j DROP
     iptables -A INPUT -d 172.16.0.0/12 -j REJECT</pre>
 </dd>
-</li>
-<dt><strong><a name="item__24"><strong>$</strong></a></strong>
+<dt><strong><a name="_" class="item"><strong>$</strong></a></strong></dt>
 
 <dd>
 <p>Variable expansion. Replaces '$FOO' by the value of the variable. See
 the section <em>VARIABLES</em> for details.</p>
 </dd>
-</li>
-<dt><strong><a name="item__26"><strong>&amp;</strong></a></strong>
+<dt><strong><a name="_" class="item"><strong>&amp;</strong></a></strong></dt>
 
 <dd>
 <p>Function call. See the section <em>FUNCTIONS</em> for details.</p>
 </dd>
-</li>
-<dt><strong><a name="item__28_29"><strong>()</strong></a></strong>
+<dt><strong><a name="__" class="item"><strong>()</strong></a></strong></dt>
 
 <dd>
 <p>The array symbol. Using the parentheses, you can define
 a 'list' of values that should be applied for the key to the
 left of it.</p>
-</dd>
-<dd>
 <p>Example:</p>
-</dd>
-<dd>
 <pre>
     protocol ( tcp udp icmp )</pre>
-</dd>
-<dd>
 <p>this will result in three rules:</p>
-</dd>
-<dd>
 <pre>
     ... -p tcp ...
     ... -p udp ...
     ... -p icmp ...</pre>
-</dd>
-<dd>
 <p>Only values can be 'listed', so you cannot do something like this:</p>
-</dd>
-<dd>
 <pre>
     proto tcp ( ACCEPT LOG );</pre>
-</dd>
-<dd>
 <p>but you can do this:</p>
-</dd>
-<dd>
 <pre>
     chain (INPUT OUTPUT FORWARD) proto (icmp udp tcp) DROP;</pre>
-</dd>
-<dd>
 <p>(which will result in nine rules!)</p>
-</dd>
-<dd>
 <p>Values are separated by spaces. The array symbol is both left- and
 right-associative, in contrast with the nesting block, which is
 left-associative only.</p>
 </dd>
-</li>
-<dt><strong><a name="item___23"><code> # </code></a></strong>
+<dt><strong><a name="_" class="item"><code> # </code></a></strong></dt>
 
 <dd>
 <p>The comment symbol. Anything that follows this symbol up to
 the end of line is ignored.</p>
 </dd>
-</li>
-<dt><strong><a name="item__60command_60"><code>`command`</code></a></strong>
+<dt><strong><a name="command" class="item"><code>`command`</code></a></strong></dt>
 
 <dd>
 <p>Execute the command in a shell, and insert the process output. See the
 section <em>backticks</em> for details.</p>
 </dd>
-</li>
-<dt><strong><a name="item__27string_27"><code>'string'</code></a></strong>
+<dt><strong><a name="string" class="item"><code>'string'</code></a></strong></dt>
 
 <dd>
 <p>Quote a string which may contain whitespaces, the dollar sign etc.</p>
-</dd>
-<dd>
 <pre>
     LOG log-prefix ' hey, this is my log prefix!';</pre>
 </dd>
-</li>
-<dt><strong><a name="item__22string_22"><code>&quot;string&quot;</code></a></strong>
+<dt><strong><a name="string2" class="item"><a href="#string"><code>&quot;string&quot;</code></a></a></strong></dt>
 
 <dd>
 <p>Quote a string (see above), but variable references with a dollar sign
 are evaluated:</p>
-</dd>
-<dd>
 <pre>
     DNAT to &quot;$myhost:$myport&quot;;</pre>
 </dd>
-</li>
 </dl>
 <p>
 </p>
 <h2><a name="keywords">Keywords</a></h2>
 <p>In the previous section, we already introduced some basic keywords
-like ``chain'', ``protocol'' and ``ACCEPT''. Let's explore their nature.</p>
+like &quot;chain&quot;, &quot;protocol&quot; and &quot;ACCEPT&quot;. Let's explore their nature.</p>
 <p>There are three kinds of keywords:</p>
 <dl>
 <dt>
 <dd>
 <p><strong>location</strong> keywords define where a rule will be created. Example:
-``table'', ``chain''.</p>
+&quot;table&quot;, &quot;chain&quot;.</p>
 </dd>
-</li>
 <dt>
 <dd>
 <p><strong>match</strong> keywords perform a test on all passing packets. The current
 rule is without effect if one (or more) of the matches does not
-pass. Example: ``proto'', ``daddr''.</p>
+pass. Example: &quot;proto&quot;, &quot;daddr&quot;.</p>
+<p>Most matches are followed by a parameter: &quot;proto tcp&quot;, &quot;daddr
+172.16.0.0/12&quot;.</p>
 </dd>
-<dd>
-<p>Most matches are followed by a parameter: ``proto tcp'', ``daddr
-172.16.0.0/12''.</p>
-</dd>
-</li>
 <dt>
 <dd>
-<p><strong>target</strong> keywords state what to do with a packet. Example: ``ACCEPT'',
-``REJECT'', ``jump''.</p>
+<p><strong>target</strong> keywords state what to do with a packet. Example: &quot;ACCEPT&quot;,
+&quot;REJECT&quot;, &quot;jump&quot;.</p>
+<p>Some targets define more keywords to specify details: &quot;REJECT
+reject-with icmp-net-unreachable&quot;.</p>
 </dd>
-<dd>
-<p>Some targets define more keywords to specify details: ``REJECT
-reject-with icmp-net-unreachable''.</p>
-</dd>
-</li>
 </dl>
 <p>Every rule consists of a <strong>location</strong> and a <strong>target</strong>, plus any number
 of <strong>matches</strong>:</p>
@@ -466,60 +406,48 @@ variable references or lists (arrays):</p>
 </p>
 <h2><a name="location_keywords">Location keywords</a></h2>
 <dl>
-<dt><strong><a name="item_domain__5bip_7cip6_5d"><strong>domain [ip|ip6]</strong></a></strong>
+<dt><strong><a name="domain_ip_ip6" class="item"><strong>domain [ip|ip6]</strong></a></strong></dt>
 
 <dd>
-<p>Set the domain. ``ip'' is default and means ``IPv4'' (iptables). ``ip6'' is
-for IPv6 support, using ``ip6tables''.</p>
+<p>Set the domain. &quot;ip&quot; is default and means &quot;IPv4&quot; (iptables). &quot;ip6&quot; is
+for IPv6 support, using &quot;ip6tables&quot;.</p>
 </dd>
-</li>
-<dt><strong><a name="item_table__5bfilter_7cnat_7cmangle_5d"><strong>table [filter|nat|mangle]</strong></a></strong>
+<dt><strong><a name="table_filter_nat_mangle" class="item"><strong>table [filter|nat|mangle]</strong></a></strong></dt>
 
 <dd>
 <p>Specifies which netfilter table this rule will be inserted to:
-``filter'' (default), ``nat'' or ``mangle''.</p>
+&quot;filter&quot; (default), &quot;nat&quot; or &quot;mangle&quot;.</p>
 </dd>
-</li>
-<dt><strong><a name="item_chain__5bchain_2dname_5d"><strong>chain [chain-name]</strong></a></strong>
+<dt><strong><a name="chain_chain_name" class="item"><strong>chain [chain-name]</strong></a></strong></dt>
 
 <dd>
 <p>Specifies the netfilter chain (within the current table) this rule
-will be inserted to. Common predefined chain names are ``INPUT'',
-``OUTPUT'', ``FORWARD'', ``PREROUTING'', ``POSTROUTING'', depending on the
+will be inserted to. Common predefined chain names are &quot;INPUT&quot;,
+&quot;OUTPUT&quot;, &quot;FORWARD&quot;, &quot;PREROUTING&quot;, &quot;POSTROUTING&quot;, depending on the
 table. See the netfilter documentation for details.</p>
-</dd>
-<dd>
 <p>If you specify a non-existing chain here, ferm will add the rule to a
 custom chain with that name.</p>
 </dd>
-</li>
-<dt><strong><a name="item_policy__5baccept_7cdrop_7c_2e_2e_5d"><strong>policy [ACCEPT|DROP|..]</strong></a></strong>
+<dt><strong><a name="policy_accept_drop" class="item"><strong>policy [ACCEPT|DROP|..]</strong></a></strong></dt>
 
 <dd>
 <p>Specifies the default policy for the current chain (built-in
 only). Can be one of the built-in targets (ACCEPT, DROP, REJECT,
 ...). A packet that matches no rules in a chain will be treated as
 specified by the policy.</p>
-</dd>
-<dd>
 <p>To avoid ambiguity, always specify the policies of all predefined
 chains explicitly.</p>
 </dd>
-</li>
-<dt><strong><a name="item__subchain"><strong>@subchain [``CHAIN-NAME''] { ... }</strong></a></strong>
+<dt><strong><a name="_subchain" class="item"><strong>@subchain [&quot;CHAIN-NAME&quot;] { ... }</strong></a></strong></dt>
 
 <dd>
 <p>Works like the normal block operators (i.e. without the <em>@subchain</em>
 keyword), except that <strong>ferm</strong> moves rules within the curly braces into
 a new custom chain. The name for this chain is chosen automatically by
 ferm.</p>
-</dd>
-<dd>
 <p>In many cases, this is faster than just a block, because the kernel
 may skip a huge block of rules when a precondition is false. Imagine
 the following example:</p>
-</dd>
-<dd>
 <pre>
  table filter chain INPUT {
      saddr (1.2.3.4 2.3.4.5 3.4.5.6 4.5.6.7 5.6.7.8) {
@@ -527,14 +455,10 @@ the following example:</p>
          proto udp dport domain ACCEPT;
      }
  }</pre>
-</dd>
-<dd>
 <p>This generates 20 rules. When a packet arrives which does not pass the
 <strong>saddr</strong> match, it nonetheless checks all 20 rules. With <strong>@subchain</strong>,
 this check is done once, resulting in faster network filtering and
 less CPU load:</p>
-</dd>
-<dd>
 <pre>
  table filter chain INPUT {
      saddr (1.2.3.4 2.3.4.5 3.4.5.6 4.5.6.7 5.6.7.8) @subchain {
@@ -542,67 +466,52 @@ less CPU load:</p>
          proto udp dport domain ACCEPT;
      }
  }</pre>
-</dd>
-<dd>
 <p>Optionally, you may define the name of the sub chain:</p>
-</dd>
-<dd>
 <pre>
  saddr (1.2.3.4 2.3.4.5 3.4.5.6) @subchain &quot;foobar&quot; {
      proto tcp dport (http https ssh) ACCEPT;
      proto udp dport domain ACCEPT;
  }</pre>
-</dd>
-<dd>
 <p>You can achieve the same by explicitly declaring a custom chain, but
 you may feel that using <strong>@subchain</strong> requires less typing.</p>
 </dd>
-</li>
 </dl>
 <p>
 </p>
 <h2><a name="basic_iptables_match_keywords">Basic iptables match keywords</a></h2>
 <dl>
-<dt><strong><a name="item_interface__5binterface_2dname_5d"><strong>interface [interface-name]</strong></a></strong>
+<dt><strong><a name="interface_interface_name" class="item"><strong>interface [interface-name]</strong></a></strong></dt>
 
 <dd>
 <p>Define the interface name, your outside network card, like eth0,
 or dialup like ppp1, or whatever device you want to match for
 passing packets. It is equivalent to the <code>-i</code> switch in
-iptables(8).</p>
+<code>iptables(8)</code>.</p>
 </dd>
-</li>
-<dt><strong><a name="item_outerface__5binterface_2dname_5d"><strong>outerface [interface-name]</strong></a></strong>
+<dt><strong><a name="outerface_interface_name" class="item"><strong>outerface [interface-name]</strong></a></strong></dt>
 
 <dd>
 <p>Same as interface, only for matching the outgoing interface
-for a packet, as in iptables(8).</p>
+for a packet, as in <code>iptables(8)</code>.</p>
 </dd>
-</li>
-<dt><strong><a name="item_protocol__5bprotocol_2dname_7cprotocol_2dnumber_5d"><strong>protocol [protocol-name|protocol-number]</strong></a></strong>
+<dt><strong><a name="protocol_protocol_name_protocol_number" class="item"><strong>protocol [protocol-name|protocol-number]</strong></a></strong></dt>
 
 <dd>
 <p>Currently supported by the kernel are tcp, udp and icmp, or
 their respective numbers.</p>
 </dd>
-</li>
-<dt><strong><a name="item_saddr_7cdaddr__5baddress_2dspec_5d"><strong>saddr|daddr [address-spec]</strong></a></strong>
+<dt><strong><a name="saddr_daddr_address_spec" class="item"><strong>saddr|daddr [address-spec]</strong></a></strong></dt>
 
 <dd>
 <p>Matches on packets originating from the specified address (saddr) or
 targeted at the address (daddr).</p>
-</dd>
-<dd>
 <p>Examples:</p>
-</dd>
-<dd>
 <pre>
     saddr 192.168/8 ACCEPT; # (identical to the next one:)
     saddr 192.168.0.0/255.255.255.0 ACCEPT;
     daddr my.domain.com ACCEPT;</pre>
 </dd>
-</li>
-<dt><strong><a name="item_fragment"><strong>fragment</strong></a></strong>
+<dt><strong><a name="fragment" class="item"><strong>fragment</strong></a></strong></dt>
 
 <dd>
 <p>Specify that only fragmented IP packets should be matched.
@@ -611,26 +520,17 @@ system can handle (called Maximum Transmission Unit or MTU)
 they will be chopped into bits and sent one by one as single
 packets. See <code>ifconfig(8)</code> if you want to find the MTU for
 your system (the default is usually 1500 bytes).</p>
-</dd>
-<dd>
 <p>Fragments are frequently used in DOS attacks, because there
 is no way of finding out the origin of a fragment packet.</p>
 </dd>
-</li>
-<dt><strong><a name="item_sport_7cdport__5bport_2dspec_5d"><strong>sport|dport [port-spec]</strong></a></strong>
+<dt><strong><a name="sport_dport_port_spec" class="item"><strong>sport|dport [port-spec]</strong></a></strong></dt>
 
 <dd>
-<p>Matches on packets on the specified TCP or UDP port. ``sport'' matches
+<p>Matches on packets on the specified TCP or UDP port. &quot;sport&quot; matches
 the source port, and dport matches the destination port.</p>
-</dd>
-<dd>
-<p>This match can be used only after you specified ``protocol tcp'' or
-``protocol udp'', because only these two protocols actually have ports.</p>
-</dd>
-<dd>
+<p>This match can be used only after you specified &quot;protocol tcp&quot; or
+&quot;protocol udp&quot;, because only these two protocols actually have ports.</p>
 <p>And some examples of valid ports/ranges:</p>
-</dd>
-<dd>
 <pre>
     dport 80 ACCEPT;
     dport http ACCEPT;
@@ -638,8 +538,7 @@ the source port, and dport matches the destination port.</p>
     dport 0:1023 ACCEPT; # equivalent to :1023
     dport 1023:65535 ACCEPT;</pre>
 </dd>
-</li>
-<dt><strong><a name="item_syn"><strong>syn</strong></a></strong>
+<dt><strong><a name="syn" class="item"><strong>syn</strong></a></strong></dt>
 
 <dd>
 <p>Specify that the SYN flag in a tcp package should be matched,
@@ -649,79 +548,64 @@ to allow it or not. Packets that do not have this flag are
 probably from an already established connection, so it's
 considered reasonably safe to let these through.</p>
 </dd>
-</li>
-<dt><strong><a name="item_module__5bmodule_2dname_5d"><strong>module [module-name]</strong></a></strong>
+<dt><strong><a name="module_module_name" class="item"><strong>module [module-name]</strong></a></strong></dt>
 
 <dd>
 <p>Load an iptables module. Most modules provide more match
 keywords. We'll get to that later.</p>
 </dd>
-</li>
 </dl>
 <p>
 </p>
 <h2><a name="basic_target_keywords">Basic target keywords</a></h2>
 <dl>
-<dt><strong><a name="item_jump__5bcustom_2dchain_2dname_5d"><strong>jump [custom-chain-name]</strong></a></strong>
+<dt><strong><a name="jump_custom_chain_name" class="item"><strong>jump [custom-chain-name]</strong></a></strong></dt>
 
 <dd>
 <p>Jumps to a custom chain. If no rule in the custom chain matched,
 netfilter returns to the next rule in the previous chain.</p>
 </dd>
-</li>
-<dt><strong><a name="item_realgoto__5bcustom_2dchain_2dname_5d"><strong>realgoto [custom-chain-name]</strong></a></strong>
+<dt><strong><a name="realgoto_custom_chain_name" class="item"><strong>realgoto [custom-chain-name]</strong></a></strong></dt>
 
 <dd>
 <p>Go to a custom chain.  Unlike the <strong>jump</strong> option, <strong>RETURN</strong> will not
 continue processing in this chain but instead in the chain that called
 us via <strong>jump</strong>.</p>
-</dd>
-<dd>
 <p>The keyword <strong>realgoto</strong> was chosen during the transition period,
 because <strong>goto</strong> (already deprecated) used to be an alias for <strong>jump</strong>.</p>
 </dd>
-</li>
-<dt><strong><a name="item_accept"><strong>ACCEPT</strong></a></strong>
+<dt><strong><a name="accept" class="item"><strong>ACCEPT</strong></a></strong></dt>
 
 <dd>
 <p>Accepts matching packets.</p>
 </dd>
-</li>
-<dt><strong><a name="item_drop"><strong>DROP</strong></a></strong>
+<dt><strong><a name="drop" class="item"><strong>DROP</strong></a></strong></dt>
 
 <dd>
 <p>Drop matching packets without further notice.</p>
 </dd>
-</li>
-<dt><strong><a name="item_reject"><strong>REJECT</strong></a></strong>
+<dt><strong><a name="reject" class="item"><strong>REJECT</strong></a></strong></dt>
 
 <dd>
 <p>Rejects matching packets, i.e. send an ICMP packet to the sender,
 which is port-unreachable by default. You may specify another ICMP
 type.</p>
-</dd>
-<dd>
 <pre>
     REJECT; # default to icmp-port-unreachable
     REJECT reject-with icmp-net-unreachable;</pre>
+<p>Type &quot;iptables -j REJECT -h&quot; for details.</p>
 </dd>
-<dd>
-<p>Type ``iptables -j REJECT -h'' for details.</p>
-</dd>
-</li>
-<dt><strong><a name="item_return"><strong>RETURN</strong></a></strong>
+<dt><strong><a name="return" class="item"><strong>RETURN</strong></a></strong></dt>
 
 <dd>
-<p>Finish the current chain and return to the calling chain (if ``jump
-[custom-chain-name]'' was used).</p>
+<p>Finish the current chain and return to the calling chain (if &quot;jump
+[custom-chain-name]&quot; was used).</p>
 </dd>
-</li>
-<dt><strong><a name="item_nop"><strong>NOP</strong></a></strong>
+<dt><strong><a name="nop" class="item"><strong>NOP</strong></a></strong></dt>
 
 <dd>
 <p>No action at all.</p>
 </dd>
-</li>
 </dl>
 <p>
 </p>
@@ -735,124 +619,90 @@ modules which are currently supported.</p>
 </p>
 <h2><a name="iptables_match_modules">iptables match modules</a></h2>
 <dl>
-<dt><strong><a name="item_account"><strong>account</strong></a></strong>
+<dt><strong><a name="account" class="item"><strong>account</strong></a></strong></dt>
 
 <dd>
 <p>Account traffic for all hosts in defined network/netmask.  This is one
 of the match modules which behave like a target, i.e. you will mostly
 have to use the <strong>NOP</strong> target.</p>
-</dd>
-<dd>
 <pre>
     mod account aname mynetwork aaddr 192.168.1.0/24 ashort NOP;</pre>
 </dd>
-</li>
-<dt><strong><a name="item_addrtype"><strong>addrtype</strong></a></strong>
+<dt><strong><a name="addrtype" class="item"><strong>addrtype</strong></a></strong></dt>
 
 <dd>
 <p>Check the address type; either source address or destination address.</p>
-</dd>
-<dd>
 <pre>
     mod addrtype src-type BROADCAST;
     mod addrtype dst-type LOCAL;</pre>
+<p>Type &quot;iptables -m addrtype -h&quot; for details.</p>
 </dd>
-<dd>
-<p>Type ``iptables -m addrtype -h'' for details.</p>
-</dd>
-</li>
-<dt><strong><a name="item_ah"><strong>ah</strong></a></strong>
+<dt><strong><a name="ah" class="item"><strong>ah</strong></a></strong></dt>
 
 <dd>
 <p>Checks the SPI header in an AH packet.</p>
-</dd>
-<dd>
 <pre>
     mod ah ahspi 0x101;
     mod ah ahspi ! 0x200:0x2ff;</pre>
-</dd>
-<dd>
 <p>Additional arguments for IPv6:</p>
-</dd>
-<dd>
 <pre>
     mod ah ahlen 32 ACCEPT;
     mod ah ahlen !32 ACCEPT;
     mod ah ahres ACCEPT;</pre>
 </dd>
-</li>
-<dt><strong><a name="item_comment"><strong>comment</strong></a></strong>
+<dt><strong><a name="comment" class="item"><strong>comment</strong></a></strong></dt>
 
 <dd>
 <p>Adds a comment of up to 256 characters to a rule, without an effect.
 Note that unlike ferm comments ('#'), this one will show up in
-``iptables -L''.</p>
-</dd>
-<dd>
+&quot;iptables -L&quot;.</p>
 <pre>
     mod comment comment &quot;This is my comment.&quot; ACCEPT;</pre>
 </dd>
-</li>
-<dt><strong><a name="item_condition"><strong>condition</strong></a></strong>
+<dt><strong><a name="condition" class="item"><strong>condition</strong></a></strong></dt>
 
 <dd>
 <p>Matches if a value in /proc/net/ipt_condition/NAME is 1 (path is
 /proc/net/ip6t_condition/NAME for the ip6 domain).</p>
-</dd>
-<dd>
 <pre>
     mod condition condition (abc def) ACCEPT;
     mod condition condition !foo ACCEPT;</pre>
 </dd>
-</li>
-<dt><strong><a name="item_connbytes"><strong>connbytes</strong></a></strong>
+<dt><strong><a name="connbytes" class="item"><strong>connbytes</strong></a></strong></dt>
 
 <dd>
 <p>Match by how many bytes or packets a connection (or one of the two
 flows constituting the connection) have tranferred so far, or by
 average bytes per packet.</p>
-</dd>
-<dd>
 <pre>
     mod connbytes connbytes 65536: connbytes-dir both connbytes-mode bytes ACCEPT;
     mod connbytes connbytes !1024:2048 connbytes-dir reply connbytes-mode packets ACCEPT;</pre>
-</dd>
-<dd>
 <p>Valid values for <em>connbytes-dir</em>: <em>original</em>, <em>reply</em>, <em>both</em>; for
 <em>connbytes-mode</em>: <em>packets</em>, <em>bytes</em>, <em>avgpkt</em>.</p>
 </dd>
-</li>
-<dt><strong><a name="item_connlimit"><strong>connlimit</strong></a></strong>
+<dt><strong><a name="connlimit" class="item"><strong>connlimit</strong></a></strong></dt>
 
 <dd>
 <p>Allows you to restrict the number of parallel TCP connections to a
 server per client IP address (or address block).</p>
-</dd>
-<dd>
 <pre>
     mod connlimit connlimit-above 4 REJECT;
     mod connlimit connlimit-above !4 ACCEPT;
     mod connlimit connlimit-above 4 connlimit-mask 24 REJECT;</pre>
 </dd>
-</li>
-<dt><strong><a name="item_connmark"><strong>connmark</strong></a></strong>
+<dt><strong><a name="connmark" class="item"><strong>connmark</strong></a></strong></dt>
 
 <dd>
 <p>Check the mark field associated with the connection, set by the
 CONNMARK target.</p>
-</dd>
-<dd>
 <pre>
     mod connmark mark 64;
     mod connmark mark 6/7;</pre>
 </dd>
-</li>
-<dt><strong><a name="item_conntrack"><strong>conntrack</strong></a></strong>
+<dt><strong><a name="conntrack" class="item"><strong>conntrack</strong></a></strong></dt>
 
 <dd>
 <p>Check connection tracking information.</p>
-</dd>
-<dd>
 <pre>
     mod conntrack ctstate (ESTABLISHED RELATED);
     mod conntrack ctproto tcp;
@@ -863,95 +713,70 @@ CONNMARK target.</p>
     mod conntrack ctstatus ASSURED;
     mod conntrack ctexpire 60;
     mod conntrack ctexpire 180:240;</pre>
+<p>Type &quot;iptables -m conntrack -h&quot; for details.</p>
 </dd>
-<dd>
-<p>Type ``iptables -m conntrack -h'' for details.</p>
-</dd>
-</li>
-<dt><strong><a name="item_dccp"><strong>dccp</strong></a></strong>
+<dt><strong><a name="dccp" class="item"><strong>dccp</strong></a></strong></dt>
 
 <dd>
 <p>Check DCCP (Datagram Congestion Control Protocol) specific attributes.
-This module is automatically loaded when you use ``protocol dccp''.</p>
-</dd>
-<dd>
+This module is automatically loaded when you use &quot;protocol dccp&quot;.</p>
 <pre>
     proto dccp sport 1234 dport 2345 ACCEPT;
     proto dccp dccp-types (SYNCACK ACK) ACCEPT;
     proto dccp dccp-types !REQUEST DROP;
     proto dccp dccp-option 2 ACCEPT;</pre>
 </dd>
-</li>
-<dt><strong><a name="item_dscp"><strong>dscp</strong></a></strong>
+<dt><strong><a name="dscp" class="item"><strong>dscp</strong></a></strong></dt>
 
 <dd>
 <p>Match the 6 bit DSCP field within the TOS field.</p>
-</dd>
-<dd>
 <pre>
     mod dscp dscp 11;
     mod dscp dscp-class AF41;</pre>
 </dd>
-</li>
-<dt><strong><a name="item_dst"><strong>dst</strong></a></strong>
+<dt><strong><a name="dst" class="item"><strong>dst</strong></a></strong></dt>
 
 <dd>
 <p>Matches the Destination Options header (ip6).</p>
-</dd>
-<dd>
 <pre>
     mod dst dst-len 8 ACCEPT;
     mod dst dst-len !8 ACCEPT;
     mod dst dst-opts (1:4 2:8) ACCEPT;</pre>
 </dd>
-</li>
-<dt><strong><a name="item_ecn"><strong>ecn</strong></a></strong>
+<dt><strong><a name="ecn" class="item"><strong>ecn</strong></a></strong></dt>
 
 <dd>
 <p>Match the ECN bits of an IPv4 TCP header.</p>
-</dd>
-<dd>
 <pre>
     mod ecn ecn-tcp-cwr;
     mod ecn ecn-tcp-ece;
     mod ecn ecn-ip-ect 2;</pre>
+<p>Type &quot;iptables -m ecn -h&quot; for details.</p>
 </dd>
-<dd>
-<p>Type ``iptables -m ecn -h'' for details.</p>
-</dd>
-</li>
-<dt><strong><a name="item_esp"><strong>esp</strong></a></strong>
+<dt><strong><a name="esp" class="item"><strong>esp</strong></a></strong></dt>
 
 <dd>
 <p>Checks the SPI header in an ESP packet.</p>
-</dd>
-<dd>
 <pre>
     mod esp espspi 0x101;
     mod esp espspi ! 0x200:0x2ff;</pre>
 </dd>
-</li>
-<dt><strong><a name="item_eui64"><strong>eui64</strong></a></strong>
+<dt><strong><a name="eui64" class="item"><strong>eui64</strong></a></strong></dt>
 
 <dd>
-<p>``This module matches the EUI-64 part of a stateless autoconfigured
+<p>&quot;This module matches the EUI-64 part of a stateless autoconfigured
 IPv6 address.  It compares the EUI-64 derived from the source MAC
 address in Ehternet frame with the lower 64 bits of the IPv6 source
-address.  But ''Universal/Local`` bit is not compared.  This module
+address.  But &quot;Universal/Local&quot; bit is not compared.  This module
 doesn't match other link layer frame, and is only valid in the
-PREROUTING, INPUT and FORWARD chains.''</p>
-</dd>
-<dd>
+PREROUTING, INPUT and FORWARD chains.&quot;</p>
 <pre>
     mod eui64 ACCEPT;</pre>
 </dd>
-</li>
-<dt><strong><a name="item_frag"><strong>frag</strong></a></strong>
+<dt><strong><a name="frag" class="item"><strong>frag</strong></a></strong></dt>
 
 <dd>
 <p>Matches the Fragment header (ip6).</p>
-</dd>
-<dd>
 <pre>
     mod frag fragid 123:456 ACCEPT;
     mod frag fragid !123:456 ACCEPT;
@@ -960,90 +785,65 @@ PREROUTING, INPUT and FORWARD chains.''</p>
     mod frag fragmore ACCEPT;
     mod frag fraglast ACCEPT;</pre>
 </dd>
-</li>
-<dt><strong><a name="item_fuzzy"><strong>fuzzy</strong></a></strong>
+<dt><strong><a name="fuzzy" class="item"><strong>fuzzy</strong></a></strong></dt>
 
 <dd>
-<p>``This module matches a rate limit based on a fuzzy logic controller [FLC].''</p>
-</dd>
-<dd>
+<p>&quot;This module matches a rate limit based on a fuzzy logic controller [FLC].&quot;</p>
 <pre>
     mod fuzzy lower-limit 10 upper-limit 20 ACCEPT;</pre>
 </dd>
-</li>
-<dt><strong><a name="item_hbh"><strong>hbh</strong></a></strong>
+<dt><strong><a name="hbh" class="item"><strong>hbh</strong></a></strong></dt>
 
 <dd>
 <p>Matches the Hop-by-Hop Options header (ip6).</p>
-</dd>
-<dd>
 <pre>
     mod hbh hbh-len 8 ACCEPT;
     mod hbh hbh-len !8 ACCEPT;
     mod hbh hbh-opts (1:4 2:8) ACCEPT;</pre>
 </dd>
-</li>
-<dt><strong><a name="item_hl"><strong>hl</strong></a></strong>
+<dt><strong><a name="hl" class="item"><strong>hl</strong></a></strong></dt>
 
 <dd>
 <p>Matches the Hop Limit field (ip6).</p>
-</dd>
-<dd>
 <pre>
     mod hl hl-eq (8 10) ACCEPT;
     mod hl hl-eq !5 ACCEPT;
     mod hl hl-gt 15 ACCEPT;
     mod hl hl-lt 2 ACCEPT;</pre>
 </dd>
-</li>
-<dt><strong><a name="item_helper"><strong>helper</strong></a></strong>
+<dt><strong><a name="helper" class="item"><strong>helper</strong></a></strong></dt>
 
 <dd>
 <p>Checks which conntrack helper module tracks this connection.  The port
-may be specified with ``-portnr''.</p>
-</dd>
-<dd>
+may be specified with &quot;-portnr&quot;.</p>
 <pre>
     mod helper helper irc ACCEPT;
     mod helper helper ftp-21 ACCEPT;</pre>
 </dd>
-</li>
-<dt><strong><a name="item_icmp"><strong>icmp</strong></a></strong>
+<dt><strong><a name="icmp" class="item"><strong>icmp</strong></a></strong></dt>
 
 <dd>
 <p>Check ICMP specific attributes.  This module is automatically loaded
-when you use ``protocol icmp''.</p>
-</dd>
-<dd>
+when you use &quot;protocol icmp&quot;.</p>
 <pre>
     proto icmp icmp-type echo-request ACCEPT;</pre>
-</dd>
-<dd>
 <p>This option can also be used in be <em>ip6</em> domain, although this is
-called <strong>icmpv6</strong> in <em>ip6tables</em>.</p>
+called <strong>icmpv6</strong> in <em class="file">ip6tables</em>.</p>
+<p>Use &quot;iptables -p icmp <code>-h</code>&quot; to obtain a list of valid ICMP types.</p>
 </dd>
-<dd>
-<p>Use ``iptables -p icmp <code>-h</code>'' to obtain a list of valid ICMP types.</p>
-</dd>
-</li>
-<dt><strong><a name="item_iprange"><strong>iprange</strong></a></strong>
+<dt><strong><a name="iprange" class="item"><strong>iprange</strong></a></strong></dt>
 
 <dd>
 <p>Match a range of IPv4 addresses.</p>
-</dd>
-<dd>
 <pre>
     mod iprange src-range 192.168.2.0-192.168.3.255;
     mod iprange dst-range ! 192.168.6.0-192.168.6.255;</pre>
 </dd>
-</li>
-<dt><strong><a name="item_ipv4options"><strong>ipv4options</strong></a></strong>
+<dt><strong><a name="ipv4options" class="item"><strong>ipv4options</strong></a></strong></dt>
 
 <dd>
 <p>Match on IPv4 header options like source routing, record route,
 timestamp and router-alert.</p>
-</dd>
-<dd>
 <pre>
     mod ipv4options ssrr ACCEPT;
     mod ipv4options lsrr ACCEPT;
@@ -1053,151 +853,106 @@ timestamp and router-alert.</p>
     mod ipv4options !ra ACCEPT;
     mod ipv4options !any-opt ACCEPT;</pre>
 </dd>
-</li>
-<dt><strong><a name="item_ipv6header"><strong>ipv6header</strong></a></strong>
+<dt><strong><a name="ipv6header" class="item"><strong>ipv6header</strong></a></strong></dt>
 
 <dd>
 <p>Matches the IPv6 extension header (ip6).</p>
-</dd>
-<dd>
 <pre>
     mod ipv6header header !(hop frag) ACCEPT;
     mod ipv6header header (auth dst) ACCEPT;</pre>
 </dd>
-</li>
-<dt><strong><a name="item_hashlimit"><strong>hashlimit</strong></a></strong>
+<dt><strong><a name="hashlimit" class="item"><strong>hashlimit</strong></a></strong></dt>
 
 <dd>
 <p>Similar to 'mod limit', but adds the ability to add per-destination or
 per-port limits managed in a hash table.</p>
-</dd>
-<dd>
 <pre>
     mod hashlimit  hashlimit 10/minute  hashlimit-burst 30/minute
       hashlimit-mode dstip  hashlimit-name foobar  ACCEPT;</pre>
-</dd>
-<dd>
 <p>Possible values for hashlimit-mode: dstip dstport srcip srcport.</p>
-</dd>
-<dd>
-<p>There are more possible settings, type ``iptables -m hashlimit -h'' for
+<p>There are more possible settings, type &quot;iptables -m hashlimit -h&quot; for
 documentation.</p>
 </dd>
-</li>
-<dt><strong><a name="item_length"><strong>length</strong></a></strong>
+<dt><strong><a name="length" class="item"><strong>length</strong></a></strong></dt>
 
 <dd>
 <p>Check the package length.</p>
-</dd>
-<dd>
 <pre>
     mod length length 128; # exactly 128 bytes
     mod length length 512:768; # range
     mod length length ! 256; # negated</pre>
 </dd>
-</li>
-<dt><strong><a name="item_limit"><strong>limit</strong></a></strong>
+<dt><strong><a name="limit" class="item"><strong>limit</strong></a></strong></dt>
 
 <dd>
 <p>Limits the packet rate.</p>
-</dd>
-<dd>
 <pre>
     mod limit limit 1/second;
     mod limit limit 15/minute limit-burst 10;</pre>
+<p>Type &quot;iptables -m limit -h&quot; for details.</p>
 </dd>
-<dd>
-<p>Type ``iptables -m limit -h'' for details.</p>
-</dd>
-</li>
-<dt><strong><a name="item_mac"><strong>mac</strong></a></strong>
+<dt><strong><a name="mac" class="item"><strong>mac</strong></a></strong></dt>
 
 <dd>
 <p>Match the source MAC address.</p>
-</dd>
-<dd>
 <pre>
     mod mac mac-source 01:23:45:67:89;</pre>
 </dd>
-</li>
-<dt><strong><a name="item_mark"><strong>mark</strong></a></strong>
+<dt><strong><a name="mark" class="item"><strong>mark</strong></a></strong></dt>
 
 <dd>
 <p>Matches packets based on their netfilter mark field. This may be a 32
 bit integer between 0 and 4294967295.</p>
-</dd>
-<dd>
 <pre>
     mod mark mark 42;</pre>
 </dd>
-</li>
-<dt><strong><a name="item_mh"><strong>mh</strong></a></strong>
+<dt><strong><a name="mh" class="item"><strong>mh</strong></a></strong></dt>
 
 <dd>
 <p>Matches the mobility header (domain <em>ip6</em>).</p>
-</dd>
-<dd>
 <pre>
     proto mh mh-type binding-update ACCEPT;</pre>
 </dd>
-</li>
-<dt><strong><a name="item_multiport"><strong>multiport</strong></a></strong>
+<dt><strong><a name="multiport" class="item"><strong>multiport</strong></a></strong></dt>
 
 <dd>
 <p>Match a set of source or destination ports (UDP and TCP only).</p>
-</dd>
-<dd>
 <pre>
     mod multiport source-ports (https ftp);
     mod multiport destination-ports (mysql domain);</pre>
-</dd>
-<dd>
-<p>This rule has a big advantage over ``dport'' and ``sport'': it generates
+<p>This rule has a big advantage over &quot;dport&quot; and &quot;sport&quot;: it generates
 only one rule for up to 15 ports instead of one rule for every port.</p>
 </dd>
-</li>
-<dt><strong><a name="item_nth"><strong>nth</strong></a></strong>
+<dt><strong><a name="nth" class="item"><strong>nth</strong></a></strong></dt>
 
 <dd>
 <p>Match every 'n'th packet.</p>
-</dd>
-<dd>
 <pre>
     mod nth every 3;
     mod nth counter 5 every 2;
     mod nth start 2 every 3;
     mod nth start 5 packet 2 every 6;</pre>
+<p>Type &quot;iptables -m nth -h&quot; for details.</p>
 </dd>
-<dd>
-<p>Type ``iptables -m nth -h'' for details.</p>
-</dd>
-</li>
-<dt><strong><a name="item_owner"><strong>owner</strong></a></strong>
+<dt><strong><a name="owner" class="item"><strong>owner</strong></a></strong></dt>
 
 <dd>
 <p>Check information about the packet creator, namely user id, group id,
 process id, session id and command name.</p>
-</dd>
-<dd>
 <pre>
     mod owner uid-owner 0;
     mod owner gid-owner 1000;
     mod owner pid-owner 5432;
     mod owner sid-owner 6543;
     mod owner cmd-owner &quot;sendmail&quot;;</pre>
-</dd>
-<dd>
-<p>(``cmd-owner'', ``pid-owner'' and ``sid-owner'' require special kernel
+<p>(&quot;cmd-owner&quot;, &quot;pid-owner&quot; and &quot;sid-owner&quot; require special kernel
 patches not included in the vanilla Linux kernel)</p>
 </dd>
-</li>
-<dt><strong><a name="item_physdev"><strong>physdev</strong></a></strong>
+<dt><strong><a name="physdev" class="item"><strong>physdev</strong></a></strong></dt>
 
 <dd>
 <p>Matches the physical device on which a packet entered or is about to
 leave the machine. This is useful for bridged interfaces.</p>
-</dd>
-<dd>
 <pre>
     mod physdev physdev-in ppp1;
     mod physdev physdev-out eth2;
@@ -1205,85 +960,62 @@ leave the machine. This is useful for bridged interfaces.</p>
     mod physdev physdev-is-out;
     mod physdev physdev-is-bridged;</pre>
 </dd>
-</li>
-<dt><strong><a name="item_pkttype"><strong>pkttype</strong></a></strong>
+<dt><strong><a name="pkttype" class="item"><strong>pkttype</strong></a></strong></dt>
 
 <dd>
 <p>Check the link-layer packet type.</p>
-</dd>
-<dd>
 <pre>
     mod pkttype pkt-type unicast;
     mod pkttype pkt-type broadcase;
     mod pkttype pkt-type multicast;</pre>
 </dd>
-</li>
-<dt><strong><a name="item_policy"><strong>policy</strong></a></strong>
+<dt><strong><a name="policy" class="item"><strong>policy</strong></a></strong></dt>
 
 <dd>
 <p>Matches IPsec policy being applied to this packet.</p>
-</dd>
-<dd>
 <pre>
     mod policy dir out pol ipsec ACCEPT;
     mod policy strict reqid 23 spi 0x10 proto ah ACCEPT;
     mod policy mode tunnel tunnel-src 192.168.1.2 ACCEPT;
     mod policy mode tunnel tunnel-dst 192.168.2.1 ACCEPT;
     mod policy strict next reqid 24 spi 0x11 ACCEPT;</pre>
-</dd>
-<dd>
 <p>Note that the keyword <em>proto</em> is also used as a shorthand version of
 <em>protocol</em> (built-in match module).  You can fix this conflict by
 always using the long keyword <em>protocol</em>.</p>
 </dd>
-</li>
-<dt><strong><a name="item_psd"><strong>psd</strong></a></strong>
+<dt><strong><a name="psd" class="item"><strong>psd</strong></a></strong></dt>
 
 <dd>
 <p>Detect TCP/UDP port scans.</p>
-</dd>
-<dd>
 <pre>
     mod psd psd-weight-threshold 21 psd-delay-threshold 300
       psd-lo-ports-weight 3 psd-hi-ports-weight 1 DROP;</pre>
 </dd>
-</li>
-<dt><strong><a name="item_quota"><strong>quota</strong></a></strong>
+<dt><strong><a name="quota" class="item"><strong>quota</strong></a></strong></dt>
 
 <dd>
 <p>Implements network quotas by decrementing a byte counter with each packet.</p>
-</dd>
-<dd>
 <pre>
     mod quota quota 65536 ACCEPT;</pre>
 </dd>
-</li>
-<dt><strong><a name="item_random"><strong>random</strong></a></strong>
+<dt><strong><a name="random" class="item"><strong>random</strong></a></strong></dt>
 
 <dd>
 <p>Match a random percentage of all packets.</p>
-</dd>
-<dd>
 <pre>
     mod random average 70;</pre>
 </dd>
-</li>
-<dt><strong><a name="item_realm"><strong>realm</strong></a></strong>
+<dt><strong><a name="realm" class="item"><strong>realm</strong></a></strong></dt>
 
 <dd>
 <p>Match the routing realm. Useful in environments using BGP.</p>
-</dd>
-<dd>
 <pre>
     mod realm realm 3;</pre>
 </dd>
-</li>
-<dt><strong><a name="item_recent"><strong>recent</strong></a></strong>
+<dt><strong><a name="recent" class="item"><strong>recent</strong></a></strong></dt>
 
 <dd>
 <p>Temporarily mark source IP addresses.</p>
-</dd>
-<dd>
 <pre>
     mod recent set;
     mod recent rcheck seconds 60;
@@ -1291,22 +1023,15 @@ always using the long keyword <em>protocol</em>.</p>
     mod recent set rdest;
     mod recent rcheck rsource name &quot;badguy&quot; seconds 60;
     mod recent update seconds 120 hitcount 3 rttl;</pre>
-</dd>
-<dd>
 <p>This netfilter module has a design flaw: although it is implemented as
-a match module, it has target-like behaviour when using the ``set''
+a match module, it has target-like behaviour when using the &quot;set&quot;
 keyword.</p>
-</dd>
-<dd>
 <p><a href="http://snowman.net/projects/ipt_recent/">http://snowman.net/projects/ipt_recent/</a></p>
 </dd>
-</li>
-<dt><strong><a name="item_rt"><strong>rt</strong></a></strong>
+<dt><strong><a name="rt" class="item"><strong>rt</strong></a></strong></dt>
 
 <dd>
 <p>Match the IPv6 routing header (ip6 only).</p>
-</dd>
-<dd>
 <pre>
     mod rt rt-type 2 rt-len 20 ACCEPT;
     mod rt rt-type !2 rt-len !20 ACCEPT;
@@ -1314,81 +1039,57 @@ keyword.</p>
     mod rt rt-segsleft !4:5 ACCEPT;
     mod rt rt-0-res rt-0-addrs (::1 ::2) rt-0-not-strict ACCEPT;</pre>
 </dd>
-</li>
-<dt><strong><a name="item_sctp"><strong>sctp</strong></a></strong>
+<dt><strong><a name="sctp" class="item"><strong>sctp</strong></a></strong></dt>
 
 <dd>
 <p>Check SCTP (Stream Control Transmission Protocol) specific attributes.
-This module is automatically loaded when you use ``protocol sctp''.</p>
-</dd>
-<dd>
+This module is automatically loaded when you use &quot;protocol sctp&quot;.</p>
 <pre>
     proto sctp sport 1234 dport 2345 ACCEPT;
     proto sctp chunk-types only DATA:Be ACCEPT;
     proto sctp chunk-types any (INIT INIT_ACK) ACCEPT;
     proto sctp chunk-types !all (HEARTBEAT) ACCEPT;</pre>
+<p>Use &quot;iptables -p sctp <code>-h</code>&quot; to obtain a list of valid chunk types.</p>
 </dd>
-<dd>
-<p>Use ``iptables -p sctp <code>-h</code>'' to obtain a list of valid chunk types.</p>
-</dd>
-</li>
-<dt><strong><a name="item_set"><strong>set</strong></a></strong>
+<dt><strong><a name="set" class="item"><strong>set</strong></a></strong></dt>
 
 <dd>
 <p>Checks the source or destination IP/Port/MAC against a set.</p>
-</dd>
-<dd>
 <pre>
     mod set set badguys src DROP;</pre>
-</dd>
-<dd>
 <p>See <a href="http://ipset.netfilter.org/">http://ipset.netfilter.org/</a> for more information.</p>
 </dd>
-</li>
-<dt><strong><a name="item_state"><strong>state</strong></a></strong>
+<dt><strong><a name="state" class="item"><strong>state</strong></a></strong></dt>
 
 <dd>
 <p>Checks the connection tracking state.</p>
-</dd>
-<dd>
 <pre>
     mod state state INVALID DROP;
     mod state state (ESTABLISHED RELATED) ACCEPT;</pre>
+<p>Type &quot;iptables -m state -h&quot; for details.</p>
 </dd>
-<dd>
-<p>Type ``iptables -m state -h'' for details.</p>
-</dd>
-</li>
-<dt><strong><a name="item_statistic"><strong>statistic</strong></a></strong>
+<dt><strong><a name="statistic" class="item"><strong>statistic</strong></a></strong></dt>
 
 <dd>
 <p>Successor of <strong>nth</strong> and <strong>random</strong>, currently undocumented in the
 <code>iptables(8)</code> man page.</p>
-</dd>
-<dd>
 <pre>
     mod statistic mode random probability 0.8 ACCEPT;
     mod statistic mode nth every 5 packet 0 DROP;</pre>
 </dd>
-</li>
-<dt><strong><a name="item_string"><strong>string</strong></a></strong>
+<dt><strong><strong>string</strong></strong></dt>
 
 <dd>
 <p>Matches a string.</p>
-</dd>
-<dd>
 <pre>
     mod string string &quot;foo bar&quot; ACCEPT;
     mod string algo kmp from 64 to 128 hex-string &quot;deadbeef&quot; ACCEPT;</pre>
 </dd>
-</li>
-<dt><strong><a name="item_tcp"><strong>tcp</strong></a></strong>
+<dt><strong><a name="tcp" class="item"><strong>tcp</strong></a></strong></dt>
 
 <dd>
 <p>Checks TCP specific attributes. This module is automatically loaded
-when you use ``protocol tcp''.</p>
-</dd>
-<dd>
+when you use &quot;protocol tcp&quot;.</p>
 <pre>
     proto tcp sport 1234;
     proto tcp dport 2345;
@@ -1398,28 +1099,20 @@ when you use ``protocol tcp''.</p>
     proto tcp syn;
     proto tcp tcp-option 2;
     proto tcp mss 512;</pre>
+<p>Type &quot;iptables -p tcp -h&quot; for details.</p>
 </dd>
-<dd>
-<p>Type ``iptables -p tcp -h'' for details.</p>
-</dd>
-</li>
-<dt><strong><a name="item_tcpmss"><strong>tcpmss</strong></a></strong>
+<dt><strong><a name="tcpmss" class="item"><strong>tcpmss</strong></a></strong></dt>
 
 <dd>
 <p>Check the TCP MSS field of a SYN or SYN/ACK packet.</p>
-</dd>
-<dd>
 <pre>
     mod tcpmss mss 123 ACCEPT;
     mod tcpmss mss 234:567 ACCEPT;</pre>
 </dd>
-</li>
-<dt><strong><a name="item_time"><strong>time</strong></a></strong>
+<dt><strong><a name="time" class="item"><strong>time</strong></a></strong></dt>
 
 <dd>
 <p>Check if the time a packet arrives is in given range.</p>
-</dd>
-<dd>
 <pre>
     mod time timestart 12:00;
     mod time timestop 13:30;
@@ -1431,56 +1124,41 @@ when you use ``protocol tcp''.</p>
     mod time weekdays (Wed Thu);
     mod time timestart 12:00 utc;
     mod time timestart 12:00 localtz;</pre>
+<p>Type &quot;iptables -m time -h&quot; for details.</p>
 </dd>
-<dd>
-<p>Type ``iptables -m time -h'' for details.</p>
-</dd>
-</li>
-<dt><strong><a name="item_tos"><strong>tos</strong></a></strong>
+<dt><strong><a name="tos" class="item"><strong>tos</strong></a></strong></dt>
 
 <dd>
 <p>Matches a packet on the specified TOS-value.</p>
-</dd>
-<dd>
 <pre>
     mod tos tos Minimize-Cost ACCEPT;
     mod tos tos !Normal-Service ACCEPT;</pre>
+<p>Type &quot;iptables -m tos -h&quot; for details.</p>
 </dd>
-<dd>
-<p>Type ``iptables -m tos -h'' for details.</p>
-</dd>
-</li>
-<dt><strong><a name="item_ttl"><strong>ttl</strong></a></strong>
+<dt><strong><a name="ttl" class="item"><strong>ttl</strong></a></strong></dt>
 
 <dd>
 <p>Matches the ttl (time to live) field in the IP header.</p>
-</dd>
-<dd>
 <pre>
     mod ttl ttl-eq 12; # ttl equals
     mod ttl ttl-gt 10; # ttl greater than
     mod ttl ttl-lt 16; # ttl less than</pre>
 </dd>
-</li>
-<dt><strong><a name="item_u32"><strong>u32</strong></a></strong>
+<dt><strong><a name="u32" class="item"><strong>u32</strong></a></strong></dt>
 
 <dd>
 <p>Compares raw data from the packet.  You can specify more than one
 filter in a ferm list; these are not expanded into multiple rules.</p>
-</dd>
-<dd>
 <pre>
     mod u32 u32 '6&amp;0xFF=1' ACCEPT;
     mod u32 u32 ('27&amp;0x8f=7' '31=0x527c4833') DROP;</pre>
 </dd>
-</li>
-<dt><strong><a name="item_unclean"><strong>unclean</strong></a></strong>
+<dt><strong><a name="unclean" class="item"><strong>unclean</strong></a></strong></dt>
 
 <dd>
 <p>Matches packets which seem malformed or unusual. This match has no
 further parameters.</p>
 </dd>
-</li>
 </dl>
 <p>
 </p>
@@ -1488,34 +1166,26 @@ further parameters.</p>
 <p>The following additional targets are available in ferm, provided that
 you enabled them in your kernel:</p>
 <dl>
-<dt><strong><a name="item_classify"><strong>CLASSIFY</strong></a></strong>
+<dt><strong><a name="classify" class="item"><strong>CLASSIFY</strong></a></strong></dt>
 
 <dd>
 <p>Set the CBQ class.</p>
-</dd>
-<dd>
 <pre>
     CLASSIFY set-class 3:50;</pre>
 </dd>
-</li>
-<dt><strong><a name="item_clusterip"><strong>CLUSTERIP</strong></a></strong>
+<dt><strong><a name="clusterip" class="item"><strong>CLUSTERIP</strong></a></strong></dt>
 
 <dd>
 <p>Configure a simple cluster of nodes that share a certain IP and MAC
 address.  Connections are statically distributed between the nodes.</p>
-</dd>
-<dd>
 <pre>
     CLUSTERIP new hashmode sourceip clustermac 00:12:34:45:67:89
       total-nodes 4 local-node 2 hash-init 12345;</pre>
 </dd>
-</li>
-<dt><strong><a name="item_connmark"><strong>CONNMARK</strong></a></strong>
+<dt><strong><a name="connmark" class="item"><strong>CONNMARK</strong></a></strong></dt>
 
 <dd>
 <p>Sets the netfilter mark value associated with a connection.</p>
-</dd>
-<dd>
 <pre>
     CONNMARK set-mark 42;
     CONNMARK save-mark;
@@ -1523,89 +1193,68 @@ address.  Connections are statically distributed between the nodes.</p>
     CONNMARK save-mark mask 0x7fff;
     CONNMARK restore-mark mask 0x8000;</pre>
 </dd>
-</li>
-<dt><strong><a name="item_connsecmark"><strong>CONNSECMARK</strong></a></strong>
+<dt><strong><a name="connsecmark" class="item"><strong>CONNSECMARK</strong></a></strong></dt>
 
 <dd>
 <p>This module copies security markings from packets to connections (if
 unlabeled), and from connections back to packets (also only if
 unlabeled).  Typically used in conjunction with SECMARK, it is only
 valid in the mangle table.</p>
-</dd>
-<dd>
 <pre>
     CONNSECMARK save;
     CONNSECMARK restore;</pre>
 </dd>
-</li>
-<dt><strong><a name="item_dnat_to__5bip_2daddress_7cip_2drange_7cip_2dport_2"><strong>DNAT to [ip-address|ip-range|ip-port-range]</strong></a></strong>
+<dt><strong><a name="dnat_to_ip_address_ip_range_ip_port_range" class="item"><strong>DNAT to [ip-address|ip-range|ip-port-range]</strong></a></strong></dt>
 
 <dd>
 <p>Change the destination address of the packet.</p>
-</dd>
-<dd>
 <pre>
     DNAT to 10.0.0.4;
     DNAT to 10.0.0.4:80;
     DNAT to 10.0.0.4:1024-2048;
     DNAT to 10.0.1.1-10.0.1.20;</pre>
 </dd>
-</li>
-<dt><strong><a name="item_ecn"><strong>ECN</strong></a></strong>
+<dt><strong><a name="ecn" class="item"><strong>ECN</strong></a></strong></dt>
 
 <dd>
 <p>This target allows to selectively work around known ECN blackholes.
 It can only be used in the mangle table.</p>
-</dd>
-<dd>
 <pre>
     ECN ecn-tcp-remove;</pre>
 </dd>
-</li>
-<dt><strong><a name="item_hl"><strong>HL</strong></a></strong>
+<dt><strong><a name="hl" class="item"><strong>HL</strong></a></strong></dt>
 
 <dd>
 <p>Modify the IPv6 Hop Limit field (ip6/mangle only).</p>
-</dd>
-<dd>
 <pre>
     HL hl-set 5;
     HL hl-dec 2;
     HL hl-inc 1;</pre>
 </dd>
-</li>
-<dt><strong><a name="item_ipv4optsstrip"><strong>IPV4OPTSSTRIP</strong></a></strong>
+<dt><strong><a name="ipv4optsstrip" class="item"><strong>IPV4OPTSSTRIP</strong></a></strong></dt>
 
 <dd>
 <p>Strip all the IP options from a packet.  This module does not take any
 options.</p>
-</dd>
-<dd>
 <pre>
     IPV4OPTSSTRIP;</pre>
 </dd>
-</li>
-<dt><strong><a name="item_log"><strong>LOG</strong></a></strong>
+<dt><strong><a name="log" class="item"><strong>LOG</strong></a></strong></dt>
 
 <dd>
 <p>Log all packets that match this rule in the kernel log. Be carefull
-with log flooding. Note that this is a ``non-terminating target'',
+with log flooding. Note that this is a &quot;non-terminating target&quot;,
 i.e. rule traversal continues at the next rule.</p>
-</dd>
-<dd>
 <pre>
     LOG log-level warning log-prefix &quot;Look at this: &quot;;
     LOG log-tcp-sequence log-tcp-options;
     LOG log-ip-options;</pre>
 </dd>
-</li>
-<dt><strong><a name="item_mark"><strong>MARK</strong></a></strong>
+<dt><strong><a name="mark" class="item"><strong>MARK</strong></a></strong></dt>
 
 <dd>
 <p>Sets the netfilter mark field for the packet (a 32 bit integer between
 0 and 4294967295):</p>
-</dd>
-<dd>
 <pre>
     MARK set-mark 42;
     MARK set-xmark 7/3;
@@ -1613,199 +1262,148 @@ i.e. rule traversal continues at the next rule.</p>
     MARK or-mark 1;
     MARK xor-mark 12;</pre>
 </dd>
-</li>
-<dt><strong><a name="item_masquerade"><strong>MASQUERADE</strong></a></strong>
+<dt><strong><a name="masquerade" class="item"><strong>MASQUERADE</strong></a></strong></dt>
 
 <dd>
 <p>Masquerades matching packets. Optionally followed by a port or
-port-range for iptables. Specify as ``123'', ``123-456'' or ``123:456''.
+port-range for iptables. Specify as &quot;123&quot;, &quot;123-456&quot; or &quot;123:456&quot;.
 The port range parameter specifies what local ports masqueraded
 connections should originate from.</p>
-</dd>
-<dd>
 <pre>
     MASQUERADE;
     MASQUERADE to-ports 1234:2345;
     MASQUERADE to-ports 1234:2345 random;</pre>
 </dd>
-</li>
-<dt><strong><a name="item_mirror"><strong>MIRROR</strong></a></strong>
+<dt><strong><a name="mirror" class="item"><strong>MIRROR</strong></a></strong></dt>
 
 <dd>
 <p>Experimental demonstration target which inverts the source and
 destination fields in the IP header.</p>
-</dd>
-<dd>
 <pre>
     MIRROR;</pre>
 </dd>
-</li>
-<dt><strong><a name="item_netmap"><strong>NETMAP</strong></a></strong>
+<dt><strong><a name="netmap" class="item"><strong>NETMAP</strong></a></strong></dt>
 
 <dd>
 <p>Map a whole network onto another network in the <strong>nat</strong> table.</p>
-</dd>
-<dd>
 <pre>
     NETMAP to 192.168.2.0/24;</pre>
 </dd>
-</li>
-<dt><strong><a name="item_notrack"><strong>NOTRACK</strong></a></strong>
+<dt><strong><a name="notrack" class="item"><strong>NOTRACK</strong></a></strong></dt>
 
 <dd>
 <p>Disable connection tracking for all packets matching that rule.</p>
-</dd>
-<dd>
 <pre>
     proto tcp dport (135:139 445) NOTRACK;</pre>
 </dd>
-</li>
-<dt><strong><a name="item_nflog"><strong>NFLOG</strong></a></strong>
+<dt><strong><a name="nflog" class="item"><strong>NFLOG</strong></a></strong></dt>
 
 <dd>
 <p>Log packets over netlink; this is the successor of <em>ULOG</em>.</p>
-</dd>
-<dd>
 <pre>
     NFLOG nflog-group 5 nflog-prefix &quot;Look at this: &quot;;
     NFLOG nflog-range 256;
     NFLOG nflog-threshold 10;</pre>
 </dd>
-</li>
-<dt><strong><a name="item_nfqueue"><strong>NFQUEUE</strong></a></strong>
+<dt><strong><a name="nfqueue" class="item"><strong>NFQUEUE</strong></a></strong></dt>
 
 <dd>
 <p>Userspace queueing, requires nfnetlink_queue kernel support.</p>
-</dd>
-<dd>
 <pre>
     proto tcp dport ftp NFQUEUE queue-num 20;</pre>
 </dd>
-</li>
-<dt><strong><a name="item_queue"><strong>QUEUE</strong></a></strong>
+<dt><strong><a name="queue" class="item"><strong>QUEUE</strong></a></strong></dt>
 
 <dd>
 <p>Userspace queueing, the predecessor to <strong>NFQUEUE</strong>.  All packets go to
 queue 0.</p>
-</dd>
-<dd>
 <pre>
     proto tcp dport ftp QUEUE;</pre>
 </dd>
-</li>
-<dt><strong><a name="item_redirect_to_2dports__5bports_5d"><strong>REDIRECT to-ports [ports]</strong></a></strong>
+<dt><strong><a name="redirect_to_ports_ports" class="item"><strong>REDIRECT to-ports [ports]</strong></a></strong></dt>
 
 <dd>
 <p>Transparent proxying: alter the destination IP of the packet to the
 machine itself.</p>
-</dd>
-<dd>
 <pre>
     proto tcp dport http REDIRECT to-ports 3128;
     proto tcp dport http REDIRECT to-ports 3128 random;</pre>
 </dd>
-</li>
-<dt><strong><a name="item_same"><strong>SAME</strong></a></strong>
+<dt><strong><a name="same" class="item"><strong>SAME</strong></a></strong></dt>
 
 <dd>
 <p>Similar to SNAT, but a client is mapped to the same source IP for all
 its connections.</p>
-</dd>
-<dd>
 <pre>
     SAME to 1.2.3.4-1.2.3.7;
     SAME to 1.2.3.8-1.2.3.15 nodst;
     SAME to 1.2.3.16-1.2.3.31 random;</pre>
 </dd>
-</li>
-<dt><strong><a name="item_secmark"><strong>SECMARK</strong></a></strong>
+<dt><strong><a name="secmark" class="item"><strong>SECMARK</strong></a></strong></dt>
 
 <dd>
 <p>This is used to set the security mark value associated with the packet
 for use by security subsystems such as SELinux.  It is only valid in
 the mangle table.</p>
-</dd>
-<dd>
 <pre>
     SECMARK selctx &quot;system_u:object_r:httpd_packet_t:s0&quot;;</pre>
 </dd>
-</li>
-<dt><strong><a name="item_flag"><strong>SET [add-set|del-set] [setname] [flag(s)]</strong></a></strong>
+<dt><strong><a name="flag" class="item"><strong>SET [add-set|del-set] [setname] [flag(s)]</strong></a></strong></dt>
 
 <dd>
 <p>Add the IP to the specified set. See <a href="http://ipset.netfilter.org/">http://ipset.netfilter.org/</a></p>
-</dd>
-<dd>
 <pre>
     proto icmp icmp-type echo-request SET add-set badguys src;</pre>
 </dd>
-</li>
-<dt><strong><a name="item_snat_to__5bip_2daddress_7cip_2drange_7cip_2dport_2"><strong>SNAT to [ip-address|ip-range|ip-port-range]</strong></a></strong>
+<dt><strong><a name="snat_to_ip_address_ip_range_ip_port_range" class="item"><strong>SNAT to [ip-address|ip-range|ip-port-range]</strong></a></strong></dt>
 
 <dd>
 <p>Change the source address of the packet.</p>
-</dd>
-<dd>
 <pre>
     SNAT to 1.2.3.4;
     SNAT to 1.2.3.4:20000-30000;
     SNAT to 1.2.3.4 random;</pre>
 </dd>
-</li>
-<dt><strong><a name="item_tcpmss"><strong>TCPMSS</strong></a></strong>
+<dt><strong><a name="tcpmss" class="item"><strong>TCPMSS</strong></a></strong></dt>
 
 <dd>
 <p>Alter the MSS value of TCP SYN packets.</p>
-</dd>
-<dd>
 <pre>
     TCPMSS set-mss 1400;
     TCPMSS clamp-mss-to-pmtu;</pre>
 </dd>
-</li>
-<dt><strong><a name="item_tos_set_2dtos__5bvalue_5d"><strong>TOS set-tos [value]</strong></a></strong>
+<dt><strong><a name="tos_set_tos_value" class="item"><strong>TOS set-tos [value]</strong></a></strong></dt>
 
 <dd>
 <p>Set the tcp package Type Of Service bit to this value.  This will be
 used by whatever traffic scheduler is willing to, mostly your own
 linux-machine, but maybe more. The original tos-bits are blanked and
 overwritten by this value.</p>
-</dd>
-<dd>
 <pre>
     TOS set-tos Maximize-Throughput;
     TOS and-tos 7;
     TOS or-tos 1;
     TOS xor-tos 4;</pre>
+<p>Type &quot;iptables -j TOS -h&quot; for details.</p>
 </dd>
-<dd>
-<p>Type ``iptables -j TOS -h'' for details.</p>
-</dd>
-</li>
-<dt><strong><a name="item_ttl"><strong>TTL</strong></a></strong>
+<dt><strong><a name="ttl" class="item"><strong>TTL</strong></a></strong></dt>
 
 <dd>
 <p>Modify the TTL header field.</p>
-</dd>
-<dd>
 <pre>
     TTL ttl-set 16;
     TTL ttl-dec 1; # decrease by 1
     TTL ttl-inc 4; # increase by 4</pre>
 </dd>
-</li>
-<dt><strong><a name="item_ulog"><strong>ULOG</strong></a></strong>
+<dt><strong><a name="ulog" class="item"><strong>ULOG</strong></a></strong></dt>
 
 <dd>
 <p>Log packets to a userspace program.</p>
-</dd>
-<dd>
 <pre>
     ULOG ulog-nlgroup 5 ulog-prefix &quot;Look at this: &quot;;
     ULOG ulog-cprange 256;
     ULOG ulog-qthreshold 10;</pre>
 </dd>
-</li>
 </dl>
 <p>
 </p>
@@ -1818,128 +1416,102 @@ concepts are similar to <em>iptables</em>.</p>
 </p>
 <h2><a name="arptables_keywords">arptables keywords</a></h2>
 <dl>
-<dt><strong><a name="item_source_2dip_2c_destination_2dip"><strong>source-ip</strong>, <strong>destination-ip</strong></a></strong>
+<dt><strong><a name="source_ip_destination_ip" class="item"><strong>source-ip</strong>, <strong>destination-ip</strong></a></strong></dt>
 
 <dd>
 <p>Matches the source or destination IPv4 address.  Same as <strong>saddr</strong> and
 <strong>daddr</strong> in the <em>ip</em> domain.</p>
 </dd>
-</li>
-<dt><strong><a name="item_source_2dmac_2c_destination_2dmac"><strong>source-mac</strong>, <strong>destination-mac</strong></a></strong>
+<dt><strong><a name="source_mac_destination_mac" class="item"><strong>source-mac</strong>, <strong>destination-mac</strong></a></strong></dt>
 
 <dd>
 <p>Matches the source or destination MAC address.</p>
 </dd>
-</li>
-<dt><strong><a name="item_interface_2c_outerface"><strong>interface</strong>, <strong>outerface</strong></a></strong>
+<dt><strong><a name="interface_outerface" class="item"><strong>interface</strong>, <strong>outerface</strong></a></strong></dt>
 
 <dd>
 <p>Input and output interface.</p>
 </dd>
-</li>
-<dt><strong><a name="item_h_2dlength"><strong>h-length</strong></a></strong>
+<dt><strong><a name="h_length" class="item"><strong>h-length</strong></a></strong></dt>
 
 <dd>
 <p>Hardware length of the packet.</p>
-</dd>
-<dd>
 <pre>
     chain INPUT h-length 64 ACCEPT;</pre>
 </dd>
-</li>
-<dt><strong><a name="item_opcode"><strong>opcode</strong></a></strong>
+<dt><strong><a name="opcode" class="item"><strong>opcode</strong></a></strong></dt>
 
 <dd>
-<p>Operation code, for details see the iptables(8).</p>
-</dd>
-<dd>
+<p>Operation code, for details see the <code>iptables(8)</code>.</p>
 <pre>
     opcode 9 ACCEPT;</pre>
 </dd>
-</li>
-<dt><strong><a name="item_h_2dtype"><strong>h-type</strong></a></strong>
+<dt><strong><a name="h_type" class="item"><strong>h-type</strong></a></strong></dt>
 
 <dd>
 <p>Hardware type.</p>
-</dd>
-<dd>
 <pre>
     h-type 1 ACCEPT;</pre>
 </dd>
-</li>
-<dt><strong><a name="item_proto_2dtype"><strong>proto-type</strong></a></strong>
+<dt><strong><a name="proto_type" class="item"><strong>proto-type</strong></a></strong></dt>
 
 <dd>
 <p>Protocol type.</p>
-</dd>
-<dd>
 <pre>
     proto-type 0x800 ACCEPT;</pre>
 </dd>
-</li>
-<dt><strong><a name="item_mangling"><strong>Mangling</strong></a></strong>
+<dt><strong><a name="mangling" class="item"><strong>Mangling</strong></a></strong></dt>
 
 <dd>
 <p>The keywords <strong>mangle-ip-s</strong>, <strong>mangle-ip-d</strong>, <strong>mangle-mac-s</strong>,
 <strong>mangle-mac-d</strong>, <strong>mangle-target</strong> may be used for ARP mangling.  See
 <code>iptables(8)</code> for details.</p>
 </dd>
-</li>
 </dl>
 <p>
 </p>
 <h2><a name="ebtables_keywords">ebtables keywords</a></h2>
 <dl>
-<dt><strong><a name="item_proto"><strong>proto</strong></a></strong>
+<dt><strong><a name="proto" class="item"><strong>proto</strong></a></strong></dt>
 
 <dd>
 <p>Matches the protocol which created the frame, e.g. <em>IPv4</em> or <strong>PPP</strong>.
-For a list, see <em>/etc/ethertypes</em>.</p>
+For a list, see <em class="file">/etc/ethertypes</em>.</p>
 </dd>
-</li>
-<dt><strong><strong>interface</strong>, <strong>outerface</strong></strong>
+<dt><strong><a name="interface_outerface2" class="item"><strong>interface</strong>, <strong>outerface</strong></a></strong></dt>
 
 <dd>
 <p>Physical input and output interface.</p>
 </dd>
-</li>
-<dt><strong><a name="item_logical_2din_2c_logical_2dout"><strong>logical-in</strong>, <strong>logical-out</strong></a></strong>
+<dt><strong><a name="logical_in_logical_out" class="item"><strong>logical-in</strong>, <strong>logical-out</strong></a></strong></dt>
 
 <dd>
 <p>The logical bridge interface.</p>
 </dd>
-</li>
-<dt><strong><a name="item_saddr_2c_daddr"><strong>saddr</strong>, <strong>daddr</strong></a></strong>
+<dt><strong><a name="saddr_daddr" class="item"><strong>saddr</strong>, <strong>daddr</strong></a></strong></dt>
 
 <dd>
 <p>Matches source or destination MAC address.</p>
 </dd>
-</li>
-<dt><strong><a name="item_match_modules"><strong>Match modules</strong></a></strong>
+<dt><strong><a name="match_modules" class="item"><strong>Match modules</strong></a></strong></dt>
 
 <dd>
 <p>The following match modules are supported: 802.3, arp, ip, mark_m,
 pkttype, stp, vlan, log.</p>
 </dd>
-</li>
-<dt><strong><a name="item_target_extensions"><strong>Target extensions</strong></a></strong>
+<dt><strong><a name="target_extensions" class="item"><strong>Target extensions</strong></a></strong></dt>
 
 <dd>
 <p>The following target extensions are supported: arpreply, dnat, mark,
 redirect, snat.</p>
-</dd>
-<dd>
 <p>Please note that there is a conflict between <em>--mark</em> from the
 <em>mark_m</em> match module and <em>-j mark</em>.  Since both would be
 implemented with the ferm keyword <strong>mark</strong>, we decided to solve this by
 writing the target's name in uppercase, like in the other domains.
 The following example rewrites mark 1 to 2:</p>
-</dd>
-<dd>
 <pre>
     mark 1 MARK 2;</pre>
 </dd>
-</li>
 </dl>
 <p>
 </p>
@@ -1960,8 +1532,8 @@ parameter:</p>
 <pre>
     chain INPUT interface $DEV_INTERNET proto tcp dport $MORE_PORTS ACCEPT;</pre>
 <p>Note that variables can only be used in keyword parameters
-(``192.168.1.1'', ``http''); they cannot contain ferm keywords like
-``proto'' or ``interface''.</p>
+(&quot;192.168.1.1&quot;, &quot;http&quot;); they cannot contain ferm keywords like
+&quot;proto&quot; or &quot;interface&quot;.</p>
 <p>Variables are only valid in the current block:</p>
 <pre>
     @def $DEV_INTERNET = eth1;
@@ -1980,8 +1552,8 @@ parameter:</p>
         }
         interface eth1 DROP;
     }</pre>
-<p>The ``def $DEV_INTERNET = ppp0'' is only valid in the ``proto tcp'' block;
-the parent block still knows ``set $DEV_INTERNET = eth1''.</p>
+<p>The &quot;def $DEV_INTERNET = ppp0&quot; is only valid in the &quot;proto tcp&quot; block;
+the parent block still knows &quot;set $DEV_INTERNET = eth1&quot;.</p>
 <p>Include files are special - variables declared in an included file are
 still available in the calling block. This is useful when you include
 a file which only declares variables.</p>
@@ -1991,24 +1563,21 @@ a file which only declares variables.</p>
 <p>Some variables are set internally by ferm. Ferm scripts can use them
 just like any other variable.</p>
 <dl>
-<dt><strong><a name="item__domain"><strong>$DOMAIN</strong></a></strong>
+<dt><strong><a name="_domain" class="item"><strong>$DOMAIN</strong></a></strong></dt>
 
 <dd>
 <p>The current domain.  One of <em>ip</em>, <em>ip6</em>, <em>arp</em>, <em>eb</em>.</p>
 </dd>
-</li>
-<dt><strong><a name="item__table"><strong>$TABLE</strong></a></strong>
+<dt><strong><a name="_table" class="item"><strong>$TABLE</strong></a></strong></dt>
 
 <dd>
 <p>The current netfilter table.</p>
 </dd>
-</li>
-<dt><strong><a name="item__chain"><strong>$CHAIN</strong></a></strong>
+<dt><strong><a name="_chain" class="item"><strong>$CHAIN</strong></a></strong></dt>
 
 <dd>
 <p>The current netfilter chain.</p>
 </dd>
-</li>
 </dl>
 <p>
 </p>
@@ -2041,7 +1610,7 @@ the call. To circumvent this, you can reorder the keywords:</p>
 <pre>
     @def $DNSSERVERS = `grep nameserver /etc/resolv.conf | awk '{print $2}'`;
     chain INPUT proto tcp saddr $DNSSERVERS ACCEPT;</pre>
-<p>The command is executed with the shell (<em>/bin/sh</em>), just like
+<p>The command is executed with the shell (<em class="file">/bin/sh</em>), just like
 backticks in perl.  ferm does not do any variable expansion here.</p>
 <p>The output is then tokenized, and saved as a ferm list (array). Lines
 beginning with '#' are ignored; the other lines may contain any number
@@ -2053,8 +1622,8 @@ of values, separated by whitespace.</p>
 <pre>
     @include 'vars.ferm';</pre>
 <p>The file name is relative to the calling file, e.g. when including
-from <em>/etc/ferm/ferm.conf</em>, the above statement includes
-<em>/etc/ferm/vars.ferm</em>. Variables and functions declared in an
+from <em class="file">/etc/ferm/ferm.conf</em>, the above statement includes
+<em class="file">/etc/ferm/vars.ferm</em>. Variables and functions declared in an
 included file are still available in the calling file.</p>
 <p><strong>include</strong> works within a block:</p>
 <pre>
@@ -2100,8 +1669,8 @@ need for semicolon.</p>
 <pre>
     hook pre &quot;echo 0 &gt;/proc/sys/net/ipv4/conf/eth0/forwarding&quot;;
     hook post &quot;echo 1 &gt;/proc/sys/net/ipv4/conf/eth0/forwarding&quot;;</pre>
-<p>The specified command is executed using the shell.  ``pre'' means run
-the command before applying the firewall rules, and ``post'' means run
+<p>The specified command is executed using the shell.  &quot;pre&quot; means run
+the command before applying the firewall rules, and &quot;post&quot; means run
 the command afterwards.  You may install any number of hooks.</p>
 <p>
 </p>
@@ -2128,7 +1697,7 @@ the machine vulnerable, or they may fail.</p>
 </p>
 <hr />
 <h1><a name="recipes">RECIPES</a></h1>
-<p>The <em>./examples/</em> directory contains numerous ferm configuration
+<p>The <em class="file">./examples/</em> directory contains numerous ferm configuration
 which can be used to begin a new firewall. This sections contains more
 samples, recipes and tricks.</p>
 <p>
@@ -2162,22 +1731,20 @@ shell script there.</p>
 <hr />
 <h1><a name="options">OPTIONS</a></h1>
 <dl>
-<dt><strong><a name="item__2d_2dnoexec"><strong>--noexec</strong></a></strong>
+<dt><strong><a name="noexec" class="item"><strong>--noexec</strong></a></strong></dt>
 
 <dd>
 <p>Do not execute the <code>iptables(8)</code> commands, but skip instead. This way
 you can parse your data, use <strong>--lines</strong> to view the output.</p>
 </dd>
-</li>
-<dt><strong><a name="item__2d_2dflush"><strong>--flush</strong></a></strong>
+<dt><strong><a name="flush" class="item"><strong>--flush</strong></a></strong></dt>
 
 <dd>
 <p>Clears the firewall rules and sets the policy of all chains to ACCEPT.
 <strong>ferm</strong> needs a configuration file for that to determine which domains
 and tables are affected.</p>
 </dd>
-</li>
-<dt><strong><a name="item__2d_2dlines"><strong>--lines</strong></a></strong>
+<dt><strong><a name="lines" class="item"><strong>--lines</strong></a></strong></dt>
 
 <dd>
 <p>Show the firewall lines that were generated from the rules. They
@@ -2185,8 +1752,7 @@ will be shown just before they are executed, so if you get error
 messages from <code>iptables(8)</code> etc., you can see which rule caused
 the error.</p>
 </dd>
-</li>
-<dt><strong><a name="item__2d_2dinteractive"><strong>--interactive</strong></a></strong>
+<dt><strong><a name="interactive" class="item"><strong>--interactive</strong></a></strong></dt>
 
 <dd>
 <p>Apply the firewall rules and ask the user for confirmation.  Reverts
@@ -2194,65 +1760,54 @@ to the previous ruleset if there is no valid user response within 30
 seconds.  This is useful for remote firewall administration: you can
 test the rules without fearing to lock yourself out.</p>
 </dd>
-</li>
-<dt><strong><a name="item__2d_2dhelp"><strong>--help</strong></a></strong>
+<dt><strong><a name="help" class="item"><strong>--help</strong></a></strong></dt>
 
 <dd>
 <p>Show a brief list of available commandline options.</p>
 </dd>
-</li>
-<dt><strong><a name="item__2d_2dversion"><strong>--version</strong></a></strong>
+<dt><strong><a name="version" class="item"><strong>--version</strong></a></strong></dt>
 
 <dd>
 <p>Shows the version number of the program.</p>
 </dd>
-</li>
-<dt><strong><a name="item__2d_2dfast"><strong>--fast</strong></a></strong>
+<dt><strong><a name="fast" class="item"><strong>--fast</strong></a></strong></dt>
 
 <dd>
 <p>Enable fast mode: ferm generates an iptables-save(8) file, and
 installs it with iptables-restore(8). This is much faster, because
 ferm calls <code>iptables(8)</code> once for every rule by default.</p>
-</dd>
-<dd>
 <p>Fast mode is enabled by default since <strong>ferm</strong> 2.0, deprecating this
 option.</p>
 </dd>
-</li>
-<dt><strong><a name="item__2d_2dslow"><strong>--slow</strong></a></strong>
+<dt><strong><a name="slow" class="item"><strong>--slow</strong></a></strong></dt>
 
 <dd>
 <p>Disable fast mode, i.e. run <code>iptables(8)</code> for every rule, and don't use
 iptables-restore(8).</p>
 </dd>
-</li>
-<dt><strong><a name="item__2d_2dshell"><strong>--shell</strong></a></strong>
+<dt><strong><a name="shell" class="item"><strong>--shell</strong></a></strong></dt>
 
 <dd>
 <p>Generate a shell script which calls iptables-restore(8) and prints it.
 Implies --fast --lines.</p>
 </dd>
-</li>
-<dt><strong><a name="item__2d_2dremote"><strong>--remote</strong></a></strong>
+<dt><strong><a name="remote" class="item"><strong>--remote</strong></a></strong></dt>
 
 <dd>
 <p>Generate rules for a remote machine.  Implies <strong>--noexec</strong> and
 <strong>--lines</strong>.  Can be combined with <strong>--shell</strong>.</p>
 </dd>
-</li>
-<dt><strong><a name="item__2d_2ddomain__7bip_7cip6_7d"><strong>--domain {ip|ip6}</strong></a></strong>
+<dt><strong><a name="domain_ip_ip62" class="item"><strong>--domain {ip|ip6}</strong></a></strong></dt>
 
 <dd>
 <p>Handle only the specified domain. <strong>ferm</strong> output may be empty if the
 domain is not configured in the input file.</p>
 </dd>
-</li>
-<dt><strong><a name="item__2d_2ddef__27_24name_3dvalue_27"><strong>--def '$name=value'</strong></a></strong>
+<dt><strong><a name="def_name_value" class="item"><strong>--def '$name=value'</strong></a></strong></dt>
 
 <dd>
 <p>Override a variable defined in the configuration file.</p>
 </dd>
-</li>
 </dl>
 <p>
 </p>

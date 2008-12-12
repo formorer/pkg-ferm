@@ -25,7 +25,7 @@
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #
 
-# $Id: ferm 1283 2008-09-30 17:56:33Z max $
+# $Id: ferm 1292 2008-12-02 21:20:43Z max $
 
 BEGIN {
     eval { require strict; import strict; };
@@ -47,9 +47,9 @@ use vars qw($has_strict $has_getopt);
 use vars qw($DATE $VERSION);
 
 # subversion keyword magic
-$DATE = '$Date: 2008-09-30 19:56:33 +0200 (Tue, 30 Sep 2008) $' =~ m,(\d{4})-(\d\d)-(\d\d), ? $1.$2.$3 : '';
+$DATE = '$Date: 2008-12-02 22:20:43 +0100 (Tue, 02 Dec 2008) $' =~ m,(\d{4})-(\d\d)-(\d\d), ? $1.$2.$3 : '';
 
-$VERSION = '2.0.3';
+$VERSION = '2.0.4';
 #$VERSION .= '~svn' . $DATE;
 
 ## interface variables
@@ -1850,9 +1850,12 @@ sub enter($$) {
                 expect_token(';');
 
                 foreach my $domain (to_array $rule{domain}) {
+                    my $domain_info = $domains{$domain};
+                    $domain_info->{enabled} = 1;
+
                     foreach my $table (to_array $rule{table}) {
                         foreach my $chain (to_array $rule{chain}) {
-                            $domains{$domain}{tables}{$table}{chains}{$chain}{policy} = $policy;
+                            $domain_info->{tables}{$table}{chains}{$chain}{policy} = $policy;
                         }
                     }
                 }
@@ -2135,11 +2138,12 @@ sub rules_to_save($) {
         # create chains / set policy
         foreach my $chain (sort keys %{$table_info->{chains}}) {
             my $chain_info = $table_info->{chains}{$chain};
-            my $policy = $option{flush} ? 'ACCEPT' : $chain_info->{policy};
+            my $policy = $option{flush} ? undef : $chain_info->{policy};
             unless (defined $policy) {
                 if (is_netfilter_builtin_chain($table, $chain)) {
                     $policy = 'ACCEPT';
                 } else {
+                    next if $option{flush};
                     $policy = '-';
                 }
             }

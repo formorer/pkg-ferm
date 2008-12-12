@@ -1,3 +1,13 @@
+ferm (2.0.4-1) unstable; urgency=low
+
+  [ Max Kellermann ]
+  * new upstream release
+
+  [ Alexander Wirt ]
+  * Add ${misc:Depends} to binary package  
+
+ -- Alexander Wirt <formorer@debian.org>  Fri, 12 Dec 2008 09:02:48 +0100
+
 ferm (2.0.3-2) unstable; urgency=low
 
   [ Max Kellermann ]

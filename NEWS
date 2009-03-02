@@ -7,6 +7,15 @@
     Auke Kok <sofar@foo-projects.org>
 
 
+v2.0.5 - 28 Feb 2009
+  - detect double negation
+  - improved detection of negated arrays
+  - ignore dpkg's backup/temporary files on @include
+  - renamed "hook" to "@hook"
+  - disable "pre" and "post" hooks with --flush
+  - added "flush" hooks
+
+
 v2.0.4 - 2 Dec 2008
   - enable policy-only domains (no rules, just policy declarations)
   - don't list custom chains in --flush --fast mode

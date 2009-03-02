@@ -1667,11 +1667,14 @@ need for semicolon.</p>
 <h2><a name="hooks">Hooks</a></h2>
 <p>To run custom commands, you may install hooks:</p>
 <pre>
-    hook pre &quot;echo 0 &gt;/proc/sys/net/ipv4/conf/eth0/forwarding&quot;;
-    hook post &quot;echo 1 &gt;/proc/sys/net/ipv4/conf/eth0/forwarding&quot;;</pre>
+    @hook pre &quot;echo 0 &gt;/proc/sys/net/ipv4/conf/eth0/forwarding&quot;;
+    @hook post &quot;echo 1 &gt;/proc/sys/net/ipv4/conf/eth0/forwarding&quot;;
+    @hook flush &quot;echo 0 &gt;/proc/sys/net/ipv4/conf/eth0/forwarding&quot;;</pre>
 <p>The specified command is executed using the shell.  &quot;pre&quot; means run
 the command before applying the firewall rules, and &quot;post&quot; means run
-the command afterwards.  You may install any number of hooks.</p>
+the command afterwards.  &quot;flush&quot; hooks are run after ferm has flushed
+the firewall rules (option --flush).  You may install any number of
+hooks.</p>
 <p>
 </p>
 <hr />

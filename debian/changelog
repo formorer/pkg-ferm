@@ -1,3 +1,14 @@
+ferm (2.0.5-1) unstable; urgency=low
+
+  [ Max Kellermann ]
+  * new upstream release
+    - flushing bug fixed (Closes: #511397)
+    - ipt_recent --remove supported (Closes: #511661)
+    - ignore dpkg's backup/temporary files (Closes: #510418)
+  * fixed typo in default configuration (Closes: #513099)
+
+ -- Alexander Wirt <formorer@debian.org>  Mon, 02 Mar 2009 21:35:34 +0100
+
 ferm (2.0.4-1) unstable; urgency=low
 
   [ Max Kellermann ]

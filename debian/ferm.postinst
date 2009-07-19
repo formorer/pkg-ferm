@@ -20,7 +20,7 @@ if [ "$action" = configure ]; then
 
         {
             echo
-            echo "# Enable ferm on bootup?"
+            echo "# Enable the ferm init script? (i.e. run on bootup)"
             echo "ENABLED=$VALUE"
         } >> /etc/default/ferm
     fi

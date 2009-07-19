@@ -1,3 +1,26 @@
+ferm (2.0.6-1) unstable; urgency=low
+
+  [ Max Kellermann ]
+  * new upstream release
+    - support negation in mark/connmark/set (Closes: #521827, #522359)
+    - added automatic variable $FILENAME (Closes: #525452)
+    - create a new stack frame for @subchain (Closes: #525450)
+    - doc: added real-world example for @if (Closes: #525458)
+    - enable @include to run a program (Closes: #525678)
+  * updated upstream home page (Closes: #525671)
+  * invalidate cache after kernel upgrade (Closes: #528654)
+  * improve the "ENABLED" .default variable description (Closes: #525438)
+  * check $CONFIG after sourcing the .default file (Closes: #525440)
+  * fix bashisms in init script, and run with /bin/sh
+  * print a warning when "/etc/init.d/ferm start" fails and the module
+    ip_tables is not loaded (Closes: #525444)
+
+  [ Alexander Wirt ]
+  * Recommend libnet-dns-perl (Closes: #528500) 
+  * Bump standards version (No changes) 
+
+ -- Alexander Wirt <formorer@debian.org>  Sun, 19 Jul 2009 15:10:57 +0200
+
 ferm (2.0.5-1) unstable; urgency=low
 
   [ Max Kellermann ]

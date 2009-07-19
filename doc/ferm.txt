@@ -1182,6 +1182,9 @@ ADVANCED FEATURES
     Some variables are set internally by ferm. Ferm scripts can use them
     just like any other variable.
 
+    $FILENAME
+            The name of the configuration file.
+
     $DOMAIN The current domain. One of *ip*, *ip6*, *arp*, *eb*.
 
     $TABLE  The current netfilter table.
@@ -1246,6 +1249,11 @@ ADVANCED FEATURES
 
         @include 'ferm.d/';
 
+    With a trailing pipe symbol, ferm executes a program and parses its
+    output:
+
+        @include '/root/generate_ferm_rules.sh $HOSTNAME|'
+
   Conditionals
     The keyword @if introduces a conditional expression:
 
@@ -1279,6 +1287,15 @@ ADVANCED FEATURES
     need for semicolon.
 
     There is no @elsif, use @else @if instead.
+
+    Example:
+
+        @def $have_ipv6 = `test -f /proc/net/ip6_tables_names && echo 1 || echo`;
+        @if $have_ipv6 {
+            domain ip6 {
+                # ....
+            }
+        }
 
   Hooks
     To run custom commands, you may install hooks:
@@ -1408,7 +1425,7 @@ BUGS
     If you find a bug, please tell us: ferm@foo-projects.org
 
 COPYRIGHT
-    Copyright (C) 2001-2008 Max Kellermann <max@foo-projects.org>, Auke Kok
+    Copyright (C) 2001-2009 Max Kellermann <max@foo-projects.org>, Auke Kok
     <sofar@foo-projects.org>
 
     This program is free software; you can redistribute it and/or modify it

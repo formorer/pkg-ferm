@@ -1563,6 +1563,11 @@ a file which only declares variables.</p>
 <p>Some variables are set internally by ferm. Ferm scripts can use them
 just like any other variable.</p>
 <dl>
+<dt><strong><a name="_filename" class="item"><strong>$FILENAME</strong></a></strong></dt>
+
+<dd>
+<p>The name of the configuration file.</p>
+</dd>
 <dt><strong><a name="_domain" class="item"><strong>$DOMAIN</strong></a></strong></dt>
 
 <dd>
@@ -1634,6 +1639,10 @@ included file are still available in the calling file.</p>
 directory are included, sorted alphabetically:</p>
 <pre>
     @include 'ferm.d/';</pre>
+<p>With a trailing pipe symbol, <strong>ferm</strong> executes a program and parses its
+output:</p>
+<pre>
+    @include '/root/generate_ferm_rules.sh $HOSTNAME|'</pre>
 <p>
 </p>
 <h2><a name="conditionals">Conditionals</a></h2>
@@ -1662,6 +1671,14 @@ string are false, everything else is true.  Examples for true values:</p>
 <p>Since the closing curly brace also finishes the command, there is no
 need for semicolon.</p>
 <p>There is no <strong>@elsif</strong>, use <strong>@else @if</strong> instead.</p>
+<p>Example:</p>
+<pre>
+    @def $have_ipv6 = `test -f /proc/net/ip6_tables_names &amp;&amp; echo 1 || echo`;
+    @if $have_ipv6 {
+        domain ip6 {
+            # ....
+        }
+    }</pre>
 <p>
 </p>
 <h2><a name="hooks">Hooks</a></h2>
@@ -1840,7 +1857,7 @@ used by your firewall script</p>
 </p>
 <hr />
 <h1><a name="copyright">COPYRIGHT</a></h1>
-<p>Copyright (C) 2001-2008 Max Kellermann &lt;<a href="mailto:max@foo-projects.org">max@foo-projects.org</a>&gt;, Auke
+<p>Copyright (C) 2001-2009 Max Kellermann &lt;<a href="mailto:max@foo-projects.org">max@foo-projects.org</a>&gt;, Auke
 Kok &lt;<a href="mailto:sofar@foo-projects.org">sofar@foo-projects.org</a>&gt;</p>
 <p>This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by

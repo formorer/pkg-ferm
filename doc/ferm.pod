@@ -5,7 +5,7 @@
 #
 # ferm, a firewall setup program that makes firewall rules easy!
 #
-# Copyright (C) 2001-2008 Max Kellermann, Auke Kok
+# Copyright (C) 2001-2009 Max Kellermann, Auke Kok
 #
 # Comments, questions, greetings and additions to this program
 # may be sent to <ferm@foo-projects.org>
@@ -1472,6 +1472,10 @@ just like any other variable.
 
 =over 8
 
+=item B<$FILENAME>
+
+The name of the configuration file.
+
 =item B<$DOMAIN>
 
 The current domain.  One of I<ip>, I<ip6>, I<arp>, I<eb>.
@@ -1547,6 +1551,11 @@ directory are included, sorted alphabetically:
 
     @include 'ferm.d/';
 
+With a trailing pipe symbol, B<ferm> executes a program and parses its
+output:
+
+    @include '/root/generate_ferm_rules.sh $HOSTNAME|'
+
 =head2 Conditionals
 
 The keyword B<@if> introduces a conditional expression:
@@ -1581,6 +1590,15 @@ Since the closing curly brace also finishes the command, there is no
 need for semicolon.
 
 There is no B<@elsif>, use B<@else @if> instead.
+
+Example:
+
+    @def $have_ipv6 = `test -f /proc/net/ip6_tables_names && echo 1 || echo`;
+    @if $have_ipv6 {
+        domain ip6 {
+            # ....
+        }
+    }
 
 =head2 Hooks
 
@@ -1749,7 +1767,7 @@ If you find a bug, please tell us: ferm@foo-projects.org
 
 =head1 COPYRIGHT
 
-Copyright (C) 2001-2008 Max Kellermann <max@foo-projects.org>, Auke
+Copyright (C) 2001-2009 Max Kellermann <max@foo-projects.org>, Auke
 Kok <sofar@foo-projects.org>
 
 This program is free software; you can redistribute it and/or modify

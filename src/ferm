@@ -3,7 +3,7 @@
 #
 # ferm, a firewall setup program that makes firewall rules easy!
 #
-# Copyright (C) 2001-2008 Max Kellermann, Auke Kok
+# Copyright (C) 2001-2009 Max Kellermann, Auke Kok
 #
 # Comments, questions, greetings and additions to this program
 # may be sent to <ferm@foo-projects.org>
@@ -44,13 +44,10 @@ BEGIN {
 
 use vars qw($has_strict $has_getopt);
 
-use vars qw($DATE $VERSION);
+use vars qw($VERSION);
 
-# subversion keyword magic
-$DATE = '$Date$' =~ m,(\d{4})-(\d\d)-(\d\d), ? $1.$2.$3 : '';
-
-$VERSION = '2.0.5';
-#$VERSION .= '~svn' . $DATE;
+$VERSION = '2.0.6';
+#$VERSION .= '~git';
 
 ## interface variables
 # %option = command line and other options
@@ -234,7 +231,7 @@ add_match_def 'comment', qw(comment=s);
 add_match_def 'condition', qw(condition!);
 add_match_def 'connbytes', qw(!connbytes connbytes-dir connbytes-mode);
 add_match_def 'connlimit', qw(!connlimit-above connlimit-mask);
-add_match_def 'connmark', qw(mark);
+add_match_def 'connmark', qw(!mark);
 add_match_def 'conntrack', qw(ctstate=c ctproto ctorigsrc! ctorigdst!),
   qw(ctreplsrc! ctrepldst! ctstatus ctexpire=s);
 add_match_def 'dscp', qw(dscp dscp-class);
@@ -254,7 +251,7 @@ add_match_def 'ipv6header', qw(header!=c soft*0);
 add_match_def 'length', qw(length!);
 add_match_def 'limit', qw(limit=s limit-burst=s);
 add_match_def 'mac', qw(mac-source!);
-add_match_def 'mark', qw(mark);
+add_match_def 'mark', qw(!mark);
 add_match_def 'multiport', qw(source-ports!&multiport_params),
   qw(destination-ports!&multiport_params ports!&multiport_params);
 add_match_def 'nth', qw(every counter start packet);
@@ -271,7 +268,7 @@ add_match_def 'random', qw(average);
 add_match_def 'realm', qw(realm!);
 add_match_def 'recent', qw(name=s !set*0 !remove*0 !rcheck*0 !update*0 !seconds !hitcount rttl*0 rsource*0 rdest*0);
 add_match_def 'rt', qw(rt-type! rt-segsleft! rt-len! rt-0-res*0 rt-0-addrs=c rt-0-not-strict*0);
-add_match_def 'set', qw(set=sc);
+add_match_def 'set', qw(!set=sc);
 add_match_def 'state', qw(state=c);
 add_match_def 'statistic', qw(mode=s probability=s every=s packet=s);
 add_match_def 'string', qw(algo=s from=s to=s string hex-string);
@@ -513,6 +510,7 @@ if ($has_strict) {
 
 unshift @stack, {};
 open_script($ARGV[0]);
+$stack[0]{auto}{FILENAME} = $ARGV[0];
 
 # parse all input recursively
 enter(0);
@@ -566,7 +564,7 @@ exit 0;
 
 sub printversion {
     print "ferm $VERSION\n";
-    print "Copyright (C) 2001-2008 Max Kellermann, Auke Kok\n";
+    print "Copyright (C) 2001-2009 Max Kellermann, Auke Kok\n";
     print "This program is free software released under GPLv2.\n";
     print "See the included COPYING file for license details.\n";
 }
@@ -735,7 +733,7 @@ sub open_script($) {
     }
 
     local *FILE;
-    open FILE, "<$filename" or die("Failed to open $filename: $!\n");
+    open FILE, "$filename" or die("Failed to open $filename: $!\n");
     my $handle = *FILE;
 
     $script = { filename => $filename,
@@ -763,7 +761,7 @@ sub collect_filenames(@) {
         # non-absolute file names are relative to the parent script's
         # file name
         $pathname = $parent_dir . $pathname
-          unless $pathname =~ m,^/,;
+          unless $pathname =~ m,^/|\|$,;
 
         if ($pathname =~ m,/$,) {
             # include all regular files in a directory
@@ -826,8 +824,12 @@ sub next_token() {
         my $prev_token = $past_tokens->[-1][-1];
         $past_tokens->[-1] = @$past_tokens > 1 ? ['{'] : []
           if $prev_token eq ';';
-        pop @$past_tokens
-          if $prev_token eq '}';
+        if ($prev_token eq '}') {
+            pop @$past_tokens;
+            $past_tokens->[-1] = $past_tokens->[-1][0] eq '{'
+              ? [ '{' ] : []
+                if @$past_tokens > 0;
+        }
     }
 
     push @$past_tokens, [] if $token eq '{' or @$past_tokens == 0;
@@ -1430,7 +1432,7 @@ sub new_level(\%$) {
         $rule->{keywords} = $prev->{keywords};
         $rule->{match} = { %{$prev->{match}} };
         $rule->{options} = [@{$prev->{options}}];
-        foreach my $key (qw(domain domain_family table chain protocol has_action)) {
+        foreach my $key (qw(domain domain_family table chain protocol has_rule has_action)) {
             $rule->{$key} = $prev->{$key}
               if exists $prev->{$key};
         }
@@ -1542,6 +1544,9 @@ sub enter($$) {
 
             # effectuation operator
             if ($keyword eq ';') {
+                error('Empty rule before ";" not allowed')
+                  unless $rule{non_empty};
+
                 if ($rule{has_rule} and not exists $rule{has_action}) {
                     # something is wrong when a rule was specified,
                     # but no action
@@ -1667,6 +1672,8 @@ sub enter($$) {
                         $stack->{functions} = ($stack[0]{functions} ||= {});
                         $stack->{auto} = { %{ $stack[0]{auto} || {} } };
                     }
+
+                    $stack->{auto}{FILENAME} = $filename;
 
                     unshift @stack, $stack;
 
@@ -1936,8 +1943,18 @@ sub enter($$) {
                     append_option(%inner, 'protocol', $inner{protocol});
                 }
 
+                # create a new stack frame
+                my $old_stack_depth = @stack;
+                my $stack = { auto => { %{$stack[0]{auto} || {}} } };
+                $stack->{auto}{CHAIN} = $subchain;
+                unshift @stack, $stack;
+
                 # enter the block
                 enter($lev + 1, \%inner);
+
+                # pop stack frame
+                shift @stack;
+                die unless @stack == $old_stack_depth;
 
                 # now handle the parent - it's a jump to the sub chain
                 $rule{script} = {
@@ -1949,6 +1966,7 @@ sub enter($$) {
 
                 # and clean up variables set in this level
                 new_level(%rule, $prev);
+                delete $rule{has_rule};
 
                 next;
             }

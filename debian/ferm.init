@@ -4,12 +4,12 @@
 #
 #               Written by Max Kellermann <max@duempel.org>
 #
-# Version:      $Revision: 301 $
+# Version:      $Revision: 315 $
 ### BEGIN INIT INFO
 # Provides:          ferm
-# Required-Start:    $network
-# Required-Stop:     $network
-# Default-Start:     2 3 5 
+# Required-Start:    $network $remote_fs
+# Required-Stop:     $network $remote_fs
+# Default-Start:     S
 # Default-Stop:	     0 6 
 # Description: Starts ferm firewall configuration 
 # short-description: ferm firewall configuration

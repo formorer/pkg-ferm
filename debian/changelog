@@ -1,3 +1,26 @@
+ferm (2.0.7-1~bpo50+1) lenny-backports; urgency=low
+
+  * Rebuild for lenny-backports.
+
+ -- Alexander Wirt <formorer@debian.org>  Tue, 04 May 2010 19:49:25 +0000
+
+ferm (2.0.7-1) unstable; urgency=low
+
+  * New upstream version
+    - Fix post & flush hooks 
+      (Closes: #548579, #563779)
+    - Fix negiotation for owner module
+      (Closes: #553423)
+    - Fix "intrapositioned negation is deprecated"
+      (Closes: #544535)
+  * Remove Max as maintainer. Thanks for your previous work Max!
+  * Add russian debconf translation (Closes: #543185). Thanks Yuri Kozlov!
+  * Add japanese debconf translation (Closes: #554516). Thanks Hideki Yamane! 
+  * Bump standards version (No changes)
+  * Update initlevels (Closes: #549295)
+
+ -- Alexander Wirt <formorer@debian.org>  Mon, 15 Feb 2010 10:36:59 +0100
+
 ferm (2.0.6-1) unstable; urgency=low
 
   [ Max Kellermann ]

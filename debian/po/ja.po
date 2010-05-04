@@ -1,0 +1,43 @@
+# Copyright (C) 2009 ferm maintainers <ferm-maintainers@ned.snow-crash.org>
+# This file is distributed under the same license as ferm package.
+# Hideki Yamane <henrich@debian.or.jp>, 2009.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: ferm 2.0.6-1\n"
+"Report-Msgid-Bugs-To: ferm-maintainers@ned.snow-crash.org\n"
+"POT-Creation-Date: 2006-09-25 22:40+0200\n"
+"PO-Revision-Date: 2009-10-25 06:52+0900\n"
+"Last-Translator: Hideki Yamane (Debian-JP) <henrich@debian.or.jp>\n"
+"Language-Team: Japanese <debian-japanese@lists.debian.org>\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+#. Type: boolean
+#. Description
+#: ../ferm.templates:1001
+msgid "Enable ferm on bootup?"
+msgstr "システム起動時に ferm を有効にしますか?"
+
+#. Type: boolean
+#. Description
+#: ../ferm.templates:1001
+msgid "Ferm can load firewall rules on every bootup from /etc/ferm/ferm.conf."
+msgstr ""
+"ferm は、毎回のシステム起動時に /etc/ferm/ferm.conf からファイアウォールの設定"
+"を読み込むことができます。"
+
+#. Type: boolean
+#. Description
+#: ../ferm.templates:1001
+msgid ""
+"The default configuration allows SSH login on port 22; if you are installing "
+"this package remotely on another port, you should not choose this option, "
+"and later edit /etc/default/ferm to enable ferm."
+msgstr ""
+"デフォルトの設定ではポート番号 22 で SSH のログインを許可しています。"
+"リモートから別のポート番号にてこのパッケージをインストールしている場合、この"
+"設定を選んではいけません。後ほど ferm を有効にするために /etc/default/ferm を"
+"編集してください。"
+

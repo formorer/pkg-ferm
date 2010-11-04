@@ -1,3 +1,14 @@
+ferm (2.0.8-1) unstable; urgency=low
+
+  * New upstream release 
+    - Support eq,ne,not (Closes: #407563, #559902)
+    - resolve() now support different types like AAAA or MX (Closes: #544248)
+    - Fix docs for frag (Closes: #560000)
+  * Bump standards version (no changes)
+  * Explicitly use 1.0 format
+
+ -- Alexander Wirt <formorer@debian.org>  Thu, 04 Nov 2010 11:52:01 +0100
+
 ferm (2.0.7-1) unstable; urgency=low
 
   * New upstream version

@@ -7,6 +7,15 @@
     Auke Kok <sofar@foo-projects.org>
 
 
+v2.0.9 - 26 Feb 2011
+  - updated netfilter modules:
+    * state: support negation
+    * icmp: translate "icmp-type" to "icmpv6-type" in domain "ip6"
+  - add functions @cat, @substr, @length
+  - subchain names can now be expanded
+  - import-ferm: support empty string parameters
+
+
 v2.0.8 - 4 Nov 2010
   - added automatic variable $DIRNAME
   - implement confirmation/rollback for --shell --interactive

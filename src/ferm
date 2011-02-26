@@ -46,7 +46,7 @@ use vars qw($has_strict $has_getopt);
 
 use vars qw($VERSION);
 
-$VERSION = '2.0.8';
+$VERSION = '2.0.9';
 #$VERSION .= '~git';
 
 ## interface variables
@@ -209,8 +209,7 @@ sub add_target_def(@) {
 
 add_proto_def 'dccp', qw(dccp-types!=c dccp-option!);
 add_proto_def 'mh', qw(mh-type!);
-add_proto_def 'icmp', qw(icmp-type!);
-add_proto_def 'icmpv6', qw(icmpv6-type! icmp-type:=icmpv6-type);
+add_proto_def 'icmp', qw(icmp-type! icmpv6-type:=icmp-type);
 add_proto_def 'sctp', qw(chunk-types!=sc);
 add_proto_def 'tcp', qw(tcp-flags!=cc !syn*0 tcp-option! mss);
 add_proto_def 'udp', qw();
@@ -271,7 +270,7 @@ add_match_def 'realm', qw(realm!);
 add_match_def 'recent', qw(name=s !set*0 !remove*0 !rcheck*0 !update*0 !seconds !hitcount rttl*0 rsource*0 rdest*0);
 add_match_def 'rt', qw(rt-type! rt-segsleft! rt-len! rt-0-res*0 rt-0-addrs=c rt-0-not-strict*0);
 add_match_def 'set', qw(!set=sc);
-add_match_def 'state', qw(state=c);
+add_match_def 'state', qw(!state=c);
 add_match_def 'statistic', qw(mode=s probability=s every=s packet=s);
 add_match_def 'string', qw(algo=s from=s to=s string hex-string);
 add_match_def 'tcpmss', qw(!mss);
@@ -1110,8 +1109,20 @@ sub getvalues {
             return format_bool($params[0] ne $params[1]);
         } elsif ($token eq '@not') {
             my @params = get_function_params();
-            error('Usage: @eq(a, b)') unless @params == 1;
+            error('Usage: @not(a)') unless @params == 1;
             return format_bool(not $params[0]);
+        } elsif ($token eq '@cat') {
+            my $value = '';
+            map { $value .= $_ } get_function_params();
+            return $value;
+        } elsif ($token eq '@substr') {
+            my @params = get_function_params();
+            error('Usage: @substr(string, num, num)') unless @params == 3;
+            return substr($params[0],$params[1],$params[2]);
+        } elsif ($token eq '@length') {
+            my @params = get_function_params();
+            error('Usage: @length(string)') unless @params == 1;
+            return length($params[0]);
         } else {
             error("unknown ferm built-in function");
         }
@@ -1242,8 +1253,8 @@ sub is_netfilter_builtin_chain($$) {
 
 sub netfilter_canonical_protocol($) {
     my $proto = shift;
-    return 'icmpv6'
-      if $proto eq 'ipv6-icmp';
+    return 'icmp'
+      if $proto eq 'ipv6-icmp' or $proto eq 'icmpv6';
     return 'mh'
       if $proto eq 'ipv6-mh';
     return $proto;
@@ -1319,6 +1330,7 @@ sub format_option($$$) {
     my ($domain, $name, $value) = @_;
     $value = 'icmpv6' if $domain eq 'ip6' and $name eq 'protocol'
       and $value eq 'icmp';
+    $name = 'icmpv6-type' if $domain eq 'ip6' and $name eq 'icmp-type';
     return shell_format_option($name, $value);
 }
 
@@ -1965,13 +1977,18 @@ sub enter($$) {
                   unless $rule{has_rule};
 
                 my $subchain;
-                $keyword = next_token();
+                my $token = peek_token();
 
-                if ($keyword =~ /^(["'])(.*)\1$/s) {
+                if ($token =~ /^(["'])(.*)\1$/s) {
                     $subchain = $2;
+                    next_token();
                     $keyword = next_token();
-                } else {
+                } elsif ($token eq '{') {
+                    $keyword = next_token();
                     $subchain = 'ferm_auto_' . ++$auto_chain;
+                } else {
+                    $subchain = getvar();
+                    $keyword = next_token();
                 }
 
                 foreach my $domain (to_array $rule{domain}) {

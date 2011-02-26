@@ -19,7 +19,7 @@ binary-indep:
 	dh_installdirs -i
 	dh_installdocs
 	dh_installchangelogs -i
-	dh_installinit -i --no-restart-on-upgrade -- start 41 S . start 36 0 6 .
+	dh_installinit -i --no-restart-on-upgrade -- start 41 S .
 	dh_installdebconf
 	dh_install -i
 	dh_lintian

@@ -1,3 +1,12 @@
+ferm (2.0.9-1) unstable; urgency=low
+
+  * New upstream version
+    - allow truncing of strings with substr (Closes: #550854)
+    - mod mark is now in manpage (Closes: #578665)
+  * Don't stop firewall on shutdown (Closes: #591491)
+
+ -- Alexander Wirt <formorer@debian.org>  Sat, 26 Feb 2011 10:51:19 +0100
+
 ferm (2.0.8-1) unstable; urgency=low
 
   * New upstream release 

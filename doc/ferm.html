@@ -69,6 +69,9 @@
 		<li><a href="#_ne_a_b_">@ne(a,b)</a></li>
 		<li><a href="#_not_x_">@not(x)</a></li>
 		<li><a href="#_resolve__hostname1_hostname2________type__">@resolve((hostname1 hostname2 ...), [type])</a></li>
+		<li><a href="#_cat_a__b______">@cat(a, b, ...)</a></li>
+		<li><a href="#_substr_expression__offset__length_">@substr(expression, offset, length)</a></li>
+		<li><a href="#_length_expression_">@length(expression)</a></li>
 	</ul>
 
 	<li><a href="#recipes">RECIPES</a></li>
@@ -475,6 +478,8 @@ less CPU load:</p>
      proto tcp dport (http https ssh) ACCEPT;
      proto udp dport domain ACCEPT;
  }</pre>
+<p>The name can either be a quoted string literal, or an expanded ferm
+expression such as @substr($var,0,20).</p>
 <p>You can achieve the same by explicitly declaring a custom chain, but
 you may feel that using <strong>@subchain</strong> requires less typing.</p>
 </dd>
@@ -1715,6 +1720,20 @@ The default is &quot;A&quot;.</p>
 <p>Be careful with resolved host names in firewall configuration.  DNS
 requests may block the firewall configuration for a long time, leaving
 the machine vulnerable, or they may fail.</p>
+<p>
+</p>
+<h2><a name="_cat_a__b______">@cat(a, b, ...)</a></h2>
+<p>Concatenate all parameters into one string.</p>
+<p>
+</p>
+<h2><a name="_substr_expression__offset__length_">@substr(expression, offset, length)</a></h2>
+<p>Extracts a substring out of expression and returns it.  First
+character is at offset 0. If OFFSET is negative, starts that far from
+the end of the string.</p>
+<p>
+</p>
+<h2><a name="_length_expression_">@length(expression)</a></h2>
+<p>Returns the length in characters of the value of EXPR.</p>
 <p>
 </p>
 <hr />

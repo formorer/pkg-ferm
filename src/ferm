@@ -3,7 +3,7 @@
 #
 # ferm, a firewall setup program that makes firewall rules easy!
 #
-# Copyright (C) 2001-2010 Max Kellermann, Auke Kok
+# Copyright (C) 2001-2011 Max Kellermann, Auke Kok
 #
 # Comments, questions, greetings and additions to this program
 # may be sent to <ferm@foo-projects.org>
@@ -27,6 +27,8 @@
 
 # $Id$
 
+use File::Spec;
+
 BEGIN {
     eval { require strict; import strict; };
     $has_strict = not $@;
@@ -46,7 +48,7 @@ use vars qw($has_strict $has_getopt);
 
 use vars qw($VERSION);
 
-$VERSION = '2.0.9';
+$VERSION = '2.1';
 #$VERSION .= '~git';
 
 ## interface variables
@@ -259,7 +261,7 @@ add_match_def 'owner', qw(!uid-owner !gid-owner pid-owner sid-owner),
   qw(cmd-owner !socket-exists=0);
 add_match_def 'physdev', qw(physdev-in! physdev-out!),
   qw(!physdev-is-in*0 !physdev-is-out*0 !physdev-is-bridged*0);
-add_match_def 'pkttype', qw(pkt-type),
+add_match_def 'pkttype', qw(pkt-type!),
 add_match_def 'policy',
   qw(dir pol strict*0 !reqid !spi !proto !mode !tunnel-src !tunnel-dst next*0);
 add_match_def 'psd', qw(psd-weight-threshold psd-delay-threshold),
@@ -269,7 +271,7 @@ add_match_def 'random', qw(average);
 add_match_def 'realm', qw(realm!);
 add_match_def 'recent', qw(name=s !set*0 !remove*0 !rcheck*0 !update*0 !seconds !hitcount rttl*0 rsource*0 rdest*0);
 add_match_def 'rt', qw(rt-type! rt-segsleft! rt-len! rt-0-res*0 rt-0-addrs=c rt-0-not-strict*0);
-add_match_def 'set', qw(!set=sc);
+add_match_def 'set', qw(!match-set=sc set:=match-set);
 add_match_def 'state', qw(!state=c);
 add_match_def 'statistic', qw(mode=s probability=s every=s packet=s);
 add_match_def 'string', qw(algo=s from=s to=s string hex-string);
@@ -326,9 +328,34 @@ add_match_def_x 'arp', '',
   qw(h-length=s opcode=s h-type=s proto-type=s),
   qw(mangle-ip-s=s mangle-ip-d=s mangle-mac-s=s mangle-mac-d=s mangle-target=s);
 
+add_proto_def_x 'eb', 'IPv4',
+  qw(ip-source! ip-destination! ip-src:=ip-source ip-dst:=ip-destination),
+  qw(ip-tos!),
+  qw(ip-protocol! ip-proto:=ip-protocol),
+  qw(ip-source-port! ip-sport:=ip-source-port),
+  qw(ip-destination-port! ip-dport:=ip-destination-port);
+
+add_proto_def_x 'eb', 'IPv6',
+  qw(ip6-source! ip6-destination! ip6-src:=ip6-source ip6-dst:=ip6-destination),
+  qw(ip6-tclass!),
+  qw(ip6-protocol! ip6-proto:=ip6-protocol),
+  qw(ip6-source-port! ip6-sport:=ip6-source-port),
+  qw(ip6-destination-port! ip6-dport:=ip6-destination-port);
+
+add_proto_def_x 'eb', 'ARP',
+  qw(!arp-gratuitous*0),
+  qw(arp-opcode! arp-htype!=ss arp-ptype!=ss),
+  qw(arp-ip-src! arp-ip-dst! arp-mac-src! arp-mac-dst!);
+
+add_proto_def_x 'eb', 'RARP',
+  qw(!arp-gratuitous*0),
+  qw(arp-opcode! arp-htype!=ss arp-ptype!=ss),
+  qw(arp-ip-src! arp-ip-dst! arp-mac-src! arp-mac-dst!);
+
+add_proto_def_x 'eb', '802_1Q',
+  qw(vlan-id! vlan-prio! vlan-encap!),
+
 add_match_def_x 'eb', '',
-  # protocol
-  qw(protocol! proto:=protocol),
   # --in-interface
   qw(in-interface! interface:=in-interface if:=in-interface),
   # --out-interface
@@ -339,11 +366,10 @@ add_match_def_x 'eb', '',
   qw(source! saddr:=source destination! daddr:=destination),
   # 802.3
   qw(802_3-sap! 802_3-type!),
-  # arp
-  qw(arp-opcode! arp-htype!=ss arp-ptype!=ss),
-  qw(arp-ip-src! arp-ip-dst! arp-mac-src! arp-mac-dst!),
-  # ip
-  qw(ip-source! ip-destination! ip-tos! ip-protocol! ip-sport! ip-dport!),
+  # among
+  qw(!among-dst=c !among-src=c !among-dst-file !among-src-file),
+  # limit
+  qw(limit=s limit-burst=s),
   # mark_m
   qw(mark!),
   # pkttype
@@ -352,8 +378,6 @@ add_match_def_x 'eb', '',
   qw(stp-type! stp-flags! stp-root-prio! stp-root-addr! stp-root-cost!),
   qw(stp-sender-prio! stp-sender-addr! stp-port! stp-msg-age! stp-max-age!),
   qw(stp-hello-time! stp-forward-delay!),
-  # vlan
-  qw(vlan-id! vlan-prio! vlan-encap!),
   # log
   qw(log*0 log-level=s log-prefix=s log-ip*0 log-arp*0);
 
@@ -517,8 +541,13 @@ if ($has_strict) {
 
 unshift @stack, {};
 open_script($ARGV[0]);
+
+my( $volume,$dirs,$file ) = File::Spec->splitpath( $ARGV[0] );
 $stack[0]{auto}{FILENAME} = $ARGV[0];
-$stack[0]{auto}{DIRNAME} = $ARGV[0] =~ m,^(.*)/,s ? $1 : '.';
+$stack[0]{auto}{FILEBNAME} = $file;
+$stack[0]{auto}{DIRNAME} = $dirs;
+
+
 
 # parse all input recursively
 enter(0);
@@ -585,7 +614,7 @@ exit 0;
 
 sub printversion {
     print "ferm $VERSION\n";
-    print "Copyright (C) 2001-2010 Max Kellermann, Auke Kok\n";
+    print "Copyright (C) 2001-2011 Max Kellermann, Auke Kok\n";
     print "This program is free software released under GPLv2.\n";
     print "See the included COPYING file for license details.\n";
 }
@@ -700,23 +729,19 @@ sub initialize_domain {
     $domain_info->{initialized} = 1;
 }
 
-sub filter_domains($) {
-    my $domains = shift;
+sub check_domain($) {
+    my $domain = shift;
     my @result;
 
-    foreach my $domain (to_array($domains)) {
-        next if exists $option{domain}
-          and $domain ne $option{domain};
+    return if exists $option{domain}
+      and $domain ne $option{domain};
 
-        eval {
-            initialize_domain($domain);
-        };
-        error($@) if $@;
+    eval {
+        initialize_domain($domain);
+    };
+    error($@) if $@;
 
-        push @result, $domain;
-    }
-
-    return @result == 1 ? @result[0] : \@result;
+    return 1;
 }
 
 # split the input string into words and delete comments
@@ -733,21 +758,57 @@ sub tokenize_string($) {
     return \@ret;
 }
 
+# generate a "line" special token, that marks the line number; these
+# special tokens are inserted after each line break, so ferm keeps
+# track of line numbers
+sub make_line_token($) {
+    my $line = shift;
+    return bless(\$line, 'line');
+}
+
 # read some more tokens from the input file into a buffer
 sub prepare_tokens() {
     my $tokens = $script->{tokens};
     while (@$tokens == 0) {
         my $handle = $script->{handle};
+        return unless defined $handle;
         my $line = <$handle>;
         return unless defined $line;
 
-        $script->{line} ++;
+        push @$tokens, make_line_token($script->{line} + 1);
 
         # the next parser stage eats this
         push @$tokens, @{tokenize_string($line)};
     }
 
     return 1;
+}
+
+sub handle_special_token($) {
+    my $token = shift;
+    die unless ref $token;
+    if (ref $token eq 'line') {
+        $script->{line} = $$token;
+    } else {
+        die;
+    }
+}
+
+sub handle_special_tokens() {
+    my $tokens = $script->{tokens};
+    while (@$tokens > 0 and ref $tokens->[0]) {
+        handle_special_token(shift @$tokens);
+    }
+}
+
+# wrapper for prepare_tokens() which handles "special" tokens
+sub prepare_normal_tokens() {
+    my $tokens = $script->{tokens};
+    while (1) {
+        handle_special_tokens();
+        return 1 if @$tokens > 0;
+        return unless prepare_tokens();
+    }
 }
 
 # open a ferm sub script
@@ -759,9 +820,18 @@ sub open_script($) {
           if $s->{filename} eq $filename;
     }
 
-    local *FILE;
-    open FILE, "$filename" or die("Failed to open $filename: $!\n");
-    my $handle = *FILE;
+    my $handle;
+    if ($filename eq '-') {
+        # Note that this only allowed in the command-line argument and not
+        # @includes, since those are filtered by collect_filenames()
+        $handle = *STDIN;
+        # also set a filename label so that error messages are more helpful
+        $filename = "<stdin>";
+    } else {
+        local *FILE;
+        open FILE, "$filename" or die("Failed to open $filename: $!\n");
+        $handle = *FILE;
+    }
 
     $script = { filename => $filename,
                 handle => $handle,
@@ -835,13 +905,19 @@ sub collect_filenames(@) {
 
 # peek a token from the queue, but don't remove it
 sub peek_token() {
-    return unless prepare_tokens();
+    return unless prepare_normal_tokens();
     return $script->{tokens}[0];
+}
+
+# get a token from the queue, including "special" tokens
+sub next_raw_token() {
+    return unless prepare_tokens();
+    return shift @{$script->{tokens}};
 }
 
 # get a token from the queue
 sub next_token() {
-    return unless prepare_tokens();
+    return unless prepare_normal_tokens();
     my $token = shift @{$script->{tokens}};
 
     # update $script->{past_tokens}
@@ -893,6 +969,10 @@ sub require_next_token {
 # return the value of a variable
 sub variable_value($) {
     my $name = shift;
+
+    if ($name eq "LINE") {
+        return $script->{line};
+    }
 
     foreach (@stack) {
         return $_->{vars}{$name}
@@ -1123,6 +1203,31 @@ sub getvalues {
             my @params = get_function_params();
             error('Usage: @length(string)') unless @params == 1;
             return length($params[0]);
+        } elsif ($token eq '@basename') {
+            my @params = get_function_params();
+            error('Usage: @basename(path)') unless @params == 1;
+	    my($volume,$path,$file) = File::Spec->splitpath( $params[0] );
+            return $file;
+        } elsif ($token eq '@dirname') {
+            my @params = get_function_params();
+            error('Usage: @dirname(path)') unless @params == 1;
+	    my($volume,$path,$file) = File::Spec->splitpath( $params[0] );
+            return $path;
+        } elsif ($token eq '@ipfilter') {
+            my @params = get_function_params();
+            error('Usage: @ipfilter((ip1 ip2 ...))') unless @params == 1;
+            my $domain = $stack[0]{auto}{DOMAIN};
+            error('No domain specified') unless defined $domain;
+            my @ips = to_array($params[0]);
+
+            # very crude IPv4/IPv6 address detection
+            if ($domain eq 'ip') {
+                @ips = grep { !/:[0-9a-f]*:/ } @ips;
+            } elsif ($domain eq 'ip6') {
+                @ips = grep { !m,^[0-9./]+$,s } @ips;
+            }
+
+            return \@ips;
         } else {
             error("unknown ferm built-in function");
         }
@@ -1170,16 +1275,24 @@ sub get_function_params(%) {
 
 # collect all tokens in a flat array reference until the end of the
 # command is reached
-sub collect_tokens() {
+sub collect_tokens {
+    my %options = @_;
+
     my @level;
     my @tokens;
 
+    # re-insert a "line" token, because the starting token of the
+    # current line has been consumed already
+    push @tokens, make_line_token($script->{line});
+
     while (1) {
-        my $keyword = next_token();
+        my $keyword = next_raw_token();
         error('unexpected end of file within function/variable declaration')
           unless defined $keyword;
 
-        if ($keyword =~ /^[\{\(]$/) {
+        if (ref $keyword) {
+            handle_special_token($keyword);
+        } elsif ($keyword =~ /^[\{\(]$/) {
             push @level, $keyword;
         } elsif ($keyword =~ /^[\}\)]$/) {
             my $expected = $keyword;
@@ -1188,6 +1301,14 @@ sub collect_tokens() {
             error("unmatched '$keyword'")
               unless defined $opener and $opener eq $expected;
         } elsif ($keyword eq ';' and @level == 0) {
+            push @tokens, $keyword
+              if $options{include_semicolon};
+
+            if ($options{include_else}) {
+                my $token = peek_token;
+                next if $token eq '@else';
+            }
+
             last;
         }
 
@@ -1328,9 +1449,23 @@ sub shell_format_option($$) {
 
 sub format_option($$$) {
     my ($domain, $name, $value) = @_;
+
     $value = 'icmpv6' if $domain eq 'ip6' and $name eq 'protocol'
       and $value eq 'icmp';
     $name = 'icmpv6-type' if $domain eq 'ip6' and $name eq 'icmp-type';
+
+    if ($domain eq 'ip6' and $name eq 'reject-with') {
+        my %icmp_map = (
+            'icmp-net-unreachable'  => 'icmp6-no-route',
+            'icmp-host-unreachable' => 'icmp6-addr-unreachable',
+            'icmp-port-unreachable' => 'icmp6-port-unreachable',
+            'icmp-net-prohibited'   => 'icmp6-adm-prohibited',
+            'icmp-host-prohibited'  => 'icmp6-adm-prohibited',
+            'icmp-admin-prohibited' => 'icmp6-adm-prohibited',
+        );
+        $value = $icmp_map{$value} if exists $icmp_map{$value};
+    }
+
     return shell_format_option($name, $value);
 }
 
@@ -1376,18 +1511,17 @@ sub mkrules2($$$) {
 sub mkrules($) {
     my $rule = shift;
 
-    foreach my $domain (to_array $rule->{domain}) {
-        my $domain_info = $domains{$domain};
-        $domain_info->{enabled} = 1;
+    my $domain = $rule->{domain};
+    my $domain_info = $domains{$domain};
+    $domain_info->{enabled} = 1;
 
-        foreach my $table (to_array $rule->{table}) {
-            my $table_info = $domain_info->{tables}{$table} ||= {};
+    foreach my $table (to_array $rule->{table}) {
+        my $table_info = $domain_info->{tables}{$table} ||= {};
 
-            foreach my $chain (to_array $rule->{chain}) {
-                my $chain_rules = $table_info->{chains}{$chain}{rules} ||= [];
-                mkrules2($domain, $chain_rules, $rule)
-                  if $rule->{has_rule} and not $option{flush};
-            }
+        foreach my $chain (to_array $rule->{chain}) {
+            my $chain_rules = $table_info->{chains}{$chain}{rules} ||= [];
+            mkrules2($domain, $chain_rules, $rule)
+              if $rule->{has_rule} and not $option{flush};
         }
     }
 }
@@ -1522,7 +1656,8 @@ sub merge_keywords(\%$) {
 sub set_domain(\%$) {
     my ($rule, $domain) = @_;
 
-    my $filtered_domain = filter_domains($domain);
+    return unless check_domain($domain);
+
     my $domain_family;
     unless (ref $domain) {
         $domain_family = $domain eq 'ip6' ? 'ip' : $domain;
@@ -1538,7 +1673,7 @@ sub set_domain(\%$) {
     $rule->{keywords} = $match_defs{$domain_family}{''}{keywords};
     $rule->{cow}{keywords} = 1;
 
-    $rule->{domain} = $stack[0]{auto}{DOMAIN} = $filtered_domain;
+    $rule->{domain} = $stack[0]{auto}{DOMAIN} = $domain;
 }
 
 sub set_target(\%$$) {
@@ -1639,7 +1774,11 @@ sub enter($$) {
                 unless (eval_bool(getvalues)) {
                     collect_tokens;
                     my $token = peek_token();
-                    require_next_token() if $token and $token eq '@else';
+                    if ($token and $token eq '@else') {
+                        require_next_token();
+                    } else {
+                        new_level(%rule, $prev);
+                    }
                 }
 
                 next;
@@ -1740,8 +1879,10 @@ sub enter($$) {
                         $stack->{auto} = { %{ $stack[0]{auto} || {} } };
                     }
 
+		    my( $volume,$dirs,$file ) = File::Spec->splitpath( $filename );
                     $stack->{auto}{FILENAME} = $filename;
-                    $stack->{auto}{DIRNAME} = $filename =~ m,^(.*)/,s ? $1 : '.';
+                    $stack->{auto}{FILEBNAME} = $file;
+                    $stack->{auto}{DIRNAME} = $dirs;
 
                     unshift @stack, $stack;
 
@@ -1895,7 +2036,37 @@ sub enter($$) {
                 error('Domain is already specified')
                   if exists $rule{domain};
 
-                set_domain(%rule, getvalues());
+                my $domains = getvalues();
+                if (ref $domains) {
+                    my $tokens = collect_tokens(include_semicolon => 1,
+                                                include_else => 1);
+
+                    my $old_line = $script->{line};
+                    my $old_handle = $script->{handle};
+                    my $old_tokens = $script->{tokens};
+                    unshift @$old_tokens, make_line_token($script->{line});
+                    delete $script->{handle};
+
+                    for my $domain (@$domains) {
+                        my %inner;
+                        new_level(%inner, \%rule);
+                        set_domain(%inner, $domain) or next;
+                        $script->{tokens} = [ @$tokens ];
+                        enter($lev, \%inner);
+                    }
+
+                    $script->{tokens} = $old_tokens;
+                    $script->{handle} = $old_handle;
+                    $script->{line} = $old_line;
+
+                    new_level(%rule, $prev);
+                } else {
+                    unless (set_domain(%rule, $domains)) {
+                        collect_tokens();
+                        new_level(%rule, $prev);
+                    }
+                }
+
                 next;
             }
 
@@ -1904,7 +2075,7 @@ sub enter($$) {
                   if exists $rule{table};
                 $rule{table} = $stack[0]{auto}{TABLE} = getvalues();
 
-                set_domain(%rule, 'ip')
+                set_domain(%rule, $option{domain} || 'ip')
                   unless exists $rule{domain};
 
                 next;
@@ -1922,17 +2093,16 @@ sub enter($$) {
                       if /^(?:input|forward|output|prerouting|postrouting)$/;
                 }
 
-                set_domain(%rule, 'ip')
+                set_domain(%rule, $option{domain} || 'ip')
                   unless exists $rule{domain};
 
                 $rule{table} = 'filter'
                   unless exists $rule{table};
 
-                foreach my $domain (to_array $rule{domain}) {
-                    foreach my $table (to_array $rule{table}) {
-                        foreach my $c (to_array $chain) {
-                            $domains{$domain}{tables}{$table}{chains}{$c} ||= {};
-                        }
+                my $domain = $rule{domain};
+                foreach my $table (to_array $rule{table}) {
+                    foreach my $c (to_array $chain) {
+                        $domains{$domain}{tables}{$table}{chains}{$c} ||= {};
                     }
                 }
 
@@ -1953,14 +2123,13 @@ sub enter($$) {
 
                 expect_token(';');
 
-                foreach my $domain (to_array $rule{domain}) {
-                    my $domain_info = $domains{$domain};
-                    $domain_info->{enabled} = 1;
+                my $domain = $rule{domain};
+                my $domain_info = $domains{$domain};
+                $domain_info->{enabled} = 1;
 
-                    foreach my $table (to_array $rule{table}) {
-                        foreach my $chain (to_array $rule{chain}) {
-                            $domain_info->{tables}{$table}{chains}{$chain}{policy} = $policy;
-                        }
+                foreach my $table (to_array $rule{table}) {
+                    foreach my $chain (to_array $rule{chain}) {
+                        $domain_info->{tables}{$table}{chains}{$chain}{policy} = $policy;
                     }
                 }
 
@@ -1991,10 +2160,9 @@ sub enter($$) {
                     $keyword = next_token();
                 }
 
-                foreach my $domain (to_array $rule{domain}) {
-                    foreach my $table (to_array $rule{table}) {
-                        $domains{$domain}{tables}{$table}{chains}{$subchain} ||= {};
-                    }
+                my $domain = $rule{domain};
+                foreach my $table (to_array $rule{table}) {
+                    $domains{$domain}{tables}{$table}{chains}{$subchain} ||= {};
                 }
 
                 set_target(%rule, 'jump', $subchain);
@@ -2284,6 +2452,7 @@ sub restore_domain($$) {
     my ($domain_info, $save) = @_;
 
     my $path = $domain_info->{tools}{'tables-restore'};
+    $path .= " --noflush" if $option{noflush};
 
     local *RESTORE;
     open RESTORE, "|$path"
@@ -2301,7 +2470,9 @@ sub execute_fast($) {
     my $save = rules_to_save($domain_info);
 
     if ($option{lines}) {
-        print LINES "$domain_info->{tools}{'tables-restore'} <<EOT\n"
+        my $path = $domain_info->{tools}{'tables-restore'};
+        $path .= " --noflush" if $option{noflush};
+        print LINES "$path <<EOT\n"
           if $option{shell};
         print LINES $save;
         print LINES "EOT\n"

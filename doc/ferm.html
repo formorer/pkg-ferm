@@ -72,6 +72,9 @@
 		<li><a href="#_cat_a__b______">@cat(a, b, ...)</a></li>
 		<li><a href="#_substr_expression__offset__length_">@substr(expression, offset, length)</a></li>
 		<li><a href="#_length_expression_">@length(expression)</a></li>
+		<li><a href="#_basename_path_">@basename(path)</a></li>
+		<li><a href="#_dirname_path_">@dirname(path)</a></li>
+		<li><a href="#_ipfilter_list_">@ipfilter(list)</a></li>
 	</ul>
 
 	<li><a href="#recipes">RECIPES</a></li>
@@ -393,7 +396,7 @@ control ferm's internal behaviour), but they will be explained later.</p>
 variable references or lists (arrays):</p>
 <pre>
     proto udp
-    saddr %TRUSTED_HOSTS;
+    saddr $TRUSTED_HOSTS;
     proto tcp dport (http https ssh);
     LOG log-prefix &quot;funky wardriver alert: &quot;;</pre>
 <p>Some of them can be negated (lists cannot be negated):</p>
@@ -479,7 +482,7 @@ less CPU load:</p>
      proto udp dport domain ACCEPT;
  }</pre>
 <p>The name can either be a quoted string literal, or an expanded ferm
-expression such as @substr($var,0,20).</p>
+expression such as @cat(&quot;interface_&quot;, $iface) or @substr($var,0,20).</p>
 <p>You can achieve the same by explicitly declaring a custom chain, but
 you may feel that using <strong>@subchain</strong> requires less typing.</p>
 </dd>
@@ -1553,7 +1556,13 @@ just like any other variable.</p>
 <dt><strong><a name="_filename" class="item"><strong>$FILENAME</strong></a></strong></dt>
 
 <dd>
-<p>The name of the configuration file.</p>
+<p>The name of the configuration file relative to the directory ferm was
+started in.</p>
+</dd>
+<dt><strong><a name="_filebname" class="item"><strong>$FILEBNAME</strong></a></strong></dt>
+
+<dd>
+<p>The base name of the configuration file.</p>
 </dd>
 <dt><strong><a name="_dirname" class="item"><strong>$DIRNAME</strong></a></strong></dt>
 
@@ -1574,6 +1583,19 @@ just like any other variable.</p>
 
 <dd>
 <p>The current netfilter chain.</p>
+</dd>
+<dt><strong><a name="_line" class="item"><strong>$LINE</strong></a></strong></dt>
+
+<dd>
+<p>The line of the current script.  It can be used like this:</p>
+<pre>
+    @def &amp;log($msg) = {
+             LOG log-prefix &quot;rule=$msg:$LINE &quot;;
+    }
+    .
+    .
+    .
+    &amp;log(&quot;log message&quot;);</pre>
 </dd>
 </dl>
 <p>
@@ -1736,6 +1758,28 @@ the end of the string.</p>
 <p>Returns the length in characters of the value of EXPR.</p>
 <p>
 </p>
+<h2><a name="_basename_path_">@basename(path)</a></h2>
+<p>Return the base name of the file for a given path
+(File::Spec::splitpath).</p>
+<p>
+</p>
+<h2><a name="_dirname_path_">@dirname(path)</a></h2>
+<p>Return the name of the last directory for a given path, assuming the
+last component is a file name (File::Spec::splitpath).</p>
+<p>
+</p>
+<h2><a name="_ipfilter_list_">@ipfilter(list)</a></h2>
+<p>Filters out the IP addresses that obviously do not match the current
+domain.  That is useful to create common variables and rules for IPv4
+and IPv6:</p>
+<pre>
+    @def $TRUSTED_HOSTS = (192.168.0.40 2001:abcd:ef::40);</pre>
+<pre>
+    domain (ip ip6) chain INPUT {
+        saddr @ipfilter($TRUSTED_HOSTS) proto tcp dport ssh ACCEPT;
+    }</pre>
+<p>
+</p>
 <hr />
 <h1><a name="recipes">RECIPES</a></h1>
 <p>The <em class="file">./examples/</em> directory contains numerous ferm configuration
@@ -1878,7 +1922,7 @@ used by your firewall script</p>
 </p>
 <hr />
 <h1><a name="copyright">COPYRIGHT</a></h1>
-<p>Copyright (C) 2001-2010 Max Kellermann &lt;<a href="mailto:max@foo-projects.org">max@foo-projects.org</a>&gt;, Auke
+<p>Copyright (C) 2001-2011 Max Kellermann &lt;<a href="mailto:max@foo-projects.org">max@foo-projects.org</a>&gt;, Auke
 Kok &lt;<a href="mailto:sofar@foo-projects.org">sofar@foo-projects.org</a>&gt;</p>
 <p>This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by

@@ -124,7 +124,7 @@
 .\" ========================================================================
 .\"
 .IX Title "FERM 1"
-.TH FERM 1 "2011-02-14" "ferm 2.0.9" "FIREWALL RULES MADE EASY"
+.TH FERM 1 "2011-07-17" "ferm 2.1" "FIREWALL RULES MADE EASY"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -474,7 +474,7 @@ variable references or lists (arrays):
 .PP
 .Vb 4
 \&    proto udp
-\&    saddr %TRUSTED_HOSTS;
+\&    saddr $TRUSTED_HOSTS;
 \&    proto tcp dport (http https ssh);
 \&    LOG log\-prefix "funky wardriver alert: ";
 .Ve
@@ -568,7 +568,7 @@ Optionally, you may define the name of the sub chain:
 .Ve
 .Sp
 The name can either be a quoted string literal, or an expanded ferm
-expression such as \f(CW@subst\fRr($var,0,20).
+expression such as \f(CW@ca\fRt(\*(L"interface_\*(R", \f(CW$iface\fR) or \f(CW@subst\fRr($var,0,20).
 .Sp
 You can achieve the same by explicitly declaring a custom chain, but
 you may feel that using \fB\f(CB@subchain\fB\fR requires less typing.
@@ -1617,7 +1617,12 @@ just like any other variable.
 .ie n .IP "\fB\fB$FILENAME\fB\fR" 8
 .el .IP "\fB\f(CB$FILENAME\fB\fR" 8
 .IX Item "$FILENAME"
-The name of the configuration file.
+The name of the configuration file relative to the directory ferm was
+started in.
+.ie n .IP "\fB\fB$FILEBNAME\fB\fR" 8
+.el .IP "\fB\f(CB$FILEBNAME\fB\fR" 8
+.IX Item "$FILEBNAME"
+The base name of the configuration file.
 .ie n .IP "\fB\fB$DIRNAME\fB\fR" 8
 .el .IP "\fB\f(CB$DIRNAME\fB\fR" 8
 .IX Item "$DIRNAME"
@@ -1634,6 +1639,20 @@ The current netfilter table.
 .el .IP "\fB\f(CB$CHAIN\fB\fR" 8
 .IX Item "$CHAIN"
 The current netfilter chain.
+.ie n .IP "\fB\fB$LINE\fB\fR" 8
+.el .IP "\fB\f(CB$LINE\fB\fR" 8
+.IX Item "$LINE"
+The line of the current script.  It can be used like this:
+.Sp
+.Vb 7
+\&    @def &log($msg) = {
+\&             LOG log\-prefix "rule=$msg:$LINE ";
+\&    }
+\&    .
+\&    .
+\&    .
+\&    &log("log message");
+.Ve
 .SS "Functions"
 .IX Subsection "Functions"
 Functions are similar to variables, except that they may have
@@ -1836,6 +1855,30 @@ the end of the string.
 .el .SS "\f(CW@lengt\fPh(expression)"
 .IX Subsection "@length(expression)"
 Returns the length in characters of the value of \s-1EXPR\s0.
+.ie n .SS "@basename(path)"
+.el .SS "\f(CW@basenam\fPe(path)"
+.IX Subsection "@basename(path)"
+Return the base name of the file for a given path
+(File::Spec::splitpath).
+.ie n .SS "@dirname(path)"
+.el .SS "\f(CW@dirnam\fPe(path)"
+.IX Subsection "@dirname(path)"
+Return the name of the last directory for a given path, assuming the
+last component is a file name (File::Spec::splitpath).
+.ie n .SS "@ipfilter(list)"
+.el .SS "\f(CW@ipfilte\fPr(list)"
+.IX Subsection "@ipfilter(list)"
+Filters out the \s-1IP\s0 addresses that obviously do not match the current
+domain.  That is useful to create common variables and rules for IPv4
+and IPv6:
+.PP
+.Vb 1
+\&    @def $TRUSTED_HOSTS = (192.168.0.40 2001:abcd:ef::40);
+\&
+\&    domain (ip ip6) chain INPUT {
+\&        saddr @ipfilter($TRUSTED_HOSTS) proto tcp dport ssh ACCEPT;
+\&    }
+.Ve
 .SH "RECIPES"
 .IX Header "RECIPES"
 The \fI./examples/\fR directory contains numerous ferm configuration
@@ -1945,7 +1988,7 @@ Bugs? What bugs?
 If you find a bug, please tell us: ferm@foo\-projects.org
 .SH "COPYRIGHT"
 .IX Header "COPYRIGHT"
-Copyright (C) 2001\-2010 Max Kellermann <max@foo\-projects.org>, Auke
+Copyright (C) 2001\-2011 Max Kellermann <max@foo\-projects.org>, Auke
 Kok <sofar@foo\-projects.org>
 .PP
 This program is free software; you can redistribute it and/or modify

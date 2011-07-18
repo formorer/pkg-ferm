@@ -1,3 +1,19 @@
+ferm (2.1-1) unstable; urgency=low
+
+  * New upstream version
+    - fix variable expansion in subchain names (Closes: #577709)
+    - added @ipfilter function to mix ipv4 and ipv6 addresses
+      (Closes: #591329)
+    - @if @eq($DOMAIN, ip6) works now - yai (Closes: #591230)
+    - Map ICMP to ICMP6 in REJECT's reject-with
+      (Closes: #591229)
+    - Fix docs for $TRUSTED_HOSTS (Closes: #577701)
+  * Bump standards version (no changes)
+  * update danish debconf translation (Closes: #626637)
+    Thanks to Joe Dalton <joedalton2@yahoo.dk>
+
+ -- Alexander Wirt <formorer@debian.org>  Mon, 18 Jul 2011 07:37:15 +0200
+
 ferm (2.0.9-1) unstable; urgency=low
 
   * New upstream version

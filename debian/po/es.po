@@ -37,6 +37,7 @@ msgstr ""
 "PO-Revision-Date: 2007-01-13 18x:00+0200\n"
 "Last-Translator: Javier Ruano Ruano <adrakoa@es.gnu.org>\n"
 "Language-Team: Debian L10n Spanish <debian-l10n-spanish@lists.debian.org>\n"
+"Language: \n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
@@ -51,8 +52,9 @@ msgstr "¿Iniciar ferm durante el arranque?"
 #. Description
 #: ../ferm.templates:1001
 msgid "Ferm can load firewall rules on every bootup from /etc/ferm/ferm.conf."
-msgstr "Ferm cargará las reglas del cortafuegos durante el arranque desde "
-"«/etc/ferm/ferm.conf»."
+msgstr ""
+"Ferm cargará las reglas del cortafuegos durante el arranque desde «/etc/ferm/"
+"ferm.conf»."
 
 #. Type: boolean
 #. Description
@@ -62,7 +64,7 @@ msgid ""
 "this package remotely on another port, you should not choose this option, "
 "and later edit /etc/default/ferm to enable ferm."
 msgstr ""
-"La configuración predeterminada permite el acceso por SSH a través del puerto 22;"
-" Si está instalando este paquete remotamente a través de otro puerto, no debería"
-" elegir esta opción, edite más tarde «/etc/default/ferm» para activarlo."
-
+"La configuración predeterminada permite el acceso por SSH a través del "
+"puerto 22; Si está instalando este paquete remotamente a través de otro "
+"puerto, no debería elegir esta opción, edite más tarde «/etc/default/ferm» "
+"para activarlo."

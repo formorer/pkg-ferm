@@ -1,3 +1,18 @@
+ferm (2.1-2) unstable; urgency=low
+
+  [ great debian l10n teams ]
+  * Fix pending l10n issues. Debconf translations:
+  * Danish (Joe Hansen).  Closes: #626637
+  * Polish (Michał Kułach).  Closes: #660532
+  * Italian (Beatrice Torracca).  Closes: #660885
+  * Slovak (Ivan Masár).  Closes: #661139
+  * Brazilian Portuguese (Adriano Rafael Gomes).  Closes: #661356
+
+  [ Alexander Wirt ]
+  * bump standards version 
+
+ -- Alexander Wirt <formorer@debian.org>  Fri, 09 Mar 2012 09:03:36 +0100
+
 ferm (2.1-1) unstable; urgency=low
 
   * New upstream version

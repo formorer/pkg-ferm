@@ -11,6 +11,7 @@ msgstr ""
 "PO-Revision-Date: 2007-03-20 09:19+0000\n"
 "Last-Translator: Ricardo Silva <ardoric@gmail.com>\n"
 "Language-Team: Portuguese <traduz@debianpt.org>\n"
+"Language: pt\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
@@ -25,7 +26,9 @@ msgstr "Activar o ferm no arranque?"
 #. Description
 #: ../ferm.templates:1001
 msgid "Ferm can load firewall rules on every bootup from /etc/ferm/ferm.conf."
-msgstr "O ferm pode carregar regras de firewall do ficheiro /etc/ferm/ferm.conf em cada arranque."
+msgstr ""
+"O ferm pode carregar regras de firewall do ficheiro /etc/ferm/ferm.conf em "
+"cada arranque."
 
 #. Type: boolean
 #. Description

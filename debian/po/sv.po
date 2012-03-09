@@ -12,6 +12,7 @@ msgstr ""
 "PO-Revision-Date: 2008-07-23 17:30+0200\n"
 "Last-Translator: Martin Ågren <martin.agren@gmail.com>\n"
 "Language-Team: Swedish <debian-l10n-swedish@lists.debian.org>\n"
+"Language: sv\n"
 "MIME-Version: 1.0\n"
 "Content-Type: text/plain; charset=UTF-8\n"
 "Content-Transfer-Encoding: 8bit\n"
@@ -28,7 +29,9 @@ msgstr "Aktivera ferm vid systemets uppstart?"
 #. Description
 #: ../ferm.templates:1001
 msgid "Ferm can load firewall rules on every bootup from /etc/ferm/ferm.conf."
-msgstr "Ferm kan ladda brandväggsregler från /etc/ferm/ferm.conf vid varje systemuppstart."
+msgstr ""
+"Ferm kan ladda brandväggsregler från /etc/ferm/ferm.conf vid varje "
+"systemuppstart."
 
 #. Type: boolean
 #. Description
@@ -38,7 +41,7 @@ msgid ""
 "this package remotely on another port, you should not choose this option, "
 "and later edit /etc/default/ferm to enable ferm."
 msgstr ""
-"Standardkonfigurationen tillåter SSH-inloggningar på port 22; om du installerar "
-"det här paketet genom fjärråtkomst på en annan port, ska du inte välja detta val. "
-"Ändra i så fall /etc/default/ferm senare för att aktivera ferm."
-
+"Standardkonfigurationen tillåter SSH-inloggningar på port 22; om du "
+"installerar det här paketet genom fjärråtkomst på en annan port, ska du inte "
+"välja detta val. Ändra i så fall /etc/default/ferm senare för att aktivera "
+"ferm."

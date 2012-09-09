@@ -7,6 +7,14 @@
     Auke Kok <sofar@foo-projects.org>
 
 
+v2.1.1 - 29 Jul 2012
+  - updated netfilter modules:
+    * conntrack: support ctorigsrcport, ctorigdstport
+  - new netfilter modules:
+    * TPROXY target
+  - allow folding @resolve value into a string
+
+
 v2.1 - 17 Jul 2011
   - new functions @basename, @dirname, @ipfilter
   - add automatic variables $FILENAME, $LINE

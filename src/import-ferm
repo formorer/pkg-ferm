@@ -1,9 +1,9 @@
-#!/usr/bin/perl
+#!/usr/bin/perl -w
 
 #
 # ferm, a firewall setup program that makes firewall rules easy!
 #
-# Copyright (C) 2001-2011 Max Kellermann, Auke Kok
+# Copyright (C) 2001-2012 Max Kellermann, Auke Kok
 #
 # Comments, questions, greetings and additions to this program
 # may be sent to <ferm@foo-projects.org>
@@ -63,6 +63,8 @@ use vars qw(%aliases);
 );
 
 use vars qw($indent $table $chain @rules $domain $next_domain);
+
+$indent = 0;
 
 sub ferm_escape($) {
     local $_ = shift;

@@ -55,6 +55,7 @@
 	<ul>
 
 		<li><a href="#easy_port_forwarding">Easy port forwarding</a></li>
+		<li><a href="#remote_ferm">Remote <strong>ferm</strong></a></li>
 	</ul>
 
 	<li><a href="#transition_from_ferm_1_1">TRANSITION FROM FERM 1.1</a></li>
@@ -722,6 +723,15 @@ modules which are currently supported.</p>
     mod ah ahspi 0x101;
     mod ah ahspi ! 0x200:0x2ff;</pre>
 </dd>
+<dd>
+<p>Additional arguments for IPv6:</p>
+</dd>
+<dd>
+<pre>
+    mod ah ahlen 32 ACCEPT;
+    mod ah ahlen !32 ACCEPT;
+    mod ah ahres ACCEPT;</pre>
+</dd>
 </li>
 <dt><strong><a name="item_comment"><strong>comment</strong></a></strong>
 
@@ -733,6 +743,18 @@ Note that unlike ferm comments ('#'), this one will show up in
 <dd>
 <pre>
     mod comment comment &quot;This is my comment.&quot; ACCEPT;</pre>
+</dd>
+</li>
+<dt><strong><a name="item_condition"><strong>condition</strong></a></strong>
+
+<dd>
+<p>Matches if a value in /proc/net/ipt_condition/NAME is 1 (path is
+/proc/net/ip6t_condition/NAME for the ip6 domain).</p>
+</dd>
+<dd>
+<pre>
+    mod condition condition (abc def) ACCEPT;
+    mod condition condition !foo ACCEPT;</pre>
 </dd>
 </li>
 <dt><strong><a name="item_connmark"><strong>connmark</strong></a></strong>
@@ -793,6 +815,18 @@ This module is automatically loaded when you use ``protocol dccp''.</p>
     mod dscp dscp-class AF41;</pre>
 </dd>
 </li>
+<dt><strong><a name="item_dst"><strong>dst</strong></a></strong>
+
+<dd>
+<p>Matches the Destination Options header (ip6).</p>
+</dd>
+<dd>
+<pre>
+    mod dst dst-len 8 ACCEPT;
+    mod dst dst-len !8 ACCEPT;
+    mod dst dst-opts (1:4 2:8) ACCEPT;</pre>
+</dd>
+</li>
 <dt><strong><a name="item_ecn"><strong>ecn</strong></a></strong>
 
 <dd>
@@ -817,6 +851,71 @@ This module is automatically loaded when you use ``protocol dccp''.</p>
 <pre>
     mod esp espspi 0x101;
     mod esp espspi ! 0x200:0x2ff;</pre>
+</dd>
+</li>
+<dt><strong><a name="item_eui64"><strong>eui64</strong></a></strong>
+
+<dd>
+<p>``This module matches the EUI-64 part of a stateless autoconfigured
+IPv6 address.  It compares the EUI-64 derived from the source MAC
+address in Ehternet frame with the lower 64 bits of the IPv6 source
+address.  But ''Universal/Local`` bit is not compared.  This module
+doesn't match other link layer frame, and is only valid in the
+PREROUTING, INPUT and FORWARD chains.''</p>
+</dd>
+<dd>
+<pre>
+    mod eui64 ACCEPT;</pre>
+</dd>
+</li>
+<dt><strong><a name="item_frag"><strong>frag</strong></a></strong>
+
+<dd>
+<p>Matches the Fragment header (ip6).</p>
+</dd>
+<dd>
+<pre>
+    mod frag fragid 123:456 ACCEPT;
+    mod frag fragid !123:456 ACCEPT;
+    mod frag fragres ACCEPT;
+    mod frag fragfirst ACCEPT;
+    mod frag fragmore ACCEPT;
+    mod frag fraglast ACCEPT;</pre>
+</dd>
+</li>
+<dt><strong><a name="item_fuzzy"><strong>fuzzy</strong></a></strong>
+
+<dd>
+<p>``This module matches a rate limit based on a fuzzy logic controller [FLC].''</p>
+</dd>
+<dd>
+<pre>
+    mod fuzzy lower-limit 10 upper-limit 20 ACCEPT;</pre>
+</dd>
+</li>
+<dt><strong><a name="item_hbh"><strong>hbh</strong></a></strong>
+
+<dd>
+<p>Matches the Hop-by-Hop Options header (ip6).</p>
+</dd>
+<dd>
+<pre>
+    mod hbh hbh-len 8 ACCEPT;
+    mod hbh hbh-len !8 ACCEPT;
+    mod hbh hbh-opts (1:4 2:8) ACCEPT;</pre>
+</dd>
+</li>
+<dt><strong><a name="item_hl"><strong>hl</strong></a></strong>
+
+<dd>
+<p>Matches the Hop Limit field (ip6).</p>
+</dd>
+<dd>
+<pre>
+    mod hl hl-eq (8 10) ACCEPT;
+    mod hl hl-eq !5 ACCEPT;
+    mod hl hl-gt 15 ACCEPT;
+    mod hl hl-lt 2 ACCEPT;</pre>
 </dd>
 </li>
 <dt><strong><a name="item_helper"><strong>helper</strong></a></strong>
@@ -856,6 +955,17 @@ when you use ``protocol icmp''.</p>
     mod iprange dst-range ! 192.168.6.0-192.168.6.255;</pre>
 </dd>
 </li>
+<dt><strong><a name="item_ipv6header"><strong>ipv6header</strong></a></strong>
+
+<dd>
+<p>Matches the IPv6 extension header (ip6).</p>
+</dd>
+<dd>
+<pre>
+    mod ipv6header header !(hop frag) ACCEPT;
+    mod ipv6header header (auth dst) ACCEPT;</pre>
+</dd>
+</li>
 <dt><strong><a name="item_length"><strong>length</strong></a></strong>
 
 <dd>
@@ -864,7 +974,8 @@ when you use ``protocol icmp''.</p>
 <dd>
 <pre>
     mod length length 128; # exactly 128 bytes
-    mod length length 512:768; # range</pre>
+    mod length length 512:768; # range
+    mod length length ! 256; # negated</pre>
 </dd>
 </li>
 <dt><strong><a name="item_limit"><strong>limit</strong></a></strong>
@@ -1000,6 +1111,16 @@ leave the machine. This is useful for bridged interfaces.</p>
       psd-lo-ports-weight 3 psd-hi-ports-weight 1 DROP;</pre>
 </dd>
 </li>
+<dt><strong><a name="item_quota"><strong>quota</strong></a></strong>
+
+<dd>
+<p>Implements network quotas by decrementing a byte counter with each packet.</p>
+</dd>
+<dd>
+<pre>
+    mod quota quota 65536 ACCEPT;</pre>
+</dd>
+</li>
 <dt><strong><a name="item_random"><strong>random</strong></a></strong>
 
 <dd>
@@ -1041,6 +1162,20 @@ keyword.</p>
 </dd>
 <dd>
 <p><a href="http://snowman.net/projects/ipt_recent/">http://snowman.net/projects/ipt_recent/</a></p>
+</dd>
+</li>
+<dt><strong><a name="item_rt"><strong>rt</strong></a></strong>
+
+<dd>
+<p>Match the IPv6 routing header (ip6 only).</p>
+</dd>
+<dd>
+<pre>
+    mod rt rt-type 2 rt-len 20 ACCEPT;
+    mod rt rt-type !2 rt-len !20 ACCEPT;
+    mod rt rt-segsleft 2:3 ACCEPT;
+    mod rt rt-segsleft !4:5 ACCEPT;
+    mod rt rt-0-res rt-0-addrs (::1 ::2) rt-0-not-strict ACCEPT;</pre>
 </dd>
 </li>
 <dt><strong><a name="item_sctp"><strong>sctp</strong></a></strong>
@@ -1131,7 +1266,8 @@ when you use ``protocol tcp''.</p>
 </dd>
 <dd>
 <pre>
-    mod tos tos Minimize-Cost;</pre>
+    mod tos tos Minimize-Cost ACCEPT;
+    mod tos tos !Normal-Service ACCEPT;</pre>
 </dd>
 <dd>
 <p>Type ``iptables -m tos -h'' for details.</p>
@@ -1174,6 +1310,29 @@ you enabled them in your kernel:</p>
     DNAT to 10.0.0.4:80;
     DNAT to 10.0.0.4:1024-2048;
     DNAT to 10.0.1.1-10.0.1.20;</pre>
+</dd>
+</li>
+<dt><strong><a name="item_ecn"><strong>ECN</strong></a></strong>
+
+<dd>
+<p>This target allows to selectively work around known ECN blackholes.
+It can only be used in the mangle table.</p>
+</dd>
+<dd>
+<pre>
+    ECN ecn-tcp-remove;</pre>
+</dd>
+</li>
+<dt><strong><a name="item_hl"><strong>HL</strong></a></strong>
+
+<dd>
+<p>Modify the IPv6 Hop Limit field (ip6/mangle only).</p>
+</dd>
+<dd>
+<pre>
+    HL hl-set 5;
+    HL hl-dec 2;
+    HL hl-inc 1;</pre>
 </dd>
 </li>
 <dt><strong><a name="item_log"><strong>LOG</strong></a></strong>
@@ -1435,6 +1594,19 @@ samples, recipes and tricks.</p>
     &amp;FORWARD_TCP((tcp udp), domain, 192.168.1.4);</pre>
 <p>
 </p>
+<h2><a name="remote_ferm">Remote <strong>ferm</strong></a></h2>
+<p>If the target machine is not able to run <strong>ferm</strong> for some reason
+(maybe an embedded device without Perl), you can edit the <strong>ferm</strong>
+configuration file on another computer and let <strong>ferm</strong> generate a
+shell script there.</p>
+<p>Example for OpenWRT:</p>
+<pre>
+    ferm --remote --shell mywrt/ferm.conf &gt;mywrt/firewall.user
+    chmod +x mywrt/firewall.user
+    scp mywrt/firewall.user mywrt.local.net:/etc/
+    ssh mywrt.local.net /etc/firewall.user</pre>
+<p>
+</p>
 <hr />
 <h1><a name="transition_from_ferm_1_1">TRANSITION FROM FERM 1.1</a></h1>
 <p>ferm 1.2 aims to be 100% compatible with ferm 1.1, i.e. old
@@ -1558,6 +1730,13 @@ with this option due to quoting bugs.</p>
 <dd>
 <p>Generate a shell script which calls iptables-restore(8) and prints it.
 Implies --fast --lines.</p>
+</dd>
+</li>
+<dt><strong><a name="item__2d_2dremote"><strong>--remote</strong></a></strong>
+
+<dd>
+<p>Generate rules for a remote machine.  Implies <strong>--noexec</strong> and
+<strong>--lines</strong>.  Can be combined with <strong>--shell</strong>.</p>
 </dd>
 </li>
 <dt><strong><a name="item__2d_2ddomain__7bip_7cip6_7d"><strong>--domain {ip|ip6}</strong></a></strong>

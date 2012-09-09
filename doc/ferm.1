@@ -129,7 +129,7 @@
 .\" ========================================================================
 .\"
 .IX Title "FERM 1"
-.TH FERM 1 "2006-09-13" "ferm 1.2" "FIREWALL RULES MADE EASY"
+.TH FERM 1 "2006-09-25" "ferm 1.2.1" "FIREWALL RULES MADE EASY"
 .SH "NAME"
 \&\fBferm\fR \- a firewall rule parser for linux
 .SH "SYNOPSIS"
@@ -687,6 +687,14 @@ Checks the \s-1SPI\s0 header in an \s-1AH\s0 packet.
 \&    mod ah ahspi 0x101;
 \&    mod ah ahspi ! 0x200:0x2ff;
 .Ve
+.Sp
+Additional arguments for IPv6:
+.Sp
+.Vb 3
+\&    mod ah ahlen 32 ACCEPT;
+\&    mod ah ahlen !32 ACCEPT;
+\&    mod ah ahres ACCEPT;
+.Ve
 .IP "\fBcomment\fR" 8
 .IX Item "comment"
 Adds a comment of up to 256 characters to a rule, without an effect.
@@ -695,6 +703,15 @@ Note that unlike ferm comments ('#'), this one will show up in
 .Sp
 .Vb 1
 \&    mod comment comment "This is my comment." ACCEPT;
+.Ve
+.IP "\fBcondition\fR" 8
+.IX Item "condition"
+Matches if a value in /proc/net/ipt_condition/NAME is 1 (path is
+/proc/net/ip6t_condition/NAME for the ip6 domain).
+.Sp
+.Vb 2
+\&    mod condition condition (abc def) ACCEPT;
+\&    mod condition condition !foo ACCEPT;
 .Ve
 .IP "\fBconnmark\fR" 8
 .IX Item "connmark"
@@ -741,6 +758,15 @@ Match the 6 bit \s-1DSCP\s0 field within the \s-1TOS\s0 field.
 \&    mod dscp dscp 11;
 \&    mod dscp dscp\-class AF41;
 .Ve
+.IP "\fBdst\fR" 8
+.IX Item "dst"
+Matches the Destination Options header (ip6).
+.Sp
+.Vb 3
+\&    mod dst dst\-len 8 ACCEPT;
+\&    mod dst dst\-len !8 ACCEPT;
+\&    mod dst dst\-opts (1:4 2:8) ACCEPT;
+.Ve
 .IP "\fBecn\fR" 8
 .IX Item "ecn"
 Match the \s-1ECN\s0 bits of an IPv4 \s-1TCP\s0 header.
@@ -759,6 +785,56 @@ Checks the \s-1SPI\s0 header in an \s-1ESP\s0 packet.
 .Vb 2
 \&    mod esp espspi 0x101;
 \&    mod esp espspi ! 0x200:0x2ff;
+.Ve
+.IP "\fBeui64\fR" 8
+.IX Item "eui64"
+\&\*(L"This module matches the \s-1EUI\-64\s0 part of a stateless autoconfigured
+IPv6 address.  It compares the \s-1EUI\-64\s0 derived from the source \s-1MAC\s0
+address in Ehternet frame with the lower 64 bits of the IPv6 source
+address.  But \*(R"Universal/Local\*(L" bit is not compared.  This module
+doesn't match other link layer frame, and is only valid in the
+\&\s-1PREROUTING\s0, \s-1INPUT\s0 and \s-1FORWARD\s0 chains.\*(R"
+.Sp
+.Vb 1
+\&    mod eui64 ACCEPT;
+.Ve
+.IP "\fBfrag\fR" 8
+.IX Item "frag"
+Matches the Fragment header (ip6).
+.Sp
+.Vb 6
+\&    mod frag fragid 123:456 ACCEPT;
+\&    mod frag fragid !123:456 ACCEPT;
+\&    mod frag fragres ACCEPT;
+\&    mod frag fragfirst ACCEPT;
+\&    mod frag fragmore ACCEPT;
+\&    mod frag fraglast ACCEPT;
+.Ve
+.IP "\fBfuzzy\fR" 8
+.IX Item "fuzzy"
+\&\*(L"This module matches a rate limit based on a fuzzy logic controller [\s-1FLC\s0].\*(R"
+.Sp
+.Vb 1
+\&    mod fuzzy lower\-limit 10 upper\-limit 20 ACCEPT;
+.Ve
+.IP "\fBhbh\fR" 8
+.IX Item "hbh"
+Matches the Hop-by-Hop Options header (ip6).
+.Sp
+.Vb 3
+\&    mod hbh hbh\-len 8 ACCEPT;
+\&    mod hbh hbh\-len !8 ACCEPT;
+\&    mod hbh hbh\-opts (1:4 2:8) ACCEPT;
+.Ve
+.IP "\fBhl\fR" 8
+.IX Item "hl"
+Matches the Hop Limit field (ip6).
+.Sp
+.Vb 4
+\&    mod hl hl\-eq (8 10) ACCEPT;
+\&    mod hl hl\-eq !5 ACCEPT;
+\&    mod hl hl\-gt 15 ACCEPT;
+\&    mod hl hl\-lt 2 ACCEPT;
 .Ve
 .IP "\fBhelper\fR" 8
 .IX Item "helper"
@@ -787,13 +863,22 @@ Match a range of IPv4 addresses.
 \&    mod iprange src\-range 192.168.2.0\-192.168.3.255;
 \&    mod iprange dst\-range ! 192.168.6.0\-192.168.6.255;
 .Ve
+.IP "\fBipv6header\fR" 8
+.IX Item "ipv6header"
+Matches the IPv6 extension header (ip6).
+.Sp
+.Vb 2
+\&    mod ipv6header header !(hop frag) ACCEPT;
+\&    mod ipv6header header (auth dst) ACCEPT;
+.Ve
 .IP "\fBlength\fR" 8
 .IX Item "length"
 Check the package length.
 .Sp
-.Vb 2
+.Vb 3
 \&    mod length length 128; # exactly 128 bytes
 \&    mod length length 512:768; # range
+\&    mod length length ! 256; # negated
 .Ve
 .IP "\fBlimit\fR" 8
 .IX Item "limit"
@@ -895,6 +980,13 @@ Detect \s-1TCP/UDP\s0 port scans.
 \&    mod psd psd\-weight\-threshold 21 psd\-delay\-threshold 300
 \&      psd\-lo\-ports\-weight 3 psd\-hi\-ports\-weight 1 DROP;
 .Ve
+.IP "\fBquota\fR" 8
+.IX Item "quota"
+Implements network quotas by decrementing a byte counter with each packet.
+.Sp
+.Vb 1
+\&    mod quota quota 65536 ACCEPT;
+.Ve
 .IP "\fBrandom\fR" 8
 .IX Item "random"
 Match a random percentage of all packets.
@@ -927,6 +1019,17 @@ a match module, it has target-like behaviour when using the \*(L"set\*(R"
 keyword.
 .Sp
 <http://snowman.net/projects/ipt_recent/>
+.IP "\fBrt\fR" 8
+.IX Item "rt"
+Match the IPv6 routing header (ip6 only).
+.Sp
+.Vb 5
+\&    mod rt rt\-type 2 rt\-len 20 ACCEPT;
+\&    mod rt rt\-type !2 rt\-len !20 ACCEPT;
+\&    mod rt rt\-segsleft 2:3 ACCEPT;
+\&    mod rt rt\-segsleft !4:5 ACCEPT;
+\&    mod rt rt\-0\-res rt\-0\-addrs (::1 ::2) rt\-0\-not\-strict ACCEPT;
+.Ve
 .IP "\fBsctp\fR" 8
 .IX Item "sctp"
 Check \s-1SCTP\s0 (Stream Control Transmission Protocol) specific attributes.
@@ -993,8 +1096,9 @@ Type \*(L"iptables \-m time \-h\*(R" for details.
 .IX Item "tos"
 Matches a packet on the specified TOS\-value.
 .Sp
-.Vb 1
-\&    mod tos tos Minimize\-Cost;
+.Vb 2
+\&    mod tos tos Minimize\-Cost ACCEPT;
+\&    mod tos tos !Normal\-Service ACCEPT;
 .Ve
 .Sp
 Type \*(L"iptables \-m tos \-h\*(R" for details.
@@ -1024,6 +1128,23 @@ Change the destination address of the packet.
 \&    DNAT to 10.0.0.4:80;
 \&    DNAT to 10.0.0.4:1024\-2048;
 \&    DNAT to 10.0.1.1\-10.0.1.20;
+.Ve
+.IP "\fB\s-1ECN\s0\fR" 8
+.IX Item "ECN"
+This target allows to selectively work around known \s-1ECN\s0 blackholes.
+It can only be used in the mangle table.
+.Sp
+.Vb 1
+\&    ECN ecn\-tcp\-remove;
+.Ve
+.IP "\fB\s-1HL\s0\fR" 8
+.IX Item "HL"
+Modify the IPv6 Hop Limit field (ip6/mangle only).
+.Sp
+.Vb 3
+\&    HL hl\-set 5;
+\&    HL hl\-dec 2;
+\&    HL hl\-inc 1;
 .Ve
 .IP "\fB\s-1LOG\s0\fR" 8
 .IX Item "LOG"
@@ -1273,6 +1394,21 @@ Ferm function make routine tasks quick and easy:
 \&    &FORWARD_TCP(tcp, smtp, 192.168.1.3);
 \&    &FORWARD_TCP((tcp udp), domain, 192.168.1.4);
 .Ve
+.Sh "Remote \fBferm\fP"
+.IX Subsection "Remote ferm"
+If the target machine is not able to run \fBferm\fR for some reason
+(maybe an embedded device without Perl), you can edit the \fBferm\fR
+configuration file on another computer and let \fBferm\fR generate a
+shell script there.
+.PP
+Example for OpenWRT:
+.PP
+.Vb 4
+\&    ferm \-\-remote \-\-shell mywrt/ferm.conf >mywrt/firewall.user
+\&    chmod +x mywrt/firewall.user
+\&    scp mywrt/firewall.user mywrt.local.net:/etc/
+\&    ssh mywrt.local.net /etc/firewall.user
+.Ve
 .SH "TRANSITION FROM FERM 1.1"
 .IX Header "TRANSITION FROM FERM 1.1"
 ferm 1.2 aims to be 100% compatible with ferm 1.1, i.e. old
@@ -1355,6 +1491,10 @@ with this option due to quoting bugs.
 .IX Item "--shell"
 Generate a shell script which calls \fIiptables\-restore\fR\|(8) and prints it.
 Implies \-\-fast \-\-lines.
+.IP "\fB\-\-remote\fR" 12
+.IX Item "--remote"
+Generate rules for a remote machine.  Implies \fB\-\-noexec\fR and
+\&\fB\-\-lines\fR.  Can be combined with \fB\-\-shell\fR.
 .IP "\fB\-\-domain {ip|ip6}\fR" 12
 .IX Item "--domain {ip|ip6}"
 Handle only the specified domain. \fBferm\fR output may be empty if the

@@ -7,7 +7,7 @@
 # Author: Max Kellermann <max@duempel.org>
 #
 
-def $NET_TRUSTED = 195.135.144.144/28;
+@def $NET_TRUSTED = 195.135.144.144/28;
 
 table filter {
     chain INPUT {
@@ -20,11 +20,8 @@ table filter {
         # allow local connections
         interface lo ACCEPT;
 
-        # respond to ping, but limit that
-        proto icmp {
-            icmp-type echo-request mod limit limit 10/s ACCEPT;
-            DROP;
-        }
+        # respond to ping
+        proto icmp icmp-type echo-request ACCEPT;
 
         # remote administration from the company network
         saddr $NET_TRUSTED proto tcp dport ssh ACCEPT;

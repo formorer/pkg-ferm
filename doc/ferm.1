@@ -129,7 +129,7 @@
 .\" ========================================================================
 .\"
 .IX Title "FERM 1"
-.TH FERM 1 "2007-08-22" "ferm 1.2.5" "FIREWALL RULES MADE EASY"
+.TH FERM 1 "2007-11-30" "ferm 1.3" "FIREWALL RULES MADE EASY"
 .SH "NAME"
 \&\fBferm\fR \- a firewall rule parser for linux
 .SH "SYNOPSIS"
@@ -195,7 +195,7 @@ more complex. Something to look at:
 .Vb 5
 \&   chain INPUT {
 \&       policy ACCEPT;
-\&       daddr 10.0.0.0/8 proto tcp dport ! ftp goto mychain sport :1023 TOS 4 settos 8 mark 2;
+\&       daddr 10.0.0.0/8 proto tcp dport ! ftp jump mychain sport :1023 TOS 4 settos 8 mark 2;
 \&       daddr 10.0.0.0/8 proto tcp dport ftp REJECT;
 \&   }
 .Ve
@@ -223,12 +223,12 @@ You will be thankful for it later!
 \&        interface (eth0 ppp0) {
 \&            # deny access to notorius hackers, return here if no match
 \&            # was found to resume normal firewalling
-\&            goto badguys;
+\&            jump badguys;
 .Ve
 .PP
 .Vb 4
-\&            protocol tcp goto fw_tcp;
-\&            protocol udp goto fw_udp;
+\&            protocol tcp jump fw_tcp;
+\&            protocol udp jump fw_udp;
 \&        }
 \&    }
 .Ve
@@ -454,7 +454,7 @@ Most matches are followed by a parameter: \*(L"proto tcp\*(R", \*(L"daddr
 172.16.0.0/12\*(R".
 .IP "\(bu" 8
 \&\fBtarget\fR keywords state what to do with a packet. Example: \*(L"\s-1ACCEPT\s0\*(R",
-\&\*(L"\s-1REJECT\s0\*(R", \*(L"goto\*(R".
+\&\*(L"\s-1REJECT\s0\*(R", \*(L"jump\*(R".
 .Sp
 Some targets define more keywords to specify details: \*(L"\s-1REJECT\s0
 reject-with icmp\-net\-unreachable\*(R".
@@ -526,10 +526,10 @@ specified by the policy.
 .Sp
 To avoid ambiguity, always specify the policies of all predefined
 chains explicitly.
-.ie n .IP "\fBsubchain [""\s-1CHAIN\-NAME\s0""] { ... }\fR" 8
-.el .IP "\fBsubchain [``\s-1CHAIN\-NAME\s0''] { ... }\fR" 8
-.IX Item "subchain [CHAIN-NAME] { ... }"
-Works like the normal block operators (i.e. without the \fIsubchain\fR
+.ie n .IP "\fB@subchain [""\s-1CHAIN\-NAME\s0""] { ... }\fR" 8
+.el .IP "\fB@subchain [``\s-1CHAIN\-NAME\s0''] { ... }\fR" 8
+.IX Item "@subchain [CHAIN-NAME] { ... }"
+Works like the normal block operators (i.e. without the \fI@subchain\fR
 keyword), except that \fBferm\fR moves rules within the curly braces into
 a new custom chain. The name for this chain is chosen automatically by
 ferm.
@@ -548,13 +548,13 @@ the following example:
 .Ve
 .Sp
 This generates 20 rules. When a packet arrives which does not pass the
-\&\fBsaddr\fR match, it nonetheless checks all 20 rules. With \fBsubchain\fR,
+\&\fBsaddr\fR match, it nonetheless checks all 20 rules. With \fB@subchain\fR,
 this check is done once, resulting in faster network filtering and
 less \s-1CPU\s0 load:
 .Sp
 .Vb 6
 \& table filter chain INPUT {
-\&     saddr (1.2.3.4 2.3.4.5 3.4.5.6 4.5.6.7 5.6.7.8) subchain {
+\&     saddr (1.2.3.4 2.3.4.5 3.4.5.6 4.5.6.7 5.6.7.8) @subchain {
 \&         proto tcp dport (http https ssh) ACCEPT;
 \&         proto udp dport domain ACCEPT;
 \&     }
@@ -564,14 +564,14 @@ less \s-1CPU\s0 load:
 Optionally, you may define the name of the sub chain:
 .Sp
 .Vb 4
-\& saddr (1.2.3.4 2.3.4.5 3.4.5.6) subchain "foobar" {
+\& saddr (1.2.3.4 2.3.4.5 3.4.5.6) @subchain "foobar" {
 \&     proto tcp dport (http https ssh) ACCEPT;
 \&     proto udp dport domain ACCEPT;
 \& }
 .Ve
 .Sp
 You can achieve the same by explicitly declaring a custom chain, but
-you may feel that using \fBsubchain\fR requires less typing.
+you may feel that using \fB@subchain\fR requires less typing.
 .Sh "Basic match keywords"
 .IX Subsection "Basic match keywords"
 .IP "\fBinterface [interface\-name]\fR" 8
@@ -642,10 +642,18 @@ Load an iptables module. Most modules provide more match
 keywords. We'll get to that later.
 .Sh "Basic target keywords"
 .IX Subsection "Basic target keywords"
-.IP "\fBgoto [custom\-chain\-name]\fR" 8
-.IX Item "goto [custom-chain-name]"
+.IP "\fBjump [custom\-chain\-name]\fR" 8
+.IX Item "jump [custom-chain-name]"
 Jumps to a custom chain. If no rule in the custom chain matched,
 netfilter returns to the next rule in the previous chain.
+.IP "\fBrealgoto [custom\-chain\-name]\fR" 8
+.IX Item "realgoto [custom-chain-name]"
+Go to a custom chain.  Unlike the \fBjump\fR option, \fB\s-1RETURN\s0\fR will not
+continue processing in this chain but instead in the chain that called
+us via \fBjump\fR.
+.Sp
+The keyword \fBrealgoto\fR was chosen during the transition period,
+because \fBgoto\fR (already deprecated) used to be an alias for \fBjump\fR.
 .IP "\fB\s-1ACCEPT\s0\fR" 8
 .IX Item "ACCEPT"
 Accepts matching packets.
@@ -666,7 +674,7 @@ type.
 Type \*(L"iptables \-j \s-1REJECT\s0 \-h\*(R" for details.
 .IP "\fB\s-1RETURN\s0\fR" 8
 .IX Item "RETURN"
-Finish the current chain and return to the calling chain (if \*(L"goto
+Finish the current chain and return to the calling chain (if \*(L"jump
 [custom\-chain\-name]\*(R" was used).
 .IP "\fB\s-1NOP\s0\fR" 8
 .IX Item "NOP"
@@ -731,6 +739,29 @@ Matches if a value in /proc/net/ipt_condition/NAME is 1 (path is
 .Vb 2
 \&    mod condition condition (abc def) ACCEPT;
 \&    mod condition condition !foo ACCEPT;
+.Ve
+.IP "\fBconnbytes\fR" 8
+.IX Item "connbytes"
+Match by how many bytes or packets a connection (or one of the two
+flows constituting the connection) have tranferred so far, or by
+average bytes per packet.
+.Sp
+.Vb 2
+\&    mod connbytes connbytes 65536: connbytes\-dir both connbytes\-mode bytes ACCEPT;
+\&    mod connbytes connbytes !1024:2048 connbytes\-dir reply connbytes\-mode packets ACCEPT;
+.Ve
+.Sp
+Valid values for \fIconnbytes-dir\fR: \fIoriginal\fR, \fIreply\fR, \fIboth\fR; for
+\&\fIconnbytes-mode\fR: \fIpackets\fR, \fIbytes\fR, \fIavgpkt\fR.
+.IP "\fBconnlimit\fR" 8
+.IX Item "connlimit"
+Allows you to restrict the number of parallel \s-1TCP\s0 connections to a
+server per client \s-1IP\s0 address (or address block).
+.Sp
+.Vb 3
+\&    mod connlimit connlimit\-above 4 REJECT;
+\&    mod connlimit connlimit\-above !4 ACCEPT;
+\&    mod connlimit connlimit\-above 4 connlimit\-mask 24 REJECT;
 .Ve
 .IP "\fBconnmark\fR" 8
 .IX Item "connmark"
@@ -873,6 +904,9 @@ when you use \*(L"protocol icmp\*(R".
 \&    proto icmp icmp\-type echo\-request ACCEPT;
 .Ve
 .Sp
+This option can also be used in be \fIip6\fR domain, although this is
+called \fBicmpv6\fR in \fIip6tables\fR.
+.Sp
 Use "iptables \-p icmp \f(CW\*(C`\-h\*(C'\fR" to obtain a list of valid \s-1ICMP\s0 types.
 .IP "\fBiprange\fR" 8
 .IX Item "iprange"
@@ -937,6 +971,13 @@ bit integer between 0 and 4294967295.
 .Sp
 .Vb 1
 \&    mod mark mark 42;
+.Ve
+.IP "\fBmh\fR" 8
+.IX Item "mh"
+Matches the mobility header (domain \fIip6\fR).
+.Sp
+.Vb 1
+\&    proto mh mh\-type binding\-update ACCEPT;
 .Ve
 .IP "\fBmultiport\fR" 8
 .IX Item "multiport"
@@ -1095,6 +1136,15 @@ Checks the connection tracking state.
 .Ve
 .Sp
 Type \*(L"iptables \-m state \-h\*(R" for details.
+.IP "\fBstatistic\fR" 8
+.IX Item "statistic"
+Successor of \fBnth\fR and \fBrandom\fR, currently undocumented in the
+\&\fIiptables\fR\|(8) man page.
+.Sp
+.Vb 2
+\&    mod statistic mode random probability 0.8 ACCEPT;
+\&    mod statistic mode nth every 5 packet 0 DROP;
+.Ve
 .IP "\fBtcp\fR" 8
 .IX Item "tcp"
 Checks \s-1TCP\s0 specific attributes. This module is automatically loaded
@@ -1153,6 +1203,15 @@ Matches the ttl (time to live) field in the \s-1IP\s0 header.
 \&    mod ttl ttl\-gt 10; # ttl greater than
 \&    mod ttl ttl\-lt 16; # ttl less than
 .Ve
+.IP "\fBu32\fR" 8
+.IX Item "u32"
+Compares raw data from the packet.  You can specify more than one
+filter in a ferm list; these are not expanded into multiple rules.
+.Sp
+.Vb 2
+\&    mod u32 u32 '6&0xFF=1' ACCEPT;
+\&    mod u32 u32 ('27&0x8f=7' '31=0x527c4833') DROP;
+.Ve
 .IP "\fBunclean\fR" 8
 .IX Item "unclean"
 Matches packets which seem malformed or unusual. This match has no
@@ -1171,6 +1230,17 @@ Sets the netfilter mark value associated with a connection.
 \&    CONNMARK restore\-mark;
 \&    CONNMARK save\-mark mask 0x7fff;
 \&    CONNMARK restore\-mark mask 0x8000;
+.Ve
+.IP "\fB\s-1CONNSECMARK\s0\fR" 8
+.IX Item "CONNSECMARK"
+This module copies security markings from packets to connections (if
+unlabeled), and from connections back to packets (also only if
+unlabeled).  Typically used in conjunction with \s-1SECMARK\s0, it is only
+valid in the mangle table.
+.Sp
+.Vb 2
+\&    CONNSECMARK save;
+\&    CONNSECMARK restore;
 .Ve
 .IP "\fB\s-1DNAT\s0 to [ip\-address|ip\-range|ip\-port\-range]\fR" 8
 .IX Item "DNAT to [ip-address|ip-range|ip-port-range]"
@@ -1251,6 +1321,15 @@ Disable connection tracking for all packets matching that rule.
 .Vb 1
 \&    proto tcp dport (135:139 445) NOTRACK;
 .Ve
+.IP "\fB\s-1NFLOG\s0\fR" 8
+.IX Item "NFLOG"
+Log packets over netlink; this is the successor of \fI\s-1ULOG\s0\fR.
+.Sp
+.Vb 3
+\&    NFLOG nflog\-group 5 nflog\-prefix "Look at this: ";
+\&    NFLOG nflog\-range 256;
+\&    NFLOG nflog\-threshold 10;
+.Ve
 .IP "\fB\s-1NFQUEUE\s0\fR" 8
 .IX Item "NFQUEUE"
 Userspace queueing, requires nfnetlink_queue kernel support.
@@ -1273,6 +1352,15 @@ machine itself.
 .Sp
 .Vb 1
 \&    proto tcp dport http REDIRECT to\-ports 3128;
+.Ve
+.IP "\fB\s-1SECMARK\s0\fR" 8
+.IX Item "SECMARK"
+This is used to set the security mark value associated with the packet
+for use by security subsystems such as SELinux.  It is only valid in
+the mangle table.
+.Sp
+.Vb 1
+\&    SECMARK selctx "system_u:object_r:httpd_packet_t:s0";
 .Ve
 .IP "\fB\s-1SET\s0 [add\-set|del\-set] [setname] [flag(s)]\fR" 8
 .IX Item "SET [add-set|del-set] [setname] [flag(s)]"
@@ -1337,9 +1425,9 @@ give a network interface a meaningful name.
 To set variables, write:
 .PP
 .Vb 3
-\&    def $DEV_INTERNET = eth0;
-\&    def $PORTS = (http ftp);
-\&    def $MORE_PORTS = ($PORTS 8080);
+\&    @def $DEV_INTERNET = eth0;
+\&    @def $PORTS = (http ftp);
+\&    @def $MORE_PORTS = ($PORTS 8080);
 .Ve
 .PP
 In the real ferm code, variables are used like any other keyword
@@ -1356,10 +1444,10 @@ Note that variables can only be used in keyword parameters
 Variables are only valid in the current block:
 .PP
 .Vb 8
-\&    def $DEV_INTERNET = eth1;
+\&    @def $DEV_INTERNET = eth1;
 \&    chain INPUT {
 \&        proto tcp {
-\&            def $DEV_INTERNET = ppp0;
+\&            @def $DEV_INTERNET = ppp0;
 \&            interface $DEV_INTERNET dport http ACCEPT;
 \&        }
 \&        interface $DEV_INTERNET DROP;
@@ -1402,12 +1490,12 @@ Functions are similar to variables, except that they may have
 parameters, and they provide ferm commands, not values.
 .PP
 .Vb 2
-\&    def &FOO() = proto (tcp udp) dport domain;
+\&    @def &FOO() = proto (tcp udp) dport domain;
 \&    &FOO() ACCEPT;
 .Ve
 .PP
 .Vb 4
-\&    def &TCP_TUNNEL($port, $dest) = {
+\&    @def &TCP_TUNNEL($port, $dest) = {
 \&        table filter chain FORWARD interface ppp0 proto tcp dport $port daddr $dest outerface eth0 ACCEPT;
 \&        table nat chain PREROUTING interface ppp0 proto tcp dport $port daddr 1.2.3.4 DNAT to $dest;
 \&    }
@@ -1425,15 +1513,15 @@ example does not contain a block, thus you may write '\s-1ACCEPT\s0' after
 the call. To circumvent this, you can reorder the keywords:
 .PP
 .Vb 2
-\&    def &IPSEC() = { proto (esp ah); proto udp dport 500; }
-\&    ACCEPT &IPSEC();
+\&    @def &IPSEC() = { proto (esp ah); proto udp dport 500; }
+\&    chain INPUT ACCEPT &IPSEC();
 .Ve
 .Sh "Backticks"
 .IX Subsection "Backticks"
 With backticks, you may use the output of an external command:
 .PP
 .Vb 2
-\&    def $DNSSERVERS = `grep nameserver /etc/resolv.conf | awk '{print $2}'`
+\&    @def $DNSSERVERS = `grep nameserver /etc/resolv.conf | awk '{print $2}'`;
 \&    chain INPUT proto tcp saddr $DNSSERVERS ACCEPT;
 .Ve
 .PP
@@ -1445,10 +1533,10 @@ beginning with '#' are ignored; the other lines may contain any number
 of values, separated by whitespace.
 .Sh "Includes"
 .IX Subsection "Includes"
-The \fBinclude\fR keyword allows you to include external files:
+The \fB@include\fR keyword allows you to include external files:
 .PP
 .Vb 1
-\&    include 'vars.ferm';
+\&    @include 'vars.ferm';
 .Ve
 .PP
 The file name is relative to the calling file, e.g. when including
@@ -1460,7 +1548,7 @@ included file are still available in the calling file.
 .PP
 .Vb 3
 \&    chain INPUT {
-\&        include 'input.ferm';
+\&        @include 'input.ferm';
 \&    }
 .Ve
 .PP
@@ -1468,8 +1556,49 @@ If you specify a directory (with a trailing '/'), all files in this
 directory are included, sorted alphabetically:
 .PP
 .Vb 1
-\&    include 'ferm.d/';
+\&    @include 'ferm.d/';
 .Ve
+.Sh "Conditionals"
+.IX Subsection "Conditionals"
+The keyword \fB@if\fR introduces a conditional expression:
+.PP
+.Vb 1
+\&    @if $condition DROP;
+.Ve
+.PP
+A value is evaluated true just like in Perl: zero, empty list, empty
+string are false, everything else is true.  Examples for true values:
+.PP
+.Vb 1
+\&    (a b); 1; 'foo'; (0 0)
+.Ve
+.PP
+Examples for false values:
+    (); 0; '0'; ''
+.PP
+There is also \fB@else\fR:
+.PP
+.Vb 1
+\&    @if $condition DROP; @else REJECT;
+.Ve
+.PP
+Note the semicolon before the \fB@else\fR.
+.PP
+It is possible to use curly braces after either \fB@if\fR or \fB@else\fR:
+.PP
+.Vb 6
+\&    @if $condition {
+\&        MARK set\-mark 2;
+\&        RETURN;
+\&    } @else {
+\&        MARK set\-mark 3;
+\&    }
+.Ve
+.PP
+Since the closing curly brace also finishes the command, there is no
+need for semicolon.
+.PP
+There is no \fB@elsif\fR, use \fB@else \f(CB@if\fB\fR instead.
 .Sh "Hooks"
 .IX Subsection "Hooks"
 To run custom commands, you may install hooks:
@@ -1482,6 +1611,29 @@ To run custom commands, you may install hooks:
 The specified command is executed using the shell.  \*(L"pre\*(R" means run
 the command before applying the firewall rules, and \*(L"post\*(R" means run
 the command afterwards.  You may install any number of hooks.
+.SH "FUNCTIONS"
+.IX Header "FUNCTIONS"
+There are several built-in functions which you might find useful.
+.Sh "@resolve((hostname1 hostname2 ...))"
+.IX Subsection "@resolve((hostname1 hostname2 ...))"
+Usually, host names are resolved by iptables.  To let ferm resolve
+host names, use the function \f(CW@resolve:\fR
+.PP
+.Vb 2
+\&    saddr @resolve(my.host.foo) proto tcp dport ssh ACCEPT;
+\&    saddr @resolve((another.host.foo third.host.foo)) proto tcp dport openvpn ACCEPT;
+.Ve
+.PP
+Note the double parentheses in the second line: the inner pair for
+creating a ferm list, and the outer pair as function parameter
+delimiters.
+.PP
+This function currently only resolves \fBA\fR records (i.e. IPv4
+addresses), rendering it useless for the \fIip6\fR domain.
+.PP
+Be careful with resolved host names in firewall configuration.  \s-1DNS\s0
+requests may block the firewall configuration for a long time, leaving
+the machine vulnerable, or they may fail.
 .SH "RECIPES"
 .IX Header "RECIPES"
 The \fI./examples/\fR directory contains numerous ferm configuration
@@ -1492,7 +1644,7 @@ samples, recipes and tricks.
 Ferm function make routine tasks quick and easy:
 .PP
 .Vb 4
-\&    def &FORWARD_TCP($proto, $port, $dest) = {
+\&    @def &FORWARD_TCP($proto, $port, $dest) = {
 \&        table filter chain FORWARD interface $DEV_WORLD outerface $DEV_DMZ daddr $dest proto $proto dport $port ACCEPT;
 \&        table nat chain PREROUTING interface $DEV_WORLD daddr $HOST_STATIC proto $proto dport $port DNAT to $dest;
 \&    }
@@ -1565,7 +1717,7 @@ declare functions which take parameters.  Besides that, you should use
 the new syntax:
 .Sp
 .Vb 2
-\& def $FOO = (http ssh);
+\& @def $FOO = (http ssh);
 \& chain INPUT proto tcp dport $FOO ACCEPT;
 .Ve
 .IP "\fIArrays\fR" 8

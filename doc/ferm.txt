@@ -56,7 +56,7 @@ INTRODUCTION
 
        chain INPUT {
            policy ACCEPT;
-           daddr 10.0.0.0/8 proto tcp dport ! ftp goto mychain sport :1023 TOS 4 settos 8 mark 2;
+           daddr 10.0.0.0/8 proto tcp dport ! ftp jump mychain sport :1023 TOS 4 settos 8 mark 2;
            daddr 10.0.0.0/8 proto tcp dport ftp REJECT;
        }
 
@@ -80,10 +80,10 @@ INTRODUCTION
             interface (eth0 ppp0) {
                 # deny access to notorius hackers, return here if no match
                 # was found to resume normal firewalling
-                goto badguys;
+                jump badguys;
 
-                protocol tcp goto fw_tcp;
-                protocol udp goto fw_udp;
+                protocol tcp jump fw_tcp;
+                protocol udp jump fw_udp;
             }
         }
 
@@ -260,7 +260,7 @@ STRUCTURE OF A FIREWALL FILE
             172.16.0.0/12".
 
     *       target keywords state what to do with a packet. Example:
-            "ACCEPT", "REJECT", "goto".
+            "ACCEPT", "REJECT", "jump".
 
             Some targets define more keywords to specify details: "REJECT
             reject-with icmp-net-unreachable".
@@ -324,9 +324,9 @@ BASIC KEYWORDS
             To avoid ambiguity, always specify the policies of all
             predefined chains explicitly.
 
-    subchain ["CHAIN-NAME"] { ... }
+    @subchain ["CHAIN-NAME"] { ... }
             Works like the normal block operators (i.e. without the
-            *subchain* keyword), except that ferm moves rules within the
+            *@subchain* keyword), except that ferm moves rules within the
             curly braces into a new custom chain. The name for this chain is
             chosen automatically by ferm.
 
@@ -343,11 +343,11 @@ BASIC KEYWORDS
 
             This generates 20 rules. When a packet arrives which does not
             pass the saddr match, it nonetheless checks all 20 rules. With
-            subchain, this check is done once, resulting in faster network
+            @subchain, this check is done once, resulting in faster network
             filtering and less CPU load:
 
              table filter chain INPUT {
-                 saddr (1.2.3.4 2.3.4.5 3.4.5.6 4.5.6.7 5.6.7.8) subchain {
+                 saddr (1.2.3.4 2.3.4.5 3.4.5.6 4.5.6.7 5.6.7.8) @subchain {
                      proto tcp dport (http https ssh) ACCEPT;
                      proto udp dport domain ACCEPT;
                  }
@@ -355,13 +355,13 @@ BASIC KEYWORDS
 
             Optionally, you may define the name of the sub chain:
 
-             saddr (1.2.3.4 2.3.4.5 3.4.5.6) subchain "foobar" {
+             saddr (1.2.3.4 2.3.4.5 3.4.5.6) @subchain "foobar" {
                  proto tcp dport (http https ssh) ACCEPT;
                  proto udp dport domain ACCEPT;
              }
 
             You can achieve the same by explicitly declaring a custom chain,
-            but you may feel that using subchain requires less typing.
+            but you may feel that using @subchain requires less typing.
 
   Basic match keywords
     interface [interface-name]
@@ -427,9 +427,17 @@ BASIC KEYWORDS
             keywords. We'll get to that later.
 
   Basic target keywords
-    goto [custom-chain-name]
+    jump [custom-chain-name]
             Jumps to a custom chain. If no rule in the custom chain matched,
             netfilter returns to the next rule in the previous chain.
+
+    realgoto [custom-chain-name]
+            Go to a custom chain. Unlike the jump option, RETURN will not
+            continue processing in this chain but instead in the chain that
+            called us via jump.
+
+            The keyword realgoto was chosen during the transition period,
+            because goto (already deprecated) used to be an alias for jump.
 
     ACCEPT  Accepts matching packets.
 
@@ -445,7 +453,7 @@ BASIC KEYWORDS
             Type "iptables -j REJECT -h" for details.
 
     RETURN  Finish the current chain and return to the calling chain (if
-            "goto [custom-chain-name]" was used).
+            "jump [custom-chain-name]" was used).
 
     NOP     No action at all.
 
@@ -494,6 +502,25 @@ ADDITIONAL KEYWORDS
 
                 mod condition condition (abc def) ACCEPT;
                 mod condition condition !foo ACCEPT;
+
+    connbytes
+            Match by how many bytes or packets a connection (or one of the
+            two flows constituting the connection) have tranferred so far,
+            or by average bytes per packet.
+
+                mod connbytes connbytes 65536: connbytes-dir both connbytes-mode bytes ACCEPT;
+                mod connbytes connbytes !1024:2048 connbytes-dir reply connbytes-mode packets ACCEPT;
+
+            Valid values for *connbytes-dir*: *original*, *reply*, *both*;
+            for *connbytes-mode*: *packets*, *bytes*, *avgpkt*.
+
+    connlimit
+            Allows you to restrict the number of parallel TCP connections to
+            a server per client IP address (or address block).
+
+                mod connlimit connlimit-above 4 REJECT;
+                mod connlimit connlimit-above !4 ACCEPT;
+                mod connlimit connlimit-above 4 connlimit-mask 24 REJECT;
 
     connmark
             Check the mark field associated with the connection, set by the
@@ -597,6 +624,9 @@ ADDITIONAL KEYWORDS
 
                 proto icmp icmp-type echo-request ACCEPT;
 
+            This option can also be used in be *ip6* domain, although this
+            is called icmpv6 in ip6tables.
+
             Use "iptables -p icmp "-h"" to obtain a list of valid ICMP
             types.
 
@@ -644,6 +674,10 @@ ADDITIONAL KEYWORDS
             a 32 bit integer between 0 and 4294967295.
 
                 mod mark mark 42;
+
+    mh      Matches the mobility header (domain *ip6*).
+
+                proto mh mh-type binding-update ACCEPT;
 
     multiport
             Match a set of source or destination ports (UDP and TCP only).
@@ -763,6 +797,13 @@ ADDITIONAL KEYWORDS
 
             Type "iptables -m state -h" for details.
 
+    statistic
+            Successor of nth and random, currently undocumented in the
+            iptables(8) man page.
+
+                mod statistic mode random probability 0.8 ACCEPT;
+                mod statistic mode nth every 5 packet 0 DROP;
+
     tcp     Checks TCP specific attributes. This module is automatically
             loaded when you use "protocol tcp".
 
@@ -806,6 +847,13 @@ ADDITIONAL KEYWORDS
                 mod ttl ttl-gt 10; # ttl greater than
                 mod ttl ttl-lt 16; # ttl less than
 
+    u32     Compares raw data from the packet. You can specify more than one
+            filter in a ferm list; these are not expanded into multiple
+            rules.
+
+                mod u32 u32 '6&0xFF=1' ACCEPT;
+                mod u32 u32 ('27&0x8f=7' '31=0x527c4833') DROP;
+
     unclean Matches packets which seem malformed or unusual. This match has
             no further parameters.
 
@@ -821,6 +869,15 @@ ADDITIONAL KEYWORDS
                 CONNMARK restore-mark;
                 CONNMARK save-mark mask 0x7fff;
                 CONNMARK restore-mark mask 0x8000;
+
+    CONNSECMARK
+            This module copies security markings from packets to connections
+            (if unlabeled), and from connections back to packets (also only
+            if unlabeled). Typically used in conjunction with SECMARK, it is
+            only valid in the mangle table.
+
+                CONNSECMARK save;
+                CONNSECMARK restore;
 
     DNAT to [ip-address|ip-range|ip-port-range]
             Change the destination address of the packet.
@@ -876,6 +933,12 @@ ADDITIONAL KEYWORDS
 
                 proto tcp dport (135:139 445) NOTRACK;
 
+    NFLOG   Log packets over netlink; this is the successor of *ULOG*.
+
+                NFLOG nflog-group 5 nflog-prefix "Look at this: ";
+                NFLOG nflog-range 256;
+                NFLOG nflog-threshold 10;
+
     NFQUEUE Userspace queueing, requires nfnetlink_queue kernel support.
 
                 proto tcp dport ftp NFQUEUE queue-num 20;
@@ -890,6 +953,12 @@ ADDITIONAL KEYWORDS
             the machine itself.
 
                 proto tcp dport http REDIRECT to-ports 3128;
+
+    SECMARK This is used to set the security mark value associated with the
+            packet for use by security subsystems such as SELinux. It is
+            only valid in the mangle table.
+
+                SECMARK selctx "system_u:object_r:httpd_packet_t:s0";
 
     SET [add-set|del-set] [setname] [flag(s)]
             Add the IP to the specified set. See
@@ -937,9 +1006,9 @@ ADVANCED FEATURES
 
     To set variables, write:
 
-        def $DEV_INTERNET = eth0;
-        def $PORTS = (http ftp);
-        def $MORE_PORTS = ($PORTS 8080);
+        @def $DEV_INTERNET = eth0;
+        @def $PORTS = (http ftp);
+        @def $MORE_PORTS = ($PORTS 8080);
 
     In the real ferm code, variables are used like any other keyword
     parameter:
@@ -952,10 +1021,10 @@ ADVANCED FEATURES
 
     Variables are only valid in the current block:
 
-        def $DEV_INTERNET = eth1;
+        @def $DEV_INTERNET = eth1;
         chain INPUT {
             proto tcp {
-                def $DEV_INTERNET = ppp0;
+                @def $DEV_INTERNET = ppp0;
                 interface $DEV_INTERNET dport http ACCEPT;
             }
             interface $DEV_INTERNET DROP;
@@ -991,10 +1060,10 @@ ADVANCED FEATURES
     Functions are similar to variables, except that they may have
     parameters, and they provide ferm commands, not values.
 
-        def &FOO() = proto (tcp udp) dport domain;
+        @def &FOO() = proto (tcp udp) dport domain;
         &FOO() ACCEPT;
 
-        def &TCP_TUNNEL($port, $dest) = {
+        @def &TCP_TUNNEL($port, $dest) = {
             table filter chain FORWARD interface ppp0 proto tcp dport $port daddr $dest outerface eth0 ACCEPT;
             table nat chain PREROUTING interface ppp0 proto tcp dport $port daddr 1.2.3.4 DNAT to $dest;
         }
@@ -1008,13 +1077,13 @@ ADVANCED FEATURES
     example does not contain a block, thus you may write 'ACCEPT' after the
     call. To circumvent this, you can reorder the keywords:
 
-        def &IPSEC() = { proto (esp ah); proto udp dport 500; }
-        ACCEPT &IPSEC();
+        @def &IPSEC() = { proto (esp ah); proto udp dport 500; }
+        chain INPUT ACCEPT &IPSEC();
 
   Backticks
     With backticks, you may use the output of an external command:
 
-        def $DNSSERVERS = `grep nameserver /etc/resolv.conf | awk '{print $2}'`
+        @def $DNSSERVERS = `grep nameserver /etc/resolv.conf | awk '{print $2}'`;
         chain INPUT proto tcp saddr $DNSSERVERS ACCEPT;
 
     The command is executed with the shell (/bin/sh), just like backticks in
@@ -1025,9 +1094,9 @@ ADVANCED FEATURES
     of values, separated by whitespace.
 
   Includes
-    The include keyword allows you to include external files:
+    The @include keyword allows you to include external files:
 
-        include 'vars.ferm';
+        @include 'vars.ferm';
 
     The file name is relative to the calling file, e.g. when including from
     /etc/ferm/ferm.conf, the above statement includes /etc/ferm/vars.ferm.
@@ -1037,13 +1106,45 @@ ADVANCED FEATURES
     include works within a block:
 
         chain INPUT {
-            include 'input.ferm';
+            @include 'input.ferm';
         }
 
     If you specify a directory (with a trailing '/'), all files in this
     directory are included, sorted alphabetically:
 
-        include 'ferm.d/';
+        @include 'ferm.d/';
+
+  Conditionals
+    The keyword @if introduces a conditional expression:
+
+        @if $condition DROP;
+
+    A value is evaluated true just like in Perl: zero, empty list, empty
+    string are false, everything else is true. Examples for true values:
+
+        (a b); 1; 'foo'; (0 0)
+
+    Examples for false values: (); 0; '0'; ''
+
+    There is also @else:
+
+        @if $condition DROP; @else REJECT;
+
+    Note the semicolon before the @else.
+
+    It is possible to use curly braces after either @if or @else:
+
+        @if $condition {
+            MARK set-mark 2;
+            RETURN;
+        } @else {
+            MARK set-mark 3;
+        }
+
+    Since the closing curly brace also finishes the command, there is no
+    need for semicolon.
+
+    There is no @elsif, use @else @if instead.
 
   Hooks
     To run custom commands, you may install hooks:
@@ -1055,6 +1156,27 @@ ADVANCED FEATURES
     command before applying the firewall rules, and "post" means run the
     command afterwards. You may install any number of hooks.
 
+FUNCTIONS
+    There are several built-in functions which you might find useful.
+
+  @resolve((hostname1 hostname2 ...))
+    Usually, host names are resolved by iptables. To let ferm resolve host
+    names, use the function @resolve:
+
+        saddr @resolve(my.host.foo) proto tcp dport ssh ACCEPT;
+        saddr @resolve((another.host.foo third.host.foo)) proto tcp dport openvpn ACCEPT;
+
+    Note the double parentheses in the second line: the inner pair for
+    creating a ferm list, and the outer pair as function parameter
+    delimiters.
+
+    This function currently only resolves A records (i.e. IPv4 addresses),
+    rendering it useless for the *ip6* domain.
+
+    Be careful with resolved host names in firewall configuration. DNS
+    requests may block the firewall configuration for a long time, leaving
+    the machine vulnerable, or they may fail.
+
 RECIPES
     The ./examples/ directory contains numerous ferm configuration which can
     be used to begin a new firewall. This sections contains more samples,
@@ -1063,7 +1185,7 @@ RECIPES
   Easy port forwarding
     Ferm function make routine tasks quick and easy:
 
-        def &FORWARD_TCP($proto, $port, $dest) = {
+        @def &FORWARD_TCP($proto, $port, $dest) = {
             table filter chain FORWARD interface $DEV_WORLD outerface $DEV_DMZ daddr $dest proto $proto dport $port ACCEPT;
             table nat chain PREROUTING interface $DEV_WORLD daddr $HOST_STATIC proto $proto dport $port DNAT to $dest;
         }
@@ -1126,7 +1248,7 @@ TRANSITION FROM FERM 1.1
             can now declare functions which take parameters. Besides that,
             you should use the new syntax:
 
-             def $FOO = (http ssh);
+             @def $FOO = (http ssh);
              chain INPUT proto tcp dport $FOO ACCEPT;
 
     *Arrays*

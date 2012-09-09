@@ -18,7 +18,11 @@ table filter {
     }
 
     chain FORWARD policy DROP {
-	reverse saddr (
+	saddr (
+	    192.168.0.0/24
+	    192.168.1.0/24
+	) ACCEPT;
+	daddr (
 	    192.168.0.0/24
 	    192.168.1.0/24
 	) ACCEPT;
@@ -26,7 +30,8 @@ table filter {
 
     chain INETIN {
 	saddr (
-	    bad.guy1.com bad.hacker.org
+	    bad.guy1.com
+	    bad.hacker.org
 	) REJECT;
 
 	mod state state INVALID REJECT;

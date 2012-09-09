@@ -4,9 +4,11 @@
 # This file is an actual example of a running
 # ferm firewall configuration (anonimized)
 #
-# (C) Auke Kok <koka at geo.vu.nl>
+# (C) Auke Kok <auke.kok at planet.nl>
 #
 
+# note: this examples works with iptchains only (unmodified)
+option ipchains
 
 # fixed firewall setup: clear all rules before beginning
 option clearall

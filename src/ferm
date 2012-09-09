@@ -25,7 +25,7 @@
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #
 
-# $Id: ferm 1270 2008-07-26 17:30:23Z max $
+# $Id: ferm 1283 2008-09-30 17:56:33Z max $
 
 BEGIN {
     eval { require strict; import strict; };
@@ -47,9 +47,9 @@ use vars qw($has_strict $has_getopt);
 use vars qw($DATE $VERSION);
 
 # subversion keyword magic
-$DATE = '$Date: 2008-07-26 19:30:23 +0200 (Sat, 26 Jul 2008) $' =~ m,(\d{4})-(\d\d)-(\d\d), ? $1.$2.$3 : '';
+$DATE = '$Date: 2008-09-30 19:56:33 +0200 (Tue, 30 Sep 2008) $' =~ m,(\d{4})-(\d\d)-(\d\d), ? $1.$2.$3 : '';
 
-$VERSION = '2.0.2';
+$VERSION = '2.0.3';
 #$VERSION .= '~svn' . $DATE;
 
 ## interface variables
@@ -1608,7 +1608,7 @@ sub enter($$) {
                 # consistency check: check if they havn't forgotten
                 # the ';' after the last statement
                 error('Missing semicolon before "}"')
-                  if $rule{has_rule};
+                  if $rule{non_empty};
 
                 # and exit
                 return;
@@ -1658,7 +1658,7 @@ sub enter($$) {
             # definition of a variable or function
             if ($keyword eq '@def' or $keyword eq 'def') {
                 error('"def" must be the first token in a command')
-                  if $rule{has_rule};
+                  if $rule{non_empty};
 
                 my $type = require_next_token();
                 if ($type eq '$') {
@@ -1721,6 +1721,12 @@ sub enter($$) {
 
                 next;
             }
+
+            # this rule has something which isn't inherited by its
+            # parent closure.  This variable is used in a lot of
+            # syntax checks.
+
+            $rule{non_empty} = 1;
 
             # def references
             if ($keyword eq '$') {
@@ -1803,7 +1809,8 @@ sub enter($$) {
             if ($keyword eq 'chain') {
                 warning('Chain is already specified')
                   if exists $rule{chain};
-                $rule{chain} = $stack[0]{auto}{CHAIN} = getvalues();
+
+                my $chain = $rule{chain} = $stack[0]{auto}{CHAIN} = getvalues();
 
                 # ferm 1.1 allowed lower case built-in chain names
                 foreach (ref $rule{chain} ? @{$rule{chain}} : $rule{chain}) {
@@ -1816,6 +1823,14 @@ sub enter($$) {
 
                 $rule{table} = 'filter'
                   unless exists $rule{table};
+
+                foreach my $domain (to_array $rule{domain}) {
+                    foreach my $table (to_array $rule{table}) {
+                        foreach my $c (to_array $chain) {
+                            $domains{$domain}{tables}{$table}{chains}{$c} ||= {};
+                        }
+                    }
+                }
 
                 next;
             }
@@ -1864,6 +1879,12 @@ sub enter($$) {
                     $subchain = 'ferm_auto_' . ++$auto_chain;
                 }
 
+                foreach my $domain (to_array $rule{domain}) {
+                    foreach my $table (to_array $rule{table}) {
+                        $domains{$domain}{tables}{$table}{chains}{$subchain} ||= {};
+                    }
+                }
+
                 set_target(%rule, 'jump', $subchain);
 
                 error('"{" or chain name expected after "@subchain"')
@@ -1884,12 +1905,13 @@ sub enter($$) {
                 }
 
                 # enter the block
-                enter(1, \%inner);
+                enter($lev + 1, \%inner);
 
                 # now handle the parent - it's a jump to the sub chain
-                $rule{script} = { filename => $script->{filename},
-                                     line => $script->{line},
-                                   };
+                $rule{script} = {
+                    filename => $script->{filename},
+                    line => $script->{line},
+                };
 
                 mkrules(\%rule);
 
@@ -1901,7 +1923,7 @@ sub enter($$) {
 
             # everything else must be part of a "real" rule, not just
             # "policy only"
-            $rule{has_rule}++;
+            $rule{has_rule} = 1;
 
             # extended parameters:
             if ($keyword =~ /^mod(?:ule)?$/) {
@@ -1967,7 +1989,7 @@ sub enter($$) {
             # protocol specific options
             #
 
-            if ($keyword eq 'proto') {
+            if ($keyword eq 'proto' or $keyword eq 'protocol') {
                 my $protocol = parse_keyword(%rule,
                                              { params => 1, negation => 1 },
                                              \$negated);
@@ -2013,7 +2035,7 @@ sub enter($$) {
     # consistency check: check if they havn't forgotten
     # the ';' before the last statement
     error("Missing semicolon before end of file")
-      if exists $rule{domain};
+      if $rule{non_empty};
 }
 
 sub execute_command {

@@ -1231,6 +1231,11 @@ leave the machine. This is useful for bridged interfaces.</p>
     mod policy mode tunnel tunnel-dst 192.168.2.1 ACCEPT;
     mod policy strict next reqid 24 spi 0x11 ACCEPT;</pre>
 </dd>
+<dd>
+<p>Note that the keyword <em>proto</em> is also used as a shorthand version of
+<em>protocol</em> (built-in match module).  You can fix this conflict by
+always using the long keyword <em>protocol</em>.</p>
+</dd>
 </li>
 <dt><strong><a name="item_psd"><strong>psd</strong></a></strong>
 

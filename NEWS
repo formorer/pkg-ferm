@@ -7,6 +7,14 @@
     Auke Kok <sofar@foo-projects.org>
 
 
+v2.0.3 - 30 Sep 2008
+  - create chains and subchains even if they are empty
+  - fix includes within a rule ("Missing semicolon...")
+  - fix subchain in include ("Died at [...] line 1493")
+  - "protocol" is an alias for "proto", to fix the keyword conflict with
+    the "policy" module
+
+
 v2.0.2 - 26 Jul 2008
   - allow duplicate specification of "table" and "chain", for better
     1.3.x compatibility.  Support for this will be removed in a later

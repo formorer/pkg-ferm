@@ -25,7 +25,7 @@
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #
 
-# $Id: ferm 1071 2007-12-19 09:35:07Z max $
+# $Id: ferm 1092 2008-01-22 16:35:35Z max $
 
 BEGIN {
     eval { require strict; import strict; };
@@ -47,9 +47,9 @@ use vars qw($has_strict $has_getopt);
 use vars qw($DATE $VERSION);
 
 # subversion keyword magic
-$DATE = '$Date: 2007-12-19 10:35:07 +0100 (Wed, 19 Dec 2007) $' =~ m,(\d{4})-(\d\d)-(\d\d), ? $1.$2.$3 : '';
+$DATE = '$Date: 2008-01-22 17:35:35 +0100 (Tue, 22 Jan 2008) $' =~ m,(\d{4})-(\d\d)-(\d\d), ? $1.$2.$3 : '';
 
-$VERSION = '1.3.2';
+$VERSION = '1.3.3';
 #$VERSION .= '~svn' . $DATE;
 
 ## interface variables
@@ -309,7 +309,6 @@ add_match_def 'fuzzy', qw(lower-limit=s upper-limit=s);
 add_match_def 'hbh', qw(hbh-len! hbh-opts=c);
 add_match_def 'helper', qw(helper);
 add_match_def 'hl', qw(hl-eq! hl-lt=s hl-gt=s);
-add_match_def 'length', qw(length!);
 add_match_def 'hashlimit', qw(hashlimit=s hashlimit-burst=s hashlimit-mode=s hashlimit-name=s),
   qw(hashlimit-htable-size=s hashlimit-htable-max=s),
   qw(hashlimit-htable-expire=s hashlimit-htable-gcinterval=s);
@@ -317,6 +316,7 @@ add_match_def 'iprange', qw(!src-range !dst-range);
 add_match_def 'iplimit', qw(!iplimit-above=s iplimit-mask=s);
 add_match_def 'ipv4options', qw(ssrr*0 lsrr*0 no-srr*0 !rr*0 !ts*0 !ra*0 !any-opt*0);
 add_match_def 'ipv6header', qw(header!=c soft*0);
+add_match_def 'length', qw(length!);
 add_match_def 'limit', qw(limit=s limit-burst=s);
 add_match_def 'mac', qw(mac-source!);
 add_match_def 'mark', qw(mark);
@@ -334,47 +334,48 @@ add_match_def 'psd', qw(psd-weight-threshold psd-delay-threshold),
 add_match_def 'quota', qw(quota=s);
 add_match_def 'random', qw(average);
 add_match_def 'realm', qw(realm!);
-add_match_def 'recent', qw(name=s !set*0 !rcheck*0 !update*0 !seconds !hitcount rttl*0);
+add_match_def 'recent', qw(name=s !set*0 !rcheck*0 !update*0 !seconds !hitcount rttl*0 rsource*0 rdest*0);
 add_match_def 'rt', qw(rt-type! rt-segsleft! rt-len! rt-0-res*0 rt-0-addrs=c rt-0-not-strict*0);
 add_match_def 'set', qw(set=sc);
 add_match_def 'state', qw(state=c);
 add_match_def 'statistic', qw(mode=s probability=s every=s packet=s);
 add_match_def 'string', qw(algo=s from=s to=s string hex-string);
 add_match_def 'tcpmss', qw(!mss);
-add_match_def 'time', qw(timestart=s timestop=s days=c datestart=s datestop=s);
+add_match_def 'time', qw(timestart=s timestop=s days=c datestart=s datestop=s),
+  qw(!monthday=c !weekdays=c utc*0 localtz*0);
 add_match_def 'tos', qw(!tos&compat_tos_params);
 add_match_def 'ttl', qw(ttl-eq ttl-lt=s ttl-gt=s);
-add_match_def 'u32', qw(u32=m);
+add_match_def 'u32', qw(!u32=m);
 
 add_target_def 'BALANCE', qw(to-destination to:=to-destination);
 add_target_def 'CLASSIFY', qw(set-class);
 add_target_def 'CLUSTERIP', qw(new*0 hashmode clustermac total-nodes local-node hash-init);
 add_target_def 'CONNMARK', qw(set-mark save-mark*0 restore-mark*0 mask);
 add_target_def 'CONNSECMARK', qw(save*0 restore*0);
-add_target_def 'DNAT', qw(to-destination=m to:=to-destination);
+add_target_def 'DNAT', qw(to-destination=m to:=to-destination random*0);
 add_target_def 'DSCP', qw(set-dscp set-dscp-class);
 add_target_def 'ECN', qw(ecn-tcp-remove*0);
 add_target_def 'HL', qw(hl-set hl-dec hl-inc);
 add_target_def 'IPV4OPTSSTRIP';
 add_target_def 'LOG', qw(log-level log-prefix),
   qw(log-tcp-sequence*0 log-tcp-options*0 log-ip-options*0 log-uid*0);
-add_target_def 'MARK', qw(set-mark);
-add_target_def 'MASQUERADE', qw(to-ports);
+add_target_def 'MARK', qw(set-mark set-xmark and-mark or-mark xor-mark);
+add_target_def 'MASQUERADE', qw(to-ports random*0);
 add_target_def 'MIRROR';
 add_target_def 'NETMAP', qw(to);
 add_target_def 'NFLOG', qw(nflog-group nflog-prefix nflog-range nflog-threshold);
 add_target_def 'NFQUEUE', qw(queue-num);
 add_target_def 'NOTRACK';
-add_target_def 'REDIRECT', qw(to-ports);
+add_target_def 'REDIRECT', qw(to-ports random*0);
 add_target_def 'REJECT', qw(reject-with);
 add_target_def 'ROUTE', qw(oif iif gw continue*0 tee*0);
 add_target_def 'SAME', qw(to nodst*0 random*0);
 add_target_def 'SECMARK', qw(selctx);
 add_target_def 'SET', qw(add-set=sc del-set=sc);
-add_target_def 'SNAT', qw(to-source=m to:=to-source);
+add_target_def 'SNAT', qw(to-source=m to:=to-source random*0);
 add_target_def 'TARPIT';
 add_target_def 'TCPMSS', qw(set-mss clamp-mss-to-pmtu*0);
-add_target_def 'TOS', qw(set-tos&compat_tos_params);
+add_target_def 'TOS', qw(set-tos&compat_tos_params and-tos or-tos xor-tos);
 add_target_def 'TRACE';
 add_target_def 'TTL', qw(ttl-set ttl-dec ttl-inc);
 add_target_def 'ULOG', qw(ulog-nlgroup ulog-prefix ulog-cprange ulog-qthreshold);
@@ -2359,10 +2360,20 @@ sub enter($@) {
                       and warning('Please write built-in chain names in upper case');
                 }
 
-                $current->{domain} = filter_domains('ip')
-                  unless defined find_option(\@fw, 'domain');
-                $current->{table} = 'filter'
-                  unless defined find_option(\@fw, 'table');
+                my $domains = find_option(\@fw, 'domain');
+                my $tables = find_option(\@fw, 'table');
+
+                $current->{domain} = $domains = filter_domains('ip')
+                  unless defined $domains;
+                $current->{table} = $tables = 'filter'
+                  unless defined $tables;
+
+                # mark this chain as non-empty so ferm does not print a warning
+                foreach my $domain (to_array $domains) {
+                    foreach my $table (to_array $tables) {
+                        $domains{$domain}{tables}{$table}{chains}{$current->{chain}}{non_empty} = 1
+                    }
+                }
 
                 next;
             }
@@ -2404,6 +2415,9 @@ sub enter($@) {
 
             # create a subchain
             if ($keyword eq '@subchain' or $keyword eq 'subchain') {
+                error('Chain must be specified')
+                  unless defined find_option(\@fw, 'chain');
+
                 error('No rule specified before "@subchain"')
                   unless find_option(\@fw, 'has_rule');
 
@@ -2417,7 +2431,7 @@ sub enter($@) {
                     $subchain = 'ferm_auto_' . ++$auto_chain;
                 }
 
-                error('"{" or chain name expected after "sub"')
+                error('"{" or chain name expected after "@subchain"')
                   unless $keyword eq '{';
 
                 # create a deep copy of @fw, only containing values
@@ -2443,6 +2457,16 @@ sub enter($@) {
 
                 # enter the block
                 enter($lev + 1, @fw2);
+
+                # mark this chain as non-empty so ferm does not print a warning
+                my $domains = find_option(\@fw, 'domain');
+                my $tables = find_option(\@fw, 'table');
+
+                foreach my $domain (to_array $domains) {
+                    foreach my $table (to_array $tables) {
+                        $domains{$domain}{tables}{$table}{chains}{$subchain}{non_empty} = 1
+                    }
+                }
 
                 # now handle the parent - it's a jump to the sub chain
                 $current->{action} = { type => 'jump',

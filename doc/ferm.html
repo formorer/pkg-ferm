@@ -1180,6 +1180,10 @@ process id, session id and command name.</p>
     mod owner sid-owner 6543;
     mod owner cmd-owner &quot;sendmail&quot;;</pre>
 </dd>
+<dd>
+<p>(``cmd-owner'', ``pid-owner'' and ``sid-owner'' require special kernel
+patches not included in the vanilla Linux kernel)</p>
+</dd>
 </li>
 <dt><strong><a name="item_physdev"><strong>physdev</strong></a></strong>
 
@@ -1411,7 +1415,11 @@ when you use ``protocol tcp''.</p>
     mod time days (Mon Wed Fri);
     mod time datestart 2005:01:01;
     mod time datestart 2005:01:01:23:59:59;
-    mod time datestop 2005:04:01;</pre>
+    mod time datestop 2005:04:01;
+    mod time monthday (30 31);
+    mod time weekdays (Wed Thu);
+    mod time timestart 12:00 utc;
+    mod time timestart 12:00 localtz;</pre>
 </dd>
 <dd>
 <p>Type ``iptables -m time -h'' for details.</p>
@@ -1588,7 +1596,11 @@ i.e. rule traversal continues at the next rule.</p>
 </dd>
 <dd>
 <pre>
-    MARK set-mark 42;</pre>
+    MARK set-mark 42;
+    MARK set-xmark 7/3;
+    MARK and-mark 31;
+    MARK or-mark 1;
+    MARK xor-mark 12;</pre>
 </dd>
 </li>
 <dt><strong><a name="item_masquerade"><strong>MASQUERADE</strong></a></strong>
@@ -1602,7 +1614,8 @@ connections should originate from.</p>
 <dd>
 <pre>
     MASQUERADE;
-    MASQUERADE to-ports 1234:2345;</pre>
+    MASQUERADE to-ports 1234:2345;
+    MASQUERADE to-ports 1234:2345 random;</pre>
 </dd>
 </li>
 <dt><strong><a name="item_mirror"><strong>MIRROR</strong></a></strong>
@@ -1677,7 +1690,8 @@ machine itself.</p>
 </dd>
 <dd>
 <pre>
-    proto tcp dport http REDIRECT to-ports 3128;</pre>
+    proto tcp dport http REDIRECT to-ports 3128;
+    proto tcp dport http REDIRECT to-ports 3128 random;</pre>
 </dd>
 </li>
 <dt><strong><a name="item_same"><strong>SAME</strong></a></strong>
@@ -1723,7 +1737,8 @@ the mangle table.</p>
 <dd>
 <pre>
     SNAT to 1.2.3.4;
-    SNAT to 1.2.3.4:20000-30000;</pre>
+    SNAT to 1.2.3.4:20000-30000;
+    SNAT to 1.2.3.4 random;</pre>
 </dd>
 </li>
 <dt><strong><a name="item_tcpmss"><strong>TCPMSS</strong></a></strong>
@@ -1747,7 +1762,10 @@ overwritten by this value.</p>
 </dd>
 <dd>
 <pre>
-    TOS set-tos Maximize-Throughput;</pre>
+    TOS set-tos Maximize-Throughput;
+    TOS and-tos 7;
+    TOS or-tos 1;
+    TOS xor-tos 4;</pre>
 </dd>
 <dd>
 <p>Type ``iptables -j TOS -h'' for details.</p>

@@ -719,6 +719,9 @@ ADDITIONAL KEYWORDS
                 mod owner sid-owner 6543;
                 mod owner cmd-owner "sendmail";
 
+            ("cmd-owner", "pid-owner" and "sid-owner" require special kernel
+            patches not included in the vanilla Linux kernel)
+
     physdev Matches the physical device on which a packet entered or is
             about to leave the machine. This is useful for bridged
             interfaces.
@@ -848,6 +851,10 @@ ADDITIONAL KEYWORDS
                 mod time datestart 2005:01:01;
                 mod time datestart 2005:01:01:23:59:59;
                 mod time datestop 2005:04:01;
+                mod time monthday (30 31);
+                mod time weekdays (Wed Thu);
+                mod time timestart 12:00 utc;
+                mod time timestart 12:00 localtz;
 
             Type "iptables -m time -h" for details.
 
@@ -946,6 +953,10 @@ ADDITIONAL KEYWORDS
             between 0 and 4294967295):
 
                 MARK set-mark 42;
+                MARK set-xmark 7/3;
+                MARK and-mark 31;
+                MARK or-mark 1;
+                MARK xor-mark 12;
 
     MASQUERADE
             Masquerades matching packets. Optionally followed by a port or
@@ -955,6 +966,7 @@ ADDITIONAL KEYWORDS
 
                 MASQUERADE;
                 MASQUERADE to-ports 1234:2345;
+                MASQUERADE to-ports 1234:2345 random;
 
     MIRROR  Experimental demonstration target which inverts the source and
             destination fields in the IP header.
@@ -989,6 +1001,7 @@ ADDITIONAL KEYWORDS
             the machine itself.
 
                 proto tcp dport http REDIRECT to-ports 3128;
+                proto tcp dport http REDIRECT to-ports 3128 random;
 
     SAME    Similar to SNAT, but a client is mapped to the same source IP
             for all its connections.
@@ -1014,6 +1027,7 @@ ADDITIONAL KEYWORDS
 
                 SNAT to 1.2.3.4;
                 SNAT to 1.2.3.4:20000-30000;
+                SNAT to 1.2.3.4 random;
 
     TCPMSS  Alter the MSS value of TCP SYN packets.
 
@@ -1027,6 +1041,9 @@ ADDITIONAL KEYWORDS
             blanked and overwritten by this value.
 
                 TOS set-tos Maximize-Throughput;
+                TOS and-tos 7;
+                TOS or-tos 1;
+                TOS xor-tos 4;
 
             Type "iptables -j TOS -h" for details.
 

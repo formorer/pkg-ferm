@@ -129,7 +129,7 @@
 .\" ========================================================================
 .\"
 .IX Title "IMPORT-FERM 1"
-.TH IMPORT-FERM 1 "2006-09-14" "ferm 1.2.1" "FIREWALL RULES MADE EASY"
+.TH IMPORT-FERM 1 "2006-10-20" "ferm 1.2.2" "FIREWALL RULES MADE EASY"
 .SH "NAME"
 import\-ferm \- import existing firewall rules into ferm
 .SH "SYNOPSIS"
@@ -147,3 +147,7 @@ configuration to ferm.  It reads a file generated with
 .PP
 If no input file was specified on the command line, \fBimport-ferm\fR
 runs \fIiptables-save\fR.
+.SH "BUGS"
+.IX Header "BUGS"
+iptables-save older than 1.3 is unable to write valid saves \- this is
+not a bug in \fBimport-ferm\fR.

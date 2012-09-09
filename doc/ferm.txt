@@ -449,6 +449,12 @@ ADDITIONAL KEYWORDS
     modules which are currently supported.
 
   Netfilter match modules
+    account Account traffic for all hosts in defined network/netmask. This
+            is one of the match modules which behave like a target, i.e. you
+            will mostly have to use the NOP target.
+
+                mod account aname mynetwork aaddr 192.168.1.0/24 ashort NOP;
+
     addrtype
             Check the address type; either source address or destination
             address.
@@ -1019,6 +1025,15 @@ TRANSITION FROM FERM 1.1
             All these options are always implied. There is no option anymore
             to disable them.
 
+    *option automod*
+            Automatic module loading is deprecated. It still works for now,
+            at least for modules which were already supported by ferm 1.1,
+            but it is expected to be removed in ferm 1.3.
+
+    *option location*
+            ferm assumes that the iptables utilities are always installed in
+            /sbin.
+
     *Chain policies*
             Chain policies should be written in a dedicated statement; ferm
             1.1:
@@ -1041,6 +1056,24 @@ TRANSITION FROM FERM 1.1
 
              def $FOO = (http ssh);
              chain INPUT proto tcp dport $FOO ACCEPT;
+
+    *Arrays*
+            Arrays used to be specified with commas separating the items. In
+            ferm 1.2, you separate array items only by whitespace.
+
+    *Misc syntax changes*
+            Other small syntax changes:
+
+            *   built-in target names must be upper case; chains are lower
+                case
+
+            *   MASQUERADE, not MASQ
+
+            *   A lot of shortcuts are deprecated, since they are polluting
+                the namespace, e.g. "mac", "tosrc".
+
+            *   "source addr $A port $B" is deprecated, use "sdaddr $A sport
+                $B" instead. The same for "destination".
 
 OPTIONS
     --noexec    Do not execute the iptables(8) commands, but skip instead.

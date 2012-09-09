@@ -1,8 +1,0 @@
-chain input {
-    proto icmp ACCEPT;
-    proto icmp {
-        icmp-type destination-unreachable ACCEPT;
-        icmp-type ! redirect ACCEPT;
-        icmp-type (router-advertisement ttl-zero-during-reassembly) ACCEPT;
-    }
-}

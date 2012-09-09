@@ -1,3 +1,0 @@
-chain INPUT {
-    interface ppp0 proto tcp dport 22 CLASSIFY set-class 2:10;
-}

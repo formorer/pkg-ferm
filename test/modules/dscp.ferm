@@ -1,4 +1,0 @@
-chain INPUT mod dscp {
-    dscp (1 2) ACCEPT;
-    dscp-class AF41 DROP;
-}

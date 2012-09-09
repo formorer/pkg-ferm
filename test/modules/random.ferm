@@ -1,3 +1,0 @@
-table filter chain input mod random {
-    average 90 ACCEPT;
-}

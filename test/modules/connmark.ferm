@@ -1,3 +1,0 @@
-table filter chain input mod connmark {
-    mark 7/15 DROP;
-}

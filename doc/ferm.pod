@@ -5,7 +5,7 @@
 #
 # ferm, a firewall setup program that makes firewall rules easy!
 #
-# Copyright (C) 2001-2005  Auke Kok, Max Kellermann
+# Copyright (C) 2001-2006  Auke Kok, Max Kellermann
 #
 # Comments, questions, greetings and additions to this program
 # may be sent to <ferm@foo-projects.org>
@@ -53,6 +53,14 @@ commonly used structures and functions.
 
 B<ferm>, pronounced "firm", stands for "For Easy Rule Making".
 
+
+=head1 CAUTION
+
+This manual page does I<not> indend to teach you how firewalling works
+and how to write good rules.  There is already enough documentation on
+this topic.
+
+
 =head1 INTRODUCTION
 
 Let's start with a simple example:
@@ -82,9 +90,10 @@ Note how much less typing we need to do? :-)
 Basically, this is all there is to it, although you can make it quite
 more complex. Something to look at:
 
-   chain INPUT policy ACCEPT {
-       daddr 10/8 dport ! ftp goto mychain sport :1023 TOS 4 settos 8 mark 2;
-       daddr 10/8 dport ftp DENY;
+   chain INPUT {
+       policy ACCEPT;
+       daddr 10.0.0.0/8 proto tcp dport ! ftp goto mychain sport :1023 TOS 4 settos 8 mark 2;
+       daddr 10.0.0.0/8 proto tcp dport ftp REJECT;
    }
 
 My point here is, that *you* need to make nice rules, keep
@@ -102,8 +111,9 @@ Try using comments to show what you are doing:
 
 You will be thankful for it later!
 
-    chain INPUT policy ACCEPT {
-        interface (eth0,ppp0) {
+    chain INPUT {
+        policy ACCEPT;
+        interface (eth0 ppp0) {
             # deny access to notorius hackers, return here if no match
             # was found to resume normal firewalling
             goto badguys;
@@ -117,7 +127,7 @@ The more you nest, the better it looks. Make sure the order you
 specify is correct, you would not want to do this:
 
     chain FORWARD {
-        proto ! udp DENY;
+        proto ! udp DROP;
         proto tcp dport ftp ACCEPT;
     }
 
@@ -258,7 +268,7 @@ Only values can be 'listed', so you cannot do something like this:
 
 but you can do this:
 
-    chain (INPUT OUTPUT FORWARD) proto (icmp udp tcp) DENY;
+    chain (INPUT OUTPUT FORWARD) proto (icmp udp tcp) DROP;
 
 (which will result in nine rules!)
 
@@ -274,7 +284,20 @@ the end of line is ignored.
 =item C<`command`>
 
 Execute the command in a shell, and insert the process output. See the
-section I<BACKTICKS> for details.
+section I<backticks> for details.
+
+=item C<'string'>
+
+Quote a string which may contain whitespaces, the dollar sign etc.
+
+    LOG log-prefix ' hey, this is my log prefix!';
+
+=item C<"string">
+
+Quote a string (see above), but variable references with a dollar sign
+are evaluated:
+
+    DNAT to "$myhost:$myport";
 
 =back
 
@@ -345,20 +368,6 @@ Keywords which take no parameters are negated by a prefixed '!':
 Read iptables(8) to see where the B<!> can be used.
 
 
-=head2 Option keys
-
-Using B<option> keys alter the behaviour of B<ferm>; they
-can be used to e.g. clear chains before use, or turn off certain
-sanity checks.
-
-Example:
-
-  option verbose
-
-This option makes B<ferm> show a lot of information about what
-it is doing.
-
-
 =head1 BASIC KEYWORDS
 
 
@@ -396,6 +405,40 @@ specified by the policy.
 To avoid ambiguity, always specify the policies of all predefined
 chains explicitly.
 
+=item B<subchain { ... }>
+
+Works like the normal block operators (i.e. without the I<subchain>
+keyword), except that B<ferm> moves rules within the curly braces into
+a new custom chain. The name for this chain is chosen automatically by
+ferm.
+
+In many cases, this is faster than just a block, because the kernel
+may skip a huge block of rules when a precondition is false. Imagine
+the following example:
+
+ table filter chain INPUT {
+     saddr (1.2.3.4 2.3.4.5 3.4.5.6 4.5.6.7 5.6.7.8) {
+         proto tcp dport (http https ssh) ACCEPT;
+         proto udp dport domain ACCEPT;
+     }
+ }
+
+This generates 20 rules. When a packet arrives which does not pass the
+B<saddr> match, it nonetheless checks all 20 rules. With B<subchain>,
+this check is done once, resulting in faster network filtering and
+less CPU load:
+
+ table filter chain INPUT {
+     saddr (1.2.3.4 2.3.4.5 3.4.5.6 4.5.6.7 5.6.7.8) subchain {
+         proto tcp dport (http https ssh) ACCEPT;
+         proto udp dport domain ACCEPT;
+     }
+ }
+
+You can achieve the same by explicitly declaring a custom chain, but
+you may feel that using B<subchain> requires less typing.
+
+
 =back
 
 
@@ -427,9 +470,9 @@ targeted at the address (daddr).
 
 Examples:
 
-    saddr 192.168/8; # (identical to the next one:)
-    saddr 192.168.0.0/255.255.255.0;
-    daddr my.domain.com;
+    saddr 192.168/8 ACCEPT; # (identical to the next one:)
+    saddr 192.168.0.0/255.255.255.0 ACCEPT;
+    daddr my.domain.com ACCEPT;
 
 =item B<fragment>
 
@@ -453,19 +496,11 @@ This match can be used only after you specified "protocol tcp" or
 
 And some examples of valid ports/ranges:
 
-    dport 80;
-    dport http;
-    dport ssh:http;
-    dport 0:1023; # equivalent to :1023
-    dport 1023:65535;
-
-=item B<icmp-type [type]>
-
-To specify an icmp message type. Only available after "protocol icmp".
-
-Can be numbers, but refer to the manual of the kernel program to
-retreive a list, for iptables use "iptables -p icmp C<-h>". Examples:
-ping, pong.
+    dport 80 ACCEPT;
+    dport http ACCEPT;
+    dport ssh:http ACCEPT;
+    dport 0:1023 ACCEPT; # equivalent to :1023
+    dport 1023:65535 ACCEPT;
 
 =item B<syn>
 
@@ -517,6 +552,10 @@ Type "iptables -j REJECT -h" for details.
 Finish the current chain and return to the calling chain (if "goto
 [custom-chain-name]" was used).
 
+=item B<NOP>
+
+No action at all.
+
 =back
 
 
@@ -548,6 +587,14 @@ Checks the SPI header in an AH packet.
     mod ah ahspi 0x101;
     mod ah ahspi ! 0x200:0x2ff;
 
+=item B<comment>
+
+Adds a comment of up to 256 characters to a rule, without an effect.
+Note that unlike ferm comments ('#'), this one will show up in
+"iptables -L".
+
+    mod comment comment "This is my comment." ACCEPT;
+
 =item B<connmark>
 
 Check the mark field associated with the connection, set by the
@@ -571,6 +618,16 @@ Check connection tracking information.
     mod conntrack ctexpire 180:240;
 
 Type "iptables -m conntrack -h" for details.
+
+=item B<dccp>
+
+Check DCCP (Datagram Congestion Control Protocol) specific attributes.
+This module is automatically loaded when you use "protocol dccp".
+
+    proto dccp sport 1234 dport 2345 ACCEPT;
+    proto dccp dccp-types (SYNCACK ACK) ACCEPT;
+    proto dccp dccp-types !REQUEST DROP;
+    proto dccp dccp-option 2 ACCEPT;
 
 =item B<dscp>
 
@@ -601,8 +658,17 @@ Checks the SPI header in an ESP packet.
 Checks which conntrack helper module tracks this connection.  The port
 may be specified with "-portnr".
 
-    mod helper helper irc;
-    mod helper helper ftp-21;
+    mod helper helper irc ACCEPT;
+    mod helper helper ftp-21 ACCEPT;
+
+=item B<icmp>
+
+Check ICMP specific attributes.  This module is automatically loaded
+when you use "protocol icmp".
+
+    proto icmp icmp-type echo-request ACCEPT;
+
+Use "iptables -p icmp C<-h>" to obtain a list of valid ICMP types.
 
 =item B<iprange>
 
@@ -691,6 +757,23 @@ Check the link-layer packet type.
     mod pkttype pkt-type broadcase;
     mod pkttype pkt-type multicast;
 
+=item B<policy>
+
+Matches IPsec policy being applied to this packet.
+
+    mod policy dir out pol ipsec ACCEPT;
+    mod policy strict reqid 23 spi 0x10 proto ah ACCEPT;
+    mod policy mode tunnel tunnel-src 192.168.1.2 ACCEPT;
+    mod policy mode tunnel tunnel-dst 192.168.2.1 ACCEPT;
+    mod policy strict next reqid 24 spi 0x11 ACCEPT;
+
+=item B<psd>
+
+Detect TCP/UDP port scans.
+
+    mod psd psd-weight-threshold 21 psd-delay-threshold 300
+      psd-lo-ports-weight 3 psd-hi-ports-weight 1 DROP;
+
 =item B<random>
 
 Match a random percentage of all packets.
@@ -712,13 +795,25 @@ Temporarily mark source IP addresses.
     mod recent set rsource name "badguy";
     mod recent set rdest;
     mod recent rcheck rsource name "badguy" seconds 60;
-    mod recent update seconds 120;
+    mod recent update seconds 120 hitcount 3 rttl;
 
 This netfilter module has a design flaw: although it is implemented as
 a match module, it has target-like behaviour when using the "set"
 keyword.
 
 L<http://snowman.net/projects/ipt_recent/>
+
+=item B<sctp>
+
+Check SCTP (Stream Control Transmission Protocol) specific attributes.
+This module is automatically loaded when you use "protocol sctp".
+
+    proto sctp sport 1234 dport 2345 ACCEPT;
+    proto sctp chunk-types only DATA:Be ACCEPT;
+    proto sctp chunk-types any (INIT INIT_ACK) ACCEPT;
+    proto sctp chunk-types !all (HEARTBEAT) ACCEPT;
+
+Use "iptables -p sctp C<-h>" to obtain a list of valid chunk types.
 
 =item B<state>
 
@@ -736,13 +831,21 @@ when you use "protocol tcp".
 
     proto tcp sport 1234;
     proto tcp dport 2345;
-    proto tcp tcp-flags SYN,ACK SYN;
-    proto tcp tcp-flags ! SYN,ACK SYN;
+    proto tcp tcp-flags (SYN ACK) SYN;
+    proto tcp tcp-flags ! (SYN ACK) SYN;
+    proto tcp tcp-flags ALL (RST ACK);
     proto tcp syn;
     proto tcp tcp-option 2;
     proto tcp mss 512;
 
 Type "iptables -p tcp -h" for details.
+
+=item B<tcpmss>
+
+Check the TCP MSS field of a SYN or SYN/ACK packet.
+
+    mod tcpmss mss 123 ACCEPT;
+    mod tcpmss mss 234:567 ACCEPT;
 
 =item B<time>
 
@@ -838,6 +941,13 @@ Change the source address of the packet.
     SNAT to 1.2.3.4;
     SNAT to 1.2.3.4:20000-30000;
 
+=item B<TCPMSS>
+
+Alter the MSS value of TCP SYN packets.
+
+    TCPMSS set-mss 1400;
+    TCPMSS clamp-mss-to-pmtu;
+
 =item B<TOS set-tos [value]>
 
 Set the tcp package Type Of Service bit to this value.  This will be
@@ -856,6 +966,14 @@ Modify the TTL header field.
     TTL ttl-set 16;
     TTL ttl-dec 1; # decrease by 1
     TTL ttl-inc 4; # increase by 4
+
+=item B<ULOG>
+
+Log packets to a userspace program.
+
+    ULOG ulog-nlgroup 5 ulog-prefix "Look at this: ";
+    ULOG ulog-cprange 256;
+    ULOG ulog-qthreshold 10;
 
 =back
 
@@ -961,8 +1079,8 @@ With backticks, you may use the output of an external command:
     def $DNSSERVERS = `grep nameserver /etc/resolv.conf | awk '{print $2}'`
     chain INPUT proto tcp saddr $DNSSERVERS ACCEPT;
 
-The command is executed with F</bin/sh>, just like backticks in
-perl. ferm does not do any variable expansion here.
+The command is executed with the shell (F</bin/sh>), just like
+backticks in perl.  ferm does not do any variable expansion here.
 
 The output is then tokenized, and saved as a ferm list (array). Lines
 beginning with '#' are ignored; the other lines may contain any number
@@ -1010,20 +1128,51 @@ Ferm function make routine tasks quick and easy:
     &FORWARD_TCP(tcp, smtp, 192.168.1.3);
     &FORWARD_TCP((tcp udp), domain, 192.168.1.4);
 
+=head1 TRANSITION FROM FERM 1.1
+
+ferm 1.2 aims to be 100% compatible with ferm 1.1, i.e. old
+configuration files should work as expected.  For a "clean" ferm 1.2
+configuration without warnings, here is a list of the most important
+changes:
+
+=over 8
+
+=item I<ipfwadm and ipchains>
+
+Support for these has been removed.
+
+=item I<options B<clearall>, B<flushall>, B<flushchains>, B<createchains>>
+
+All these options are always implied.  There is no option anymore to
+disable them.
+
+=item I<Chain policies>
+
+Chain policies should be written in a dedicated statement; ferm 1.1:
+
+ chain INPUT policy DROP {
+   # ...
+ }
+
+ferm 1.2:
+
+ chain INPUT {
+   policy DROP;
+   # ...
+ }
+
+=item I<Variables>
+
+The concept of variables has been overhauled in ferm 1.2; you can now
+declare functions which take parameters.  Besides that, you should use
+the new syntax:
+
+ def $FOO = (http ssh);
+ chain INPUT proto tcp dport $FOO ACCEPT;
+
+=back
+
 =head1 OPTIONS
-
-Options can be specified with the "option" keyword, which
-can be defined anywhere within the document. Although
-that may be fine, you almost allways want to define
-them at the beginning of your document, because the
-behaviour changes at the moment they are specified.
-
-All options can also be specified on the command line, which
-has a few more available. The equivalent for the commandline
-options that are also available in the firewall file is mentioned
-in the firewall file options section.
-
-=head2 Command line options
 
 =over 12
 
@@ -1032,6 +1181,12 @@ in the firewall file options section.
 Do not execute the iptables(8) commands, but skip instead. This way
 you can parse your data, use B<--lines> to view the output.
 
+=item B<--flush>
+
+Clears the firewall rules and sets the policy of all chains to ACCEPT.
+B<ferm> needs a configuration file for that to determine which domains
+and tables are affected.
+
 =item B<--lines>
 
 Show the firewall lines that were generated from the rules. They
@@ -1039,9 +1194,12 @@ will be shown just before they are executed, so if you get error
 messages from iptables(8) etc., you can see which rule caused
 the error.
 
-=item B<--verbose>
+=item B<--interactive>
 
-Shows some more details of the stages of execution of the program.
+Apply the firewall rules and ask the user for confirmation.  Reverts
+to the previous ruleset if there is no valid user response within 30
+seconds.  This is useful for remote firewall administration: you can
+test the rules without fearing to lock yourself out.
 
 =item B<--help>
 
@@ -1051,16 +1209,19 @@ Show a brief list of available commandline options.
 
 Shows the version number of the program.
 
-=item B<--location [/path/to/filename]>
-
-Explicitly define the exact name and location of the
-kernel backend program, for the paranoid people out there.
-
 =item B<--fast>
 
 Enable fast mode: ferm generates an iptables-save(8) file, and
 installs it with iptables-restore(8). This is much faster, because
 ferm calls iptables(8) once for every rule by default.
+
+Watch out for iptables versions older than 1.3, they might not work
+with this option due to quoting bugs.
+
+=item B<--shell>
+
+Generate a shell script which calls iptables-restore(8) and prints it.
+Implies --fast --lines.
 
 =item B<--domain {ip|ip6}>
 
@@ -1073,23 +1234,6 @@ domain is not configured in the input file.
 =head1 SEE ALSO
 
 iptables(8)
-
-
-=head1 NOTES
-
-A good firewall is not the only step in security, even the
-firewall may be insecure, or someone breaks into your house
-and steals the hard disk out of your PC. Do not rely on this
-firewall tool for the use of mission critical or confidential
-data. It is not fit for such a purpose!
-
-Instead, use this tool to expand your current use of iptables(8)
-and routing, create a flexible firewall and look out for
-anything suspicious. Be carefull with open ports and servers,
-always get the latest, patched versions. Read more about
-firewalls before experimenting, you are warned! You might
-also read the COPYING file provided with the package or
-visit www.gnu.org to find more about the license.
 
 
 =head1 REQUIREMENTS
@@ -1107,9 +1251,11 @@ iptables and perl 5.6
 
 Bugs? What bugs?
 
+If you find a bug, please tell us: ferm@foo-projects.org
+
 =head1 COPYRIGHT
 
-Copyright (C) 2001-2005 Auke Kok <sofar@foo-projects.org>, Max
+Copyright (C) 2001-2006 Auke Kok <sofar@foo-projects.org>, Max
 Kellermann <max@foo-projects.org>
 
 This program is free software; you can redistribute it and/or modify

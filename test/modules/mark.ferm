@@ -1,3 +1,0 @@
-table filter chain input mod mark {
-    mark 7 DROP;
-}

@@ -3,7 +3,7 @@
 #
 # ferm, a firewall setup program that makes firewall rules easy!
 #
-# Copyright (C) 2001-2011 Max Kellermann, Auke Kok
+# Copyright (C) 2001-2012 Max Kellermann, Auke Kok
 #
 # Comments, questions, greetings and additions to this program
 # may be sent to <ferm@foo-projects.org>
@@ -48,7 +48,7 @@ use vars qw($has_strict $has_getopt);
 
 use vars qw($VERSION);
 
-$VERSION = '2.1';
+$VERSION = '2.1.1';
 #$VERSION .= '~git';
 
 ## interface variables
@@ -132,6 +132,15 @@ use vars qw(%proto_defs %match_defs %target_defs);
 # to:=to-destination    makes "to" an alias for "to-destination"; you have
 #                       to add a declaration for option "to-destination"
 #
+
+# prototype declarations
+sub open_script($);
+sub resolve($\@$);
+sub enter($$);
+sub rollback();
+sub execute_fast($);
+sub execute_slow($);
+sub join_value($$);
 
 # add a module definition
 sub add_def_x {
@@ -234,7 +243,7 @@ add_match_def 'condition', qw(condition!);
 add_match_def 'connbytes', qw(!connbytes connbytes-dir connbytes-mode);
 add_match_def 'connlimit', qw(!connlimit-above connlimit-mask);
 add_match_def 'connmark', qw(!mark);
-add_match_def 'conntrack', qw(!ctstate=c !ctproto ctorigsrc! ctorigdst!),
+add_match_def 'conntrack', qw(!ctstate=c !ctproto ctorigsrc! ctorigdst! ctorigsrcport! ctorigdstport!),
   qw(ctreplsrc! ctrepldst! !ctstatus !ctexpire=s ctdir=s);
 add_match_def 'dscp', qw(dscp dscp-class);
 add_match_def 'ecn', qw(ecn-tcp-cwr*0 ecn-tcp-ece*0 ecn-ip-ect);
@@ -311,6 +320,7 @@ add_target_def 'SNAT', qw(to-source=m to:=to-source random*0);
 add_target_def 'TARPIT';
 add_target_def 'TCPMSS', qw(set-mss clamp-mss-to-pmtu*0);
 add_target_def 'TOS', qw(set-tos and-tos or-tos xor-tos);
+add_target_def 'TPROXY', qw(tproxy-mark on-port);
 add_target_def 'TRACE';
 add_target_def 'TTL', qw(ttl-set ttl-dec ttl-inc);
 add_target_def 'ULOG', qw(ulog-nlgroup ulog-prefix ulog-cprange ulog-qthreshold);
@@ -440,7 +450,7 @@ if ($has_getopt) {
           unless $value =~ /^\$?(\w+)=(.*)$/s;
         my ($name, $unparsed_value) = ($1, $2);
         my $tokens = tokenize_string($unparsed_value);
-        my $value = getvalues(sub { shift @$tokens; });
+        $value = getvalues(sub { shift @$tokens; });
         die 'Extra tokens after --def'
           if @$tokens > 0;
         $stack[0]{vars}{$name} = $value;
@@ -550,7 +560,7 @@ $stack[0]{auto}{DIRNAME} = $dirs;
 
 
 # parse all input recursively
-enter(0);
+enter(0, undef);
 die unless @stack == 2;
 
 # enable/disable hooks depending on --flush
@@ -614,7 +624,7 @@ exit 0;
 
 sub printversion {
     print "ferm $VERSION\n";
-    print "Copyright (C) 2001-2011 Max Kellermann, Auke Kok\n";
+    print "Copyright (C) 2001-2012 Max Kellermann, Auke Kok\n";
     print "This program is free software released under GPLv2.\n";
     print "See the included COPYING file for license details.\n";
 }
@@ -1056,7 +1066,7 @@ sub resolve($\@$) {
 
     # NS/MX records return host names; resolve these again in the
     # second pass (IPv4 only currently)
-    @result = resolve($resolver, \@result, 'A')
+    @result = resolve($resolver, @result, 'A')
       if $type eq 'NS' or $type eq 'MX';
 
     return @result;
@@ -1177,8 +1187,9 @@ sub getvalues {
               if $@;
             my $type = $params[1] || 'A';
             my $resolver = new Net::DNS::Resolver;
-            my @params = to_array($params[0]);
-            return [resolve($resolver, @params, $type)];
+            @params = to_array($params[0]);
+            my @result = resolve($resolver, @params, $type);
+            return @result == 1 ? $result[0] : \@result;
         } elsif ($token eq '@eq') {
             my @params = get_function_params();
             error('Usage: @eq(a, b)') unless @params == 2;

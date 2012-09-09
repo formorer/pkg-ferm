@@ -1,0 +1,2114 @@
+#!/usr/bin/perl
+
+#
+# ferm, a firewall setup program that makes firewall rules easy!
+#
+# Copyright (C) 2001  Auke Kok
+#
+# Comments, questions, greetings and additions to this program
+# may be sent to <koka@geo.vu.nl>
+#
+
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+#
+
+
+$VERSION = '1.0pl8';
+$DATE = '13 July 2001';
+
+# global data vars
+my @fw;        # fwset in list of hashes
+my %rule;      # a rule container
+my @rules;     # will contain all rules
+my %chains;    # chain box for ipchains
+    $chains{'input'} = 0;
+    $chains{'forward'} = 0;
+    $chains{'output'} = 0;
+my %tables;    # chain box for iptables
+    $tables{'filter_input'} = 0;
+    $tables{'filter_forward'} = 0;
+    $tables{'filter_output'} = 0;
+    $tables{'nat_prerouting'} = 0;
+    $tables{'nat_postrouting'} = 0;
+    $tables{'nat_output'} = 0;
+    $tables{'mangle_prerouting'} = 0;
+    $tables{'mangle_output'} = 0;
+	       # 0=made;1=policy set;2=flushed;3=all
+my $lev=0;     # current recursion depth
+my @words;     # contains all keywords to describe firewall
+my $c=0;       # the current word counter
+my $cc;        # another handy counter
+my $side='';   # source/destination pointer
+my %option;    # some configuration options
+my %vars;      # holds variable data
+
+# Get command line stuff
+use Getopt::Long;
+
+GetOptions(
+	'noexec', 'lines', 'verbose', 'relaxed',
+        'clearall', 'flushall', 'createchains', 
+        'flushchains', 'help', 'automod', 'version', 'use=s'
+          );
+
+if (defined $opt_help) {
+    printversion();
+    # a brief handout to the user
+    print "Usage:\n";
+    print "ferm \[options\] \<files\>\n";
+    print "options are:\n";
+    print "        \-\-noexec          Do not execute the rules, just simulate\n";
+    print "        \-\-lines           Show all rules that were created\n";
+    print "        \-\-verbose         Show some more information\n";
+    print "        \-\-version         Show current version number\n";
+    print "        \-\-relaxed         Do not make a fuzz\n";
+    print "        \-\-clearall        Flush and delete all chains before adding rules\n";
+    print "        \-\-flushall        Flush all chains before adding rules\n";
+    print "        \-\-createchains    Create all neccesary chains\n";
+    print "        \-\-flushchains     Flush all used chains\n";
+    print "        \-\-automod         Enable automatic module parameters for iptables\n";
+    print "        \-\-help            Look at this text\n";
+    print "        \-\-use [kernel firewall program\n";
+    print "                            Either iptables, ipchains or ipfwadm\n";
+    print "\n";
+    print "For more detailed information and syntax description of the\n";
+    print "firewall files, read \"man $0\".\n";
+    exit 0;
+};
+
+if (defined $opt_version) {
+    printversion();
+    exit 0;
+};
+
+$option{'relaxed'} = (defined $opt_relaxed);
+$option{'noexec'} = (defined $opt_noexec);
+$option{'lines'} = (defined $opt_lines);
+$option{'verbose'} = (defined $opt_verbose);
+$option{'clearall'} = (defined $opt_clearall);
+$option{'flushall'} = (defined $opt_flushall);
+$option{'flushchains'} = (defined $opt_flushchains);
+$option{'createchains'} = (defined $opt_createchains);
+$option{'automod'} = (defined $opt_automod);
+$option{'ipchains'} = $option{'iptables'} = $option{'ipfwadm'} = 0;
+if (defined $opt_use) {
+    $option{$opt_use} = 1; }
+# else {
+#     $option{'ipchains'} = 1; }
+
+$option{'verbose'} && printversion();
+$option{'clearall'} && clearall();
+$option{'flushall'} && flushall();
+
+# jerk all data from the input into words, chopping comments
+while (<>) {
+    s/#.*$//g;
+    foreach $word (m/(\x24[0-9a-zA-Z\x2d\x5f]+|\x22[\x00-\x21\x23-\x7a]+\x22|\x27[\x00-\x26\x28-\x7a]+\x27|\x60[\x00-\x59\x61-\x7a]+\x60|[0-9a-zA-Z\x21\x2d\x2e\x2f\x3a\x5f]+|\w+|\x28|\x29|\x7b|\x7d|\x3b)/g) {
+        push @words, $word;
+    }
+}
+
+# parse the damn stuff
+if ($option{'verbose'}) {print "Parsing files\n"; };
+if ( $#words > 0 ) {
+    enter();};
+
+# and execute
+if ($option{'verbose'}) {print "\nExecuting rules\n";};
+foreach $rr (@rules) {
+    $rr =~ s/ $//g;
+    if ($option{'lines'} ) {
+        print $rr };
+    if (!$option{'noexec'} ) {
+        if ((!$option{'lines'}) && $option{'verbose'}){print "."};
+        system ($rr) };
+}
+
+if ($option{'verbose'}){print "Done, exiting\n";};
+exit 0;
+
+# end of program execution!
+
+
+# funcs
+
+sub printversion {
+    print "ferm $VERSION, $DATE\n";
+}
+
+
+sub mydie {
+    print @_; print "\n";
+    exit 1;
+}
+
+
+sub error {
+    # returns a nice formatted error message, showing the
+    # location of the error.
+    my $tabs = 0;
+    my @lines;
+    my $l = 0;
+
+    for $w ( 0 .. ($c - 1) ) {
+	if ($words[$w] eq "\x29")
+	    { $l++ ; $lines[$l] = "    " x ($tabs-- -1) ;};
+	if ($words[$w] eq "\x28")
+	    { $l++ ; $lines[$l] = "    " x $tabs++ ;};
+        if ($words[$w] eq "\x7d")
+	    { $l++ ; $lines[$l] = "    " x ($tabs-- -1) ;};
+	if ($words[$w] eq "\x7b")
+	    { $l++ ; $lines[$l] = "    " x $tabs++ ;};
+	if ( $l > $#lines ) { $lines[$l] = "" };
+        $lines[$l] .= $words[$w] . " ";
+        if ($words[$w] eq "\x28")
+	    { $l++ ; $lines[$l] = "    " x $tabs ;};
+	if (($words[$w] eq "\x29") && ($words[$w+1] ne "\x7b"))
+            { $l++ ; $lines[$l] = "    " x $tabs ;};
+        if ($words[$w] eq "\x7b")
+	    { $l++ ; $lines[$l] = "    " x $tabs ;};
+        if (($words[$w] eq "\x7d") && ($words[$w+1] ne "\x7d")) 
+            { $l++ ; $lines[$l] = "    " x $tabs ;};
+	if (($words[$w] eq "\x3b") && ($words[$w+1] ne "\x7d"))
+            { $l++ ; $lines[$l] = "    " x $tabs ;}
+        if ($words[$w-1] eq "option")
+	    { $l++ ; $lines[$l] = "    " x $tabs ;}
+    }
+    $start = $#lines - 4;
+    if ($start < 0) { $start = 0 } ;
+    for $l ( $start .. $#lines)
+        { print $lines[$l]; if ($l != $#lines ) {print "\n"} ; };
+    print "^^^^\n";
+    mydie(shift);
+}
+
+
+sub setvar {
+    my $vname = shift;
+    my $vval = shift;
+    $vval =~ s/\"//g;
+    $vars{$vname} = $vval;
+}
+
+
+sub getvar {
+    # see if $words[$c++] is a variable, and try to substitute
+    # it with its value
+
+    my $w = $words[$c++];
+    for ($w) {
+	/^\x24/ && do {
+	    $w =~ s/^\x24// ;
+	    if (exists $vars{$w}) {
+		$w = $vars{$w} ;
+		 }
+	    else {
+		error("variable \"$w\" does not exist!"); };
+	    };
+	};
+    return $w;
+}
+
+
+sub getvalues {
+    # retreives a list of parameters given, syntax:
+    # [keyword]|"("{keyword}")"
+    # starts to read at $c++
+
+    my @wordlist;
+    my $firstword = getvar();
+
+    for ($firstword) {
+        /^\x22/ || /^\x27/ || /^\x60/ && do {
+	    return $firstword;
+	}
+    }
+    if ($firstword eq '(') {
+	# read a list until ")"
+	do {
+	    $nextword = getvar();
+	    if ( $nextword ne ')' ) {
+		if ( $nextword eq '!' ) {
+		    $nextword .= getvar();
+		};
+	        push @wordlist, $nextword;
+	    };
+	} until ( $nextword eq ')' );
+	return (join(',', @wordlist));
+    } elsif ( $firstword eq '!' ) {
+	return $firstword . getvar();
+    } else {
+        return $firstword;
+    };
+}
+
+# here are the three currently known fw-set interfaces to the kernel
+
+sub chains {
+    # ipchains
+    my $rr = "";
+
+    # should we set a policy?
+    if ( exists $rule{'policy'} ) {
+	for ( $rule{'chain'} ) {
+	    /^input$|^forward$|^output$/ && do {
+		if ( ! ($chains{$rule{'chain'}} & 1) ) {
+		    for ( $rule{'policy'} ) {
+			s/^drop$/DENY/g ; s/^accept$/ACCEPT/g ;
+			s/^reject$/REJECT/g ; s/^masq$/MASQ/g ;
+			s/^redirect$/REDIRECT/g ; };
+		    push @rules, "ipchains -P $rule{'chain'} $rule{'policy'}\n";
+		    $chains{$rule{'chain'}} |= 1 ; };
+		last; };
+	    mydie (" cannot set the policy for non-built in chains, exiting"); }; };
+
+    if ( $option{'createchains'} ) {
+        # check if the chain is already defined
+        if ( ! exists $chains{$rule{'chain'}} ) {
+            push @rules, "ipchains -N $rule{'chain'}\n" ;
+            $chains{$rule{'chain'}} = 0 };
+
+        # check for unknown jump target
+        for ( $rule{'action'} ) {
+            /^accept$|^drop$|^reject$|^return$|^masq$|^redirect$|^nop$|^$/ && last;
+            if ( ! exists ($chains{$_}) ) {
+                push @rules, "ipchains -N $_\n";
+                $chains{$_} = 0 }; }; }
+    else {
+        # tag em so were not flushing it empty...
+        if ( ! exists $chains{$rule{'chain'}} ) {
+            $chains{$rule{'chain'}} = 0 ;
+        };
+        for ( $rule{'action'} ) {
+            /^accept$|^drop$|^reject$|^return$|^masq$|^redirect$|^$/ && last;
+            if ( ! exists ($chains{$_}) ) {
+                $chains{$_} = 0;
+            };
+        };
+    }; 
+
+    # flush neccesary chains before referencing them
+    if ( $option{'flushchains'} && (! ($option{'flushall'} || $option{'clearall'}) )) {
+	# check if the chain is not already flushed
+        if ( ($chains{$rule{'chain'}} & 2) != 2 ) {
+            push @rules, "ipchains -F $rule{'chain'}\n" ;
+	    $chains{$rule{'chain'}} |= 2; };
+	# check for jump target to be flushed
+	for ( $rule{'action'} ) {
+            /^accept$|^drop$|^reject$|^return$|^masq$|^redirect$|^nop$|^$/ && last;
+            if ( ($chains{$rule{'action'}} & 2) != 2 ) {
+                push @rules, "ipchains -F $rule{'action'}\n";
+		$chains{$rule{'action'}} |= 2 ;};
+	};
+    };
+
+    # exit if no action is present - in case of policy only
+    if ( !defined $rule{'action'} ) {
+        push @rules, $rr;
+        return; };
+
+    $rr .= "ipchains -A ";
+    $rr .= $rule{'chain'} . " ";
+    if (defined $rule{'interface'} ) {
+	$rr .= "-i " . $rule{'interface'} . " " ; };
+    if (defined $rule{'proto'} ) {
+        $rr .= "-p " . $rule{'proto'} . " "; };
+
+    # address and port
+    if (defined $rule{'saddr'} ) {
+	$rr .= "-s " . $rule{'saddr'} . " " ; 
+        if ( defined $rule{'sport'} ) {
+	    $rr .= $rule{'sport'} . " ";} }
+    else {
+	if ( defined $rule{'sport'} ) {
+            $rr .= "--sport " . $rule{'sport'} . " ";} }
+    if (defined $rule{'daddr'} ) {
+        $rr .= "-d " . $rule{'daddr'} . " " ;
+        if ( defined $rule{'dport'} ) {
+            $rr .= $rule{'dport'} . " ";} }
+    else {
+        if ( defined $rule{'dport'} ) {
+            $rr .= "--dport " . $rule{'dport'} . " ";} } 
+
+    if (defined $rule{'reverse'} ) {
+	$rr .= "-b " };
+
+    if (defined $rule{'icmptype'} ) {
+	$rr .= "--icmp-type " . $rule{'icmptype'} . " "; } ;
+    if (defined $rule{'syn'} ) {
+        if ( $rule{'syn'} eq 'set' ) {
+            $rr .= '-y '  ; }
+        else {
+            $rr .= '! -y '; } ;
+        } ;
+    if (defined $rule{'settos'} ) {
+	$rr .= "-t e1 ";
+	for ( $rule{'settos'} ) {
+            /mincost|min-cost|2/ && do { $rr .= "02 "};
+            /reliability|reliable|4/ && do { $rr .= "04 "};
+            /max-throughput|maxthroughput|8/ && do { $rr .= "08 "};
+            /lowdelay|interactive|min-delay|10/ && do { $rr .= "10 "};
+            /clear|^0$|^00$|^0x00$/ && do { $rr .= "00"};
+            }
+	; } ;
+    if (defined $rule{'setmark'} ) {
+	$rr .= "-m " . $rule{'setmark'} . " "; } ;
+    if (defined $rule{'fragment'} ) {
+        if ( $rule{'fragment'} eq 'set' ) {    
+            $rr .= '-f '  ; }
+        else {    
+            $rr .= '! -f '; } ;
+        } ; 
+    unless ($rule{'action'} eq 'nop') {   
+        $rr .= "-j "; } ;
+    for ( $rule{'action'} ) {
+	/^accept$/ && do { $rr .= "ACCEPT " ; last; };
+	/^drop$/ && do { $rr .= "DENY " ; last; };
+	/^reject$/ && do { $rr .= "REJECT " ; last; };
+	/^masq$/ && do { $rr .= "MASQ " ; last; };
+	/^redirect$/ && do { $rr .= "REDIRECT " . $rule{'proxy'} ; last; };
+	/^return$/ && do { $rr .= "RETURN " ; last; };
+	/^nop$/ && last;
+	$rr .= $rule{'action'}; } ;
+    if (defined $rule{'log'} ) {
+        $rr .= "-l"; } ;
+    $rr .= "\n";
+    push @rules, $rr;
+}
+
+
+sub tables {
+    # iptables, for 2.3/2.4 kernels
+    my $rr = "";
+    my $rrr = "";
+
+    # pre-setup rrr for creation of chains
+    if (!defined $rule{'table'} ) {
+         $rule{'table'} = 'filter';}
+    $rrr .= "iptables -t " . $rule{'table'} . " ";
+
+    # in iptables, built-in chains are UPPERCASE
+    for( $rule{'chain'} ) {
+	/^input$|^forward$|^output$|^prerouting$|^postrouting$/ && do {
+	    $rule{'chain'} = uc $rule{'chain'} ; } };
+
+    # should we set a policy?
+    if ( exists $rule{'policy'} ) {
+        for ( $rule{'chain'} ) {
+            /^INPUT$|^FORWARD$|^OUTPUT$|^PREROUTING$|^POSTROUTING$/ && do {
+                if ( ! ($tables{$rule{'table'} . '_' . lc $rule{'chain'}} & 1) ) {
+                    for ( $rule{'policy'} ) {
+                        s/^drop$/DROP/g ;
+                        s/^accept$/ACCEPT/g ;
+                        s/^reject$/REJECT/g ;
+                        s/^masq$/MASQUERADE/g ;
+                        s/^redirect$/REDIRECT/g ;
+			s/^queue$/QUEUE/g ;
+			s/^mirror$/MIRROR/g ;
+			s/^return$/RETURN/g ; };
+                    push @rules, $rrr . "-P $rule{'chain'} $rule{'policy'}\n";
+                    $tables{$rule{'table'}.'_'.(lc $rule{'chain'})} |= 1 ; };
+                last; };
+            mydie (" cannot set the policy for non-built in chains, exiting"); }; };
+
+    if ( $option{'createchains'} ) {
+        # check if the chain is already defined
+        if ( ! exists $tables{$rule{'table'}.'_'.(lc $rule{'chain'})} ) {
+            push @rules, $rrr . "-N $rule{'chain'}\n" ;
+            $tables{$rule{'table'} . '_' . lc $rule{'chain'}} = 0 };
+
+        # check for unknown jump target
+        for ( $rule{'action'} ) {
+            /^accept$|^drop$|^reject$|^log$|^return$|^masq$|^redirect$|^queue$|^dnat$|^snat$|^tos$|^mark$|^mirror$|^nop$|^$/ && last;
+            if ( ! exists ($tables{$rule{'table'}.'_'.(lc $_)}) ) {
+                push @rules, $rrr . "-N $_\n";
+                $tables{$rule{'table'} . '_' . lc $_} = 0 }; }; }
+    else {
+        # tag em so were not flushing it empty...
+        if ( ! exists $tables{$rule{'table'} . '_' . (lc $rule{'chain'})} ) {
+            $tables{$rule{'table'} . '_' . lc $rule{'chain'}} = 0 };
+        for ( $rule{'action'} ) {
+            /^accept$|^drop$|^reject$|^return$|^masq$|^redirect$|^dnat$|^snat$|^queue$|^tos$|^mark$|^mirror$|^nop$|^$/ && last;
+            if ( ! exists ($tables{$rule{'table'} . '_' . lc $_}) ) {
+                $tables{$rule{'table'} . '_' . lc $_} = 0 }; }; }
+
+    # flush neccesary chains before referencing them
+    if ( $option{'flushchains'} && (! ($option{'flushall'} || $option{'clearall'}) ) ) {
+        # check if the chain is already defined
+        if ( ($tables{$rule{'table'} . '_' . (lc $rule{'chain'})} & 2) != 2 ) {
+            push @rules, $rrr . "-F $rule{'chain'}\n" ;
+            $tables{$rule{'table'} . '_' . (lc $rule{'chain'})} |= 2; };
+        # check for unknown jump target
+        for ( $rule{'action'} ) {
+            /^accept$|^drop$|^reject$|^return$|^masq$|^redirect$|^queue$|^mirror$|^nop$/ && last;
+            if (($tables{$rule{'table'} . '_' . (lc $rule{'chain'})}&  2) != 2 ) {
+                push @rules, $rrr . "-F $rule{'chain'}\n";
+                $tables{$rule{'table'} . '_' . (lc $rule{'chain'})} |= 2;
+            };
+        };
+    };
+
+    # exit if no action is present - in case of policy only
+    if ( !defined $rule{'action'} ) {
+        push @rules, $rr;
+        return; };
+
+    $rr .= "iptables ";
+
+    if (defined $rule{'table'} ) {
+        $rr .= "-t " . $rule{'table'} . " "; };
+
+    $rr .= "-A ";
+
+    $rr .= $rule{'chain'} . " ";
+    if (defined $rule{'interface'} ) {
+        $rr .= "-i " . $rule{'interface'} . " " ; };
+    if (defined $rule{'outerface'} ) {
+        $rr .= "-o " . $rule{'outerface'} . " " ; };
+
+    if (defined $rule{'proto'} ) {
+        $rr .= "-p " . $rule{'proto'} . " "; };
+
+    if (defined $rule{'module'} ) {
+	my @modules = split(/:/, $rule{'module'});
+	foreach ( @modules ) {
+	    $rr .= "-m " . $_ . " "; };};
+
+    # address and port
+    if (defined $rule{'saddr'} ) {
+        $rr .= "-s " . $rule{'saddr'} . " " ;}
+    if ( defined $rule{'sport'} ) {
+        $rr .= "--sport " . $rule{'sport'} . " ";}
+    if (defined $rule{'daddr'} ) {
+        $rr .= "-d " . $rule{'daddr'} . " " ;}
+    if ( defined $rule{'dport'} ) {
+        $rr .= "--dport " . $rule{'dport'} . " ";}
+
+    if (defined $rule{'icmptype'} ) {
+        $rr .= "--icmp-type " . $rule{'icmptype'} . " "; } ;
+    if (defined $rule{'syn'} ) {
+	if ( $rule{'syn'} eq 'set' ) {
+	    $rr .= '--syn '  ; }
+	else {
+	    $rr .= '! --syn '; } ;
+	} ;
+
+    if (defined $rule{'tos'} ) {
+	if ($option{'automod'} ) {
+            $rr .= "-m tos "; };
+        $rr .= "--tos ";
+        for ( $rule{'tos'} ) {
+            /mincost|min-cost|2/ && do { $rr .= "0x02 "};
+            /reliability|reliable|4/ && do { $rr .= "0x04 "};
+            /max-throughput|maxthroughput|8/ && do { $rr .= "0x08 "};
+            /lowdelay|interactive|min-delay|10/ && do { $rr .= "0x10 "};
+            /clear|^0$|^00$|^0x00$/ && do { $rr .= "0x00"};
+            }
+        ; } ;
+
+    if (defined $rule{'mark'} ) {
+	if ($option{'automod'} ) {
+	    $rr .= "-m mark "; };
+        $rr .= "--mark " . $rule{'mark'} . " "; } ;
+    if (defined $rule{'fragment'} ) {
+        if ( $rule{'fragment'} eq 'set' ) {
+            $rr .= '-f '  ; }
+        else {        
+            $rr .= '! -f '; } ;
+        } ;        
+
+    # iptables extensions:
+    if (defined $rule{'tcpflags'} ) {
+	# $rule{'flagsmask'} =~ s/\-/\,/g; $rule{'flagsmask'} =~ s/\:/\,/g;
+	# $rule{'flagsmatch'} =~ s/\-/\,/g; $rule{'flagsmatch'} =~ s/\:/\,/g;
+	$rr .= "--tcp-flags " . join(',',split(/:/,$rule{'flagsmask'})) . " " . join(',',split(/:/,$rule{'flagsmatch'})) . " ";};
+    if (defined $rule{'tcpoption'} ) {
+        $rr .= "--tcp-option " . $rule{'tcpoption'} . " "; } ;
+    if (defined $rule{'macsource'} ) {
+	if ( $option{'automod'} ) {
+	     $rr .= "-m mac "; } ;
+        $rr .= "--mac-source " . $rule{'macsource'} . " "; } ;
+    if (( defined $rule{'limit'} || defined $rule{'limitburst'} )
+	    && ($option{'automod'})) {
+	$rr .= "-m limit "; } ;
+    if (defined $rule{'limit'} ) {
+        $rr .= "--limit " . $rule{'limit'} . " "; } ;
+    if (defined $rule{'limitburst'} ) {
+        $rr .= "--limit-burst " . $rule{'limitburst'} . " "; } ;
+    if ((defined $rule{'uidowner'} || defined $rule{'gidowner'} ||
+	    defined $rule{'pidowner'} || defined $rule{'sidowner'} )
+	    && ($option{'automod'})) {
+	$rr .= "-m owner "; } ;
+    if (defined $rule{'uidowner'} ) {
+        $rr .= "--uid-owner " . $rule{'uidowner'} . " "; } ;
+    if (defined $rule{'gidowner'} ) {
+        $rr .= "--gid-owner " . $rule{'gidowner'} . " "; } ;
+    if (defined $rule{'pidowner'} ) {
+        $rr .= "--pid-owner " . $rule{'pidowner'} . " "; } ;
+    if (defined $rule{'sidowner'} ) {
+        $rr .= "--sid-owner " . $rule{'sidowner'} . " "; } ;
+    if (defined $rule{'state'} ) {
+	if ($option{'automod'}) {
+	    $rr .= "-m state "; };
+        $rr .= "--state " . join(',',split(/:/,$rule{'state'})) . " "; } ;
+
+    unless ($rule{'action'} eq 'nop') {
+        $rr .= "-j "; } ;
+
+    if (defined $rule{'log'} ) {
+	push @rules, $rr . "LOG\n"; }
+    for ( $rule{'action'} ) {
+        /^accept$/ && do { $rr .= "ACCEPT " ; last; };
+        /^drop$/ && do { $rr .= "DROP " ; last; };
+        /^reject$/ && do { $rr .= "REJECT " ; last; };
+        /^masq$/ && do {
+	    if (defined $rule{'proxy'}) {
+		$rule{'proxy'} =~ s/\x3a/\x2d/;
+		$rr .= "MASQUERADE --to-port " . $rule{'proxy'} . " "; }
+	    else {
+		$rr .= "MASQUERADE " ;};
+	    last; };
+	/^tos$/ && do { $rr .= "TOS " ; last; };
+	/^queue$/ && do { $rr .= "QUEUE " ; last; };
+	/^log$/ && do { $rr .= "LOG " ; last; };
+	/^mark$/ && do { $rr .= "MARK " ; last; };
+	/^mirror$/ && do { $rr .= "MIRROR " ; last; };
+        /^redirect$/ && do {
+            if ($rule{'proxy'} =~ /:/) {
+                $rr .= "REDIRECT --to " . $rule{'proxy'} . " "; }
+            else {
+                $rr .= "REDIRECT --to-port " . $rule{'proxy'} . " "; }
+            last; };
+        /^return$/ && do { $rr .= "RETURN " ; last; };
+	/^dnat$|^snat$/ && do {
+	    $rr .= (uc $rule{'action'}) . " --to " . $rule{'proxy'} . " "; last; } ;
+        /^nop$/ && last;
+        $rr .= $rule{'action'}; } ;
+
+    # special options come after "-j TARGET"
+
+    if (defined $rule{'settos'} ) {
+        $rr .= "--set-tos ";
+        for ( $rule{'settos'} ) {
+            /mincost|min-cost|2/ && do { $rr .= "0x02 "};
+            /reliability|reliable|4/ && do { $rr .= "0x04 "};
+            /max-throughput|maxthroughput|8/ && do { $rr .= "0x08 "};
+            /lowdelay|interactive|min-delay|10/ && do { $rr .= "0x10 "};
+            /clear|^0$|^00$|^0x00$/ && do { $rr .= "0x00"};
+            }
+        ; } ;
+
+    if (defined $rule{'setmark'} ) {
+        $rr .= "--set-mark " . $rule{'setmark'} . " "; } ;
+
+    if (defined $rule{'loglevel'} ) {
+        $rr .= "--log-level " . $rule{'loglevel'} . " "; } ;
+    if (defined $rule{'logprefix'} ) {
+        $rr .= "--log-prefix " . $rule{'logprefix'} . " "; } ;
+    if (defined $rule{'logsequence'} ) {
+        $rr .= "--log-tcp-sequence "; } ;
+    if (defined $rule{'logtcpoptions'} ) {
+        $rr .= "--log-tcp-options "; } ;
+    if (defined $rule{'logipoptions'} ) {
+        $rr .= "--log-ip-options "; } ;
+
+    if (defined $rule{'rejectwith'} ) {
+        $rr .= "--reject-with " . $rule{'rejectwith'} . " "; } ;
+
+    $rr .= "\n";
+    push @rules, $rr;
+}
+
+
+sub fwadm {
+    # obsolete ipfwadm
+
+    if ($rule{'chain'} eq 'input') { $rr = "\-I "; }
+    elsif ($rule{'chain'} eq 'forward') { $rr = "\-F "; }
+    elsif ($rule{'chain'} eq 'output') {$rr = "\-O "; }
+    else { mydie("Cannot create new chains if using ipfwadm!");};
+
+    if ($rule{'policy'} eq 'accept') { push @rules, "ipfwadm $rr\-p accept\n";}
+    elsif ($rule{'policy'} eq 'drop') { push @rules, "ipfwadm $rr\-p deny\n";}
+    elsif ($rule{'policy'} eq 'reject') { push @rules, "ipfwadm $rr\-p reject\n";}
+    elsif (exists $rule{'policy'}) { mydie("Ipfwadm allows only accept, deny and reject policies!");};
+
+    # exit if no action is present - in case of policy only
+    if ( !defined $rule{'action'} ) {
+        return; };
+
+    $rr = "ipfwadm " . $rr;
+
+    if ($rule{'action'} eq 'accept') { $rr .= "\-a accept "; }
+    elsif ($rule{'action'} eq 'drop') { $rr .= "\-a deny "; }
+    elsif ($rule{'action'} eq 'reject') {$rr .= "\-a reject "; }
+    elsif ($rule{'action'} eq 'masq') {$rr .= "\-a accept \-m"; }
+    else { mydie("Ipfwadm allows only accept, masq, deny and reject targets!");};
+
+    if ((defined $rule{'interface'}) && ($rule{'chain'} eq 'output')) {
+	$rr .= "\-W " . $rule{'interface'} . " " }
+    elsif (defined $rule{'interface'}) {
+        $rr .= "\-V " . $rule{'interface'} . " " };
+
+    if (defined $rule{'proto'} ) {
+	$rr .= "\-P " . $rule{'proto'} . " " };
+
+    if (defined $rule{'saddr'} || exists $rule{'sport'} ) {
+        $rr .= "\-S ";
+        if (defined $rule{'saddr'}) {
+	    $rr .= $rule{'saddr'} . " "; };
+        if (defined $rule{'sport'}) {
+	    $rr .= $rule{'sport'} . " "; }; };
+
+    if (defined $rule{'daddr'} || defined $rule{'dport'} ) {
+        $rr .= "\-D ";
+        if (defined $rule{'daddr'}) {
+            $rr .= $rule{'daddr'} . " "; };
+        if (defined $rule{'dport'}) {
+            $rr .= $rule{'dport'} . " "; }; };
+
+    if (defined $rule{'settos'} ) {
+	$rr .= "\-t e1 ";
+        for ( $rule{'settos'} ) {
+            /mincost|min-cost|2/ && do { $rr .= "02 "};
+            /reliability|reliable|4/ && do { $rr .= "04 "};
+            /max-throughput|maxthroughput|8/ && do { $rr .= "08 "};
+            /lowdelay|interactive|min-delay|10/ && do { $rr .= "10 "};
+	    /clear|^0$|^00$|^0x00$/ && do { $rr .= "00"};
+            }
+        ; } ;
+
+    if (defined $rule{'syn'}) {
+        $rr .= "-y "; } ;
+
+    push @rules, $rr . "\n";
+}
+
+
+sub clearall {
+    # flush and delete all chains...
+    if ($option{'ipchains'}) {
+	flushall();
+        push @rules, "ipchains \-X\n" }
+    elsif ($option{'iptables'} ) {
+	flushall();
+        push @rules, "iptables \-X -t filter\n";
+        push @rules, "iptables \-X -t nat\n";
+        push @rules, "iptables \-X -t mangle\n"; }
+    elsif ($option{'ipfwadm'} ) {
+	flushall();
+	# nothing to do here
+	};
+}
+
+
+sub flushall {
+    # flush all chains...
+    if($option{'ipchains'}) {
+	push @rules, "ipchains \-F\n" ;
+	$chains{'input'} |= 2;
+	$chains{'forward'} |= 2;
+	$chains{'output'} |= 2; }
+    elsif ($option{'iptables'} ) {
+        push @rules, "iptables \-F -t filter\n" ; 
+	push @rules, "iptables \-F -t nat\n" ;
+	push @rules, "iptables \-F -t mangle\n" ;
+        $tables{'filter_input'} |= 2;
+        $tables{'filter_forward'} |= 2;
+        $tables{'filter_output'} |= 2;
+        $tables{'nat_prerouting'} |= 2;
+        $tables{'nat_postrouting'} |= 2;
+        $tables{'nat_output'} |= 2;
+        $tables{'mangle_prerouting'} |= 2;
+        $tables{'mangle_output'} |= 2; }
+    elsif ($option{'ipfwadm'} ) {
+	push @rules, "ipfwadm \-I \-f\n";
+	push @rules, "ipfwadm \-F \-f\n";
+        push @rules, "ipfwadm \-O \-f\n"; };
+}
+
+
+sub printrule {
+    # prints all rules in a hash
+    if ( $option{'ipchains'} ) { chains () ; }
+    elsif ( $option{'iptables'} ) { tables () ; }
+    elsif ( $option{'ipfwadm'} ) { fwadm () ; }
+    else { 
+	mydie ('Unknown or no kernel interface specified, try to set "option [iptables|ipchains|ipfwadm] or use the --use parameter'); } ;
+}
+
+
+sub mkrules {
+    # compile the list hashes into rules
+    local @fr;
+    
+    # pack the data in a handy format (list-of-hashes with one kw 
+    # per level, so we can recurse...
+    for ($i = 0; $i <= $#fw; $i++) {
+    	foreach ( keys %{$fw[$i]} ) {
+	    push @fr, { $_ => $fw[$i]{$_} }; } }
+
+    $cc = -1;
+    sub dofr {
+	$cc++;
+	if ($cc > $#fr) {
+	    # we are done: put it on output and exit
+	    printrule(); } 
+	else {
+	    # loop over all keys in this level (only 1)
+	    foreach $key ( keys %{$fr[$cc]} ) {
+		# recurse for every value
+		foreach $value ( split ("," , $fr[$cc]{$key})) {
+		    # preparse value stuff:
+		    $value =~ s/^!/! /;
+		    # set this one and recurse
+		    $rule{$key} = $value;
+		    dofr();
+		}
+		delete $rule{$key};
+	    }
+	}
+	$cc--;
+    }
+    dofr();
+    undef @fr;
+}
+
+
+sub enter {
+    # enter is the core of the firewall setup, it is a
+    # simple parser program that recognizes keywords and
+    # retreives parameters to set up the kernel routing
+    # chains
+    $lev++;
+
+    # read keywords 1 by 1 and dump into parser
+    do 
+    { LOOP: {
+	$keyword = getvar();
+        if ($option{'verbose'}){print ".";};
+        # the core: parse all data
+        SWITCH: for ($keyword)
+        {
+            # routing base parameters
+            /^chain$/ && do {
+		$fw[$lev]{'chain'}=getvalues(); 
+                ; next; } ;
+	    /^interface$|if$/ && do {
+                $fw[$lev]{'interface'}=getvalues();
+		; next; } ;
+	    /^outerface$|^out-interface$|^of$/ && do {
+                $fw[$lev]{'outerface'}=getvalues();
+                ; next; } ;
+            /^protocol$|^proto$/ && do {
+		$fw[$lev]{'proto'}=getvalues();
+                ; next; } ;
+            /^sport$/ && do {
+                $fw[$lev]{'sport'}=getvalues();
+                ; next; } ;
+            /^dport$/ && do {
+                $fw[$lev]{'dport'}=getvalues();
+                ; next; };
+	    /^port$/ && do {
+		if ($side eq 'source' ) {
+		    $fw[$lev]{'sport'}=getvalues() }
+	        elsif ($side eq 'destination' ) {
+		    $fw[$lev]{'dport'}=getvalues() }
+		else {
+		    error("source/destination not declared, exiting");
+		    }
+		; next; } ;
+            /^icmptype$|^icmp-type$/ && do {
+                for $i ( 0 .. $#fw ) {
+                    if ( $option{'relaxed'} ||
+			  (exists $fw[$i]{'proto'} &&
+			  ($fw[$i]{'proto'} eq 'icmp') ) ) {
+                        $fw[$lev]{'icmptype'}=getvalues();
+                        next SWITCH; } ;
+                    } ;
+		error("icmptype declared without icmp protocol, exiting");
+		; next; } ;
+	    /^saddr$/ && do {
+                $fw[$lev]{'saddr'}=getvalues();
+                ; next; };
+	    /^daddr$/ && do {
+                $fw[$lev]{'daddr'}=getvalues();
+                ; next; };
+	    /^addr$/ && do {
+                if ($side eq 'source' ) {
+                    $fw[$lev]{'saddr'}=getvalues() }
+                elsif ($side eq 'destination' ) {
+                    $fw[$lev]{'daddr'}=getvalues() }
+                else {
+		    error("source/destination not declared, exiting") };
+                ; next; } ;
+	    /^reverse$|^bidirectional$|^swap$/ && do {
+		$fw[$lev]{'reverse'}='1';
+		; next; };
+	    /^settos$/ && do {
+                $fw[$lev]{'settos'}=getvar();
+                ; next; };
+	    /^tos$/ && do {
+                $fw[$lev]{'tos'}=getvar();
+                ; next; };
+            /^mark$/ && do {
+                $fw[$lev]{'mark'}=getvar();
+                ; next; };
+	    /^set-mark$|^setmark$/ && do {
+                $fw[$lev]{'setmark'}=getvar();
+                ; next; };
+	    /^tcp-flags$|^tcpflags$|^flags$/ && do {
+		$fw[$lev]{'tcpflags'}='1';
+		$fw[$lev]{'flagsmask'}=join(':',split(/\x2c/,getvalues()));
+		$fw[$lev]{'flagsmatch'}=join(':',split(/\x2c/,getvalues()));
+		; next; };
+	    /^tcp-option$|^tcpoption$/ && do {
+                $fw[$lev]{'tcpoption'}=getvalues();
+                ; next; };
+	    /^mac$|^mac-source$|^macsource$/ && do {
+                $fw[$lev]{'macsource'}=getvalues();
+                ; next; };
+	    /^limit$/ && do {
+                $fw[$lev]{'limit'}=getvar();
+                ; next; };
+	    /^burst$|^limit-burst$|^limitburst$/ && do {
+                $fw[$lev]{'limitburst'}=getvar();
+                ; next; };
+	    /^uid-owner$|^uidowner$|^uid$/ && do {
+                $fw[$lev]{'uidowner'}=getvalues();
+                ; next; };
+	    /^gid-owner$|^gidowner$|^gid$/ && do {
+                $fw[$lev]{'gidowner'}=getvalues();
+                ; next; };
+	    /^pid-owner$|^pidowner$|^pid$/ && do {
+                $fw[$lev]{'pidowner'}=getvalues();
+                ; next; };
+	    /^sid-owner$|^sidowner$|sid$/ && do {
+                $fw[$lev]{'sidowner'}=getvalues();
+                ; next; };
+	    /^state$/ && do {
+                $fw[$lev]{'state'}=join(':',split(/\x2c/,getvalues()));
+                ; next; };
+	    /^log-level$|^loglev$/ && do {
+                $fw[$lev]{'loglevel'}=getvar();
+                ; next; };
+	    /^log-prefix$|^logprefix$/ && do {
+                $fw[$lev]{'logprefix'}=getvar();
+                ; next; };
+	    /^log-tcp-sequence$|^logseq$/ && do {
+                $fw[$lev]{'logsequence'}='1';
+                ; next; };
+	    /^log-tcp-options$|^logtcpopt$/ && do {
+                $fw[$lev]{'logtcpoptions'}='1';
+                ; next; };
+	    /^log-ip-options$|^logipopt$/ && do {
+                $fw[$lev]{'logipoptions'}='1';
+                ; next; };
+	    /^module$|^mod$|^match$/ && do {
+                $fw[$lev]{'module'}=join(':',split(/\x2c/,getvalues()));
+                ; next; };
+	    /^table$/ && do {
+                $fw[$lev]{'table'}=getvalues();
+                ; next; };
+	    /^reject-with$|^rejectwith$/ && do {
+                $fw[$lev]{'rejectwith'}=getvar();
+                ; next; };
+
+	    # miscelleanous switches
+            /^log$/ && do {
+                # turn the logging switch on
+                $fw[$lev]{'log'}='set';
+                ; next; } ;
+	    /^syn$/ && do {
+                # match tcp packages with syn-byte set
+		if ($words[$c-2] eq "\x21" ) {
+		    $fw[$lev]{'syn'}='unset'}
+		else {
+		    $fw[$lev]{'syn'}='set';}
+		; next; } ;
+	    /^fragment$|^frag$/ && do {
+                if ($words[$c-2] eq "\x21" ) {
+                    $fw[$lev]{'fragment'}='unset'}
+                else {
+                    $fw[$lev]{'fragment'}='set';}
+                ; next; } ;
+	    /^source$|^src$/ && do {
+		$side='source';
+		; next; } ;
+	    /^destination$|^dest$/&& do {
+                $side='destination';
+                ; next; } ;
+    
+            # jump action
+            /^goto$|^jump$|^to$/ && do {
+		$fw[$lev]{'action'}=getvar();
+                ; next; };
+
+	    # policy keywords
+            /^policy$/ && do {
+		$fw[$lev]{'policy'}=getvar();
+		for ( $fw[$lev]{'policy'} ) {
+		    /^ACCEPT$|^accept$|^REJECT$|^reject$|^QUEUE$|^queue$|^RETURN$|^return$|^MIRROR$|^mirror$/ && do {
+			$fw[$lev]{'policy'}= lc $fw[$lev]{'policy'} ; next ; } ;
+                    /^DROP$|^drop$|^DENY$|^deny$/ && do {
+                        $fw[$lev]{'policy'}='drop'; next ; } ;
+		} ; next; };
+
+            # action keywords
+	    /^ACCEPT$|^accept$|^REJECT$|^reject$|^LOG$|^RETURN$|^return$|^TOS$|^tos$|^QUEUE$|^queue$|^MARK$|^mark$|^MIRROR$|^mirror$|^NOP$|^nop$/ && do {
+		$fw[$lev]{'action'}= lc $keyword ; next ; };
+	    /^MASQ$|^masq$/ && do {
+                $fw[$lev]{'action'}='masq';
+		for ($words[$c]) {
+		    /[0-9]+|[0-9]+\x2d[0-9]+/ && do {
+		        $fw[$lev]{'proxy'} = getvar(); next;};};
+		; next; };
+	    /^DROP$|^drop$|^DENY$|^deny$/ && do {
+		$fw[$lev]{'action'}='drop';
+		; next; };
+	    /^PROXY$|^proxy$|^REDIRECT$|^redirect$/ && do {
+                $fw[$lev]{'action'}='redirect';
+                $fw[$lev]{'proxy'}= getvar();
+                ; next; };
+	    /^DNAT$|^dnat$|^SNAT$|^snat$/ && do {
+                $fw[$lev]{'action'} = lc $keyword;
+		$fw[$lev]{'proxy'} = getvar();
+		; next; };
+
+            # configuration options
+	    /^option$/ && do {
+		if ($words[$c+1] eq 'ipchains' ||
+		  $words[$c+1] eq 'iptables' ||
+		  $words[$c+1] eq 'ipfwadm' ) {
+		    $option{'ipchains'} = $option{'iptables'} =
+		      $option{'ipfwadm'} = '0'; };
+		$option{$words[$c++]} = '1';
+		# some options require immediate attention:
+		for ( $words[$c-1] ) {
+		    /clearall/ && do { clearall(); };
+		    /flushall/ && do { flushall(); };
+		    }; next; };
+
+	    # variable handling
+	    /^set$/ && do {
+		setvar(getvar(), getvar());
+		next; };
+    
+            # effectuation operator
+            /(\x3b)/ && do {
+	        # check for action (required)
+		local $ac_def=0;
+                for $i ( 0 .. $#fw ) {
+                    if ( exists $fw[$i]{'action'} ) { $ac_def='1' };
+		    if ( exists $fw[$i]{'policy'} ) { $ac_def='1' };
+	        }
+		# check for chain (required)
+		local $ch_def=0;
+                for $i ( 0 .. $#fw ) {
+                    if ( exists $fw[$i]{'chain'} ) { $ch_def='1' };
+                }
+	        if ( ($ac_def == 0 ) || ($ch_def == 0) ) {
+		    error("no action, policy or chain defined, exiting") };
+
+                # clear any policy-related stuff in this level
+                if ( exists $fw[$#fw]{'policy'} || 
+			exists $fw[$#fw-1]{'policy'} ) {
+                    $chains{'input'} &= 2;
+                    $chains{'forward'} &= 2;
+                    $chains{'output'} &= 2;
+                    $tables{'filter_input'} &= 2;
+                    $tables{'filter_forward'} &= 2;
+                    $tables{'filter_output'} &= 2;
+                    $tables{'nat_prerouting'} &= 2;
+                    $tables{'nat_postrouting'} &= 2;
+                    $tables{'nat_output'} &= 2;
+                    $tables{'mangle_prerouting'} &= 2;
+                    $tables{'mangle_output'} &= 2;
+                }
+
+		mkrules();
+	
+	        # and clean up variables set in this level
+                undef $fw[$lev];
+                ; next ; } ;
+	    
+            # recursing operators
+            /\x7b/ && do {
+                enter();
+                ; next SWITCH; };
+            /\x7d/ && do {
+		# consistency check: check if they hanven't
+		# forgotten the ';' before the last statement
+		if (( $words[$c-2] ne "\x7d" ) && ( $words[$c-2] ne "\x3b" )) {
+		     error("Missing semicolon before closing section, exiting");
+		};
+		# clear any policy-related stuff in this level
+    		if ( exists $fw[$#fw]{'policy'} ||
+			exists $fw[$#fw-1]{'policy'} ) {
+                    $chains{'input'} &= 2;
+                    $chains{'forward'} &= 2;
+                    $chains{'output'} &= 2;
+                    $tables{'filter_input'} &= 2;
+                    $tables{'filter_forward'} &= 2;
+                    $tables{'filter_output'} &= 2;
+                    $tables{'nat_prerouting'} &= 2;
+                    $tables{'nat_postrouting'} &= 2;
+                    $tables{'nat_output'} &= 2;
+                    $tables{'mangle_prerouting'} &= 2;
+                    $tables{'mangle_output'} &= 2;
+                }
+
+                # and clean up variables set in this level
+                undef $fw[$lev--];
+                $#fw--;
+		# clean the previous level as well, as otherwise
+		# defines would survive for a very long time!
+		undef $fw[$lev];
+		# and exit
+                last LOOP; };
+
+	    /\x21/ && do {
+		# don't check anything for now...
+		; next ; } ;
+
+            # default
+	    error("Unrecognized keyword: $keyword, exiting");
+        }
+    }} while ($c <= $#words);
+};
+
+# end of ferm
+
+# pod stuff here:
+
+=head1 NAME
+
+B<ferm> - a firewall rule parser for linux
+
+=head1 SYNOPSYS
+
+B<ferm> I<options> I<inputfiles>
+
+=head1 DESCRIPTION
+
+B<ferm> compiles ready to go firewall-rules from a structured
+rule-setup. These rules will be executed by the preferred kernel
+interface, such as ipchains(8) and iptables(8).
+
+Besides just executing all rules in one command, the obvious gain
+is the possibility to provide a structured description of a
+firewall. No need anymore for tedious typing all firewalls into
+custom scripts, you can now write logically and coherent rules
+using a C-style nesting structure, and let B<ferm> create all
+rules for you.
+
+B<ferm> will also aid in modularizing firewalls, because it
+creates the possibility to split up the firewall into several
+different files, which can be reloaded at will, so you can
+dynamically adjust your rules.
+
+B<ferm>, pronounced "firm", stands for "For Easy Rule Making".
+
+=head1 STRUCTURE OF A FIREWALL FILE
+
+The structure of a proper firewall file looks like  simplified
+C-code. Only a few syntactic characters are used in ferm-
+configuration files. Besides these special caracters, ferm
+uses 'keys' and 'values', think of them as options and
+parameters, or as variables and values, whatever.
+
+With these words, you define the characteristics of your firewall.
+Every firewall consists of two things: First, look if network
+traffic matches certain conditions, and second, what to do
+with that traffic.
+
+You may specify conditions that are valid for the kernel
+interface program you are using, probably iptables(8). For
+instance, in iptables, when you are trying to match tcp
+packets, you would say:
+
+    iptables --protocol tcp
+
+In ferm, this will become:
+
+    protocol tcp;
+
+Just typing this in ferm doesn't do anything, you need to tell
+ferm (actually, you need to tell iptables(8) and the kernel) what
+to do with any traffic that matches this condition:
+
+    iptables --protocol tcp -j ACCEPT
+
+Or, translated to B<ferm>:
+
+    protocol tcp accept;
+
+Noticed the B<;> character? We're getting to that now, because there
+are some special characters in B<ferm> that make life easy.
+
+Here's a list of the special characters:
+
+=over 8
+
+=item B<;>
+
+The effectuation character. This character defines the end of
+a rule. Anything defined before this character will be put
+into one or more rules.
+
+This character *makes* the rule. It gathers all the information, all
+parameters and targets, special things or whatever, that currently
+is 'valid', and tries to make a decent rule out of it. B<ferm> will
+do nothing without this character!
+
+Example:
+
+    proto tcp ACCEPT;
+
+THis example shows a single rule, defined by two keys and one
+value.
+
+=item B<{}>
+
+The nesting symbol defines a 'block' of rules.
+
+Anything defined before this block will
+still be available within all rules inside this block. You can
+nest blocks in blocks as far as you like. For every rule
+defined in this block the values defined before this block
+will apply. Usually you would define an often used parameter
+as the protocol in front of this block, and anything special
+inside it.
+
+You can put as many rules (using the <;> character) as you 
+like insode this block. but there should always be one or
+more, although you will get away with none. Not very
+usefull except for when you frequently edit you config
+file, and might want to leave a chain empty.
+
+Since the nesting block is left associative, it cannot be bound
+to keys defined after the block.
+
+Example:
+
+    chain INPUT proto tcp {
+        syn DENY;
+        ACCEPT;
+    }
+
+This block shows two rules inside a block, which will both be merged
+with anything in front of it, so you will get two rules:
+
+    iptables -A INPUT -p tcp -y -j DENY
+    iptables -A INPUT -p tcp -j ACCEPT
+
+
+=item B<$>
+
+Further more, ferm now supports variables, so you can define your
+favorite targets, interfaces etc. before you use them. It works
+like this:
+
+    set IF eth0
+    set $IF ACCEPT
+    set TARGET $IF
+
+will result in this:
+
+    $IF = eth0
+    $eth0 = ACCEPT
+    $TARGET = eth0
+
+
+=item B<()>
+
+The array symbol. Using the parentheses, you can define
+a 'list' of values that should be applied for the key to the
+left of it.
+
+Example:
+
+    proto ( tcp udp icmp )
+
+this will result in three rules:
+
+    ... -p tcp ...
+    ... -p udp ...
+    ... -p icmp ...
+    
+Only values can be 'listed', so you cannot do something like this:
+
+    proto tcp ( ACCEPT LOG );
+
+but you can do this:
+
+    chain (INPUT OUTPUT FORWARD) proto (icmp,udp,tcp) DENY;
+
+(which will result in nine rules!)
+
+Values can be separated either by spaces or commas. The
+array symbol is both left- and right-associative, in contrast
+with the nesting block, which is left-associative only.
+
+=item C< # >
+
+The comment symbol. Anything that follows this symbol up to
+the end of line is ignored.
+
+=back
+
+These symbols glue all the keywords into a structure, which
+allows you to specify some keys only a few times, and let them
+apply to any key/value pairs defined within an entire block, for
+instance:
+
+    proto tcp {
+	dport 22 ACCEPT;
+	syn DPORT 0:1023 DENY;
+	}
+    ACCEPT;
+
+Now here, the 'proto tcp' is valid within the block, but not anymore
+after is, resulting in:
+
+    ... -p tcp --dport 22 -j accept
+    ... -p tcp -y --dport 0:1023 -j deny
+    ... -j accept # note '-p tcp' is not in here!
+
+B<Some important notes:>
+
+- Ferm inserts the rules 'chronologically', so the first rule will
+be inserted before the second one.
+
+- Anything defined within a block is no longer valid when that block
+ends.
+
+- Everything defined within the current block that is 'effectuated',
+will be no longer defined immediately after that point.
+
+- Everything defined before a block is undefined when this block 
+closes.
+
+If you do not understand this, don't worry, it alle becomes clear
+by itself.
+
+
+Two types of keys exist:
+
+=over 8
+
+=head2 Firewall keys
+
+Firewall keys define a set of firewall packet matching
+criteria that is supported by the kernel backend. They
+look like 'name value' pairs or like 'switch'. For
+instance:
+
+    proto tcp
+
+or:
+
+    syn
+
+A 'name value' pair lets you fill in a value for a certain
+condition you would like to match packets against, switches
+are like on/off light switches on the wall, if you specify
+a switch, you turn paket matching for whatever the switch
+stands, on. In the latter example, you turn SYN-packet
+matching on for this rule.
+
+Both types can optionally be preceded by a B<!>. This will
+be handled that you don't want something to be matching
+it:
+
+    !syn
+
+or:
+
+    ! syn
+
+Means you want packets which *don't* have the syn-flag set to
+be matched. Or even:
+
+    proto ! tcp
+
+Means you want to match *anything but* packets from the tcp
+protocol.
+
+Read iptables(8) or ipchains(8) to see where the B<!> can be used.
+
+
+=head2 Option keys
+
+Using B<option> keys alter the behaviour of B<ferm>; they
+can be used to e.g. clear chains before use, or turn off certain
+sanity checks.
+
+Example:
+
+  option verbose
+
+This option makes B<ferm> show a lot of information about what
+it is doing.
+
+=back
+
+The syntax is very simple, let's start with a simple
+example:
+
+    chain input {
+        proto tcp ACCEPT;
+    }
+
+This will add a rule to the predefined input chain, matching
+and accepting all tcp packets.  Ok, let's make it more complicated:
+
+    chain (input,output) {
+	proto (udp,tcp) ACCEPT;
+    }
+
+This will insert 4 rules, namely 2 in chain input, and 2 in
+chain output, matching and accepting both udp and tcp packets.
+Normally you would type this for ipchains(8):
+
+   ipchains -A input -p tcp ACCEPT
+   ipchains -A output -p tcp ACCEPT
+   ipchains -A input -p udp ACCEPT
+   ipchains -A output -p udp ACCEPT
+
+Note how much less typing we need to do? :-)
+
+Basically, this is all there is to it, although you can
+make it quite more complex. Something to look at:
+
+   chain input policy ACCEPT {
+       destination 10/8 port ! ftp goto mychain sport :1023 tos 4 settos 8 mark 2;
+       destination 10/8 port ftp DENY;
+   }
+
+My point here is, that *you* need to make nice rules, keep
+them readable to you and others, and not make it into a mess.
+
+It would aid the reader if the resulting firewall rules were placed here for
+reference. Also, you could include the nested version with better
+readability.
+
+Try using comments to show what you are doing:
+
+    # this line enables transparent http-proxying for the internal network:
+    proto tcp if eth0 daddr ! 192.168.0.0/255.255.255.0
+        dport http REDIRECT 3128;
+
+You will be thankfull for it later!
+
+    chain input policy ACCEPT {
+        interface (eth0,ppp0) {
+            # deny access to notorius hackers, return here if
+            # no match was found to resume normal firewalling
+            goto badguys;
+
+            protocol tcp goto fw_tcp;
+            protocol udp goto fw_udp;
+        }
+    }
+
+The more you nest, the better it looks. Make sure the order you
+specify is correct, you would not want to do this:
+
+    chain forward {
+        proto ! udp DENY;
+        proto tcp dport ftp ACCEPT;
+    }
+
+because the second rule will never match. Best way is to specify
+first everyting that is allowed, and then deny everything else.
+Look at the examples for more good snapshots. Most people do
+something like this:
+
+    proto tcp {
+        dport (
+            ssh http ftp
+        ) ACCEPT;
+        dport 1024:65535 ! syn ACCEPT;
+        DROP;
+    }
+
+=head2 keywords
+
+To make life easy, B<ferm> allows you to use shorthands for
+most keywords. A list of shorthand notations is available at the end
+of this section.
+
+What kind of value you provide for a keyword depends on the 
+keyword entirely, e.g. 'protocol' expects 'tcp', 'udp' or 'icmp',
+'log-prefix' expects a value like '"whoops, someone rang the
+doorbell"' and 'destination-port' can accept values like 'http',
+'80' or '0:1023'. Take a look at the kernel backend program
+manual for possible values and how they look like.
+
+Note you may put a value in single quotes or double quotes,
+if this may be required because a value contains spaces:
+
+    log-prefix "Dropped tcp package: "
+
+Please don't use commas, exclamation commas, exclamation
+marks, parentheses, curly brackets or pipe characters between
+quotes, B<ferm> doesn't like that.
+
+
+=over 8
+
+=item B<chain [chain-name]>
+
+Specifies a chain that this rule will be inserted to. this
+is a required key for any rule. Chains can be
+built in, like C<input>, C<output> or C<forward>, or user-defined
+chains.
+
+=item B<interface [interface-name]>
+
+Define the interface name, your outside network card, like eth0,
+or dialup like ppp1, or whatever device you want to match for
+passing packets. It is equivalent to the C<-i> switch in
+ipchains(8) and iptables(8).
+
+=item B<outerface [interface-name]>
+
+Same as interface, only for matching the outgoing interface
+for a packet, as in iptables(8). ipchains(8) hasn't got this
+parameter.
+
+=item B<protocol [protocol-name|protocol-number]>
+
+Currently supported by the kernel are tcp, udp and icmp, or
+their respective numbers.
+
+=item B<port [port-spec]>
+
+Specify a port number, name or range
+
+=item B<addr [address-spec]>
+
+Specify a network address, a hostname or ip-number.
+
+=item B<source|destination>
+
+Specify that the values provided for B<port> and B<addr>
+above should be either B<source> or <destination> ports
+and addresses. This works like a toggle, which can be left on
+for the entire configuration file. So, if you say B<source> once,
+all occurences of B<port> will be B<source port>'s, as well as for
+addresses.
+
+=item B<saddr|daddr [address-spec]>
+
+Specify an address specifically for the B<source> or B<destination>
+side, read it as a shorthand for B<source address> and B<destination
+address>, although it does not 'toggle' the B<source|destination>
+state, which is remembered.
+
+=item B<sport|dport [port-spec]>
+
+Specify a port number, name or range for the B<source> or B<destination>
+side, read it as a shorthand for B<source port> and B<destination
+port>>, although it does not 'toggle' the B<source|destination>
+state, which is remembered. Ports can be specified for tcp and udp,
+as well as icmp, only in that case it means 'icmp-type' and only
+works when you specify the type numerically.
+
+Note that you need to specify a protocol, before you can use
+ports, that is because not all protocols support the ideas
+of ports.
+
+Here are some examples of valid addresses:
+
+    192.168/8 (identical to the next one:)
+    192.168.0.0/255.255.255.0
+    my.domain.com
+
+And some examples of valid ports/ranges:
+
+    80
+    http
+    ssh:http
+    0:1023        which is equivalent to     :1023
+    1023:65535    which is equivalent to     1023:65535
+
+=item B<icmptype [type]>
+
+To specify an icmp message type. Can be numbers, but refer
+to the manual of the kernel program to retreive a list,
+for ipchains use "ipchains C<-h> icmp". Examples: ping, pong.
+
+=item B<tos [value]>
+
+Matches a packet on the specified TOS-value. See settos for
+values.
+
+=item B<settos [value]>
+
+Set the tcp package Type Of Service bit to this value.
+This will be used by whatever traffic scheduler is willing to,
+mostly your own linux-machine, but maybe more. The original
+tos-bits are blanked and overwritten by this value. Possible
+values are (look in the shorthands for more, and easier
+values) :
+
+02 04 08 10
+
+=item B<mark [value]>
+
+matches packets based on their mark-value
+
+=item B<setmark [value]>
+
+Sets the mark-value for a packet, use with the MARK target in iptables
+
+=item B<syn>
+
+Specify that the SYN flag in a tcp package should be matched,
+which are used to build new tcp connections. You can identify
+incoming connections with this, and decide wether you want
+to allow it or not. Packets that do not have this flag are
+probably from an already established connection, so it's
+considered reasonably safe to let these through.
+
+=item B<fragment>
+
+Specify that only fragmented IP packets should be matched.
+When packets are larger that the maximum packet size your
+system can handle (called Maximum Transmission Unit or MTU)
+they will be chopped into bits and sent one by one as single
+packets. See ifconfig(8) if you want to find the MTU for
+your system (the default is usually 1500 bytes).
+
+Fragments are frequently used in DOS attacks, because there
+is no way of finding out the origin of a fragment packet.
+
+=item B<policy [policy]>
+
+Specifies the default policy for the current chain. Can be
+either of the standard actions (ACCEPT, DENY, REJECT, MASQ
+and REDIRECT). A packet that matches no rules will be treated
+as specified by the policy. You can't specify chain names
+here. Only the predefined (built-in) chains have policies.
+
+To avoid ambiguity, always specify the policies of all
+predefined chains explicitly.
+
+=item B<log>
+
+Log all packets that match this rule in the kernel log. Be
+carefull with log flooding. Note the difference with B<LOG>
+in iptables! See B<LOG> as well. In iptables, this makes a
+copy of the current rule, and inserts it with the LOG target
+instead of any other specified target. 
+
+See also B<log-[level|prefix|tcp-sequence|tcp-options|ip-options]>
+
+=item B<goto [chain]>
+
+Specify that matching packets should jump to this chain, only user
+defined chains are valid jump targets.
+
+=item B<reverse>
+
+Instructs the kernel to use this rule twice, the second time with
+source and destination swapped. Unfortunately, this doesn't work
+with iptables.
+
+=item B<LOG>
+
+Identical to the 'LOG' target in iptables, logs any packet that
+matches, but doesn't do anything else to it. Only valid for
+iptables, otherwise use 'log'. See B<log> and also
+B<log-[level|prefix|tcp-sequence|tcp-options|ip-options]>.
+
+=item B<ACCEPT>
+
+Accepts matching packets.
+
+=item B<REJECT>
+
+Rejects matching packets.
+
+=item B<DENY>
+
+Denies matching packets.
+
+=item B<MASQ [port|portrange]>
+
+Masquerades matching packets. Optionally followed by a port or
+port-range for iptables. Specify as "123", "123-456" or "123:456".
+The port range parameter specifies what local ports masqueraded
+connections should originate from.
+
+=item B<RETURN>
+
+Returns to the parent chain where the current chain was called
+if the packet matches.
+
+=item B<REDIRECT [port|portrange]> 
+
+Allows transparent proxying when rule matches, the port that is
+redirected to must immediately follow this keyword. The target
+may also be an IP-number in case you are using iptables(8), so
+something like "REDIRECT 192.168.0.5:21" is valid there.
+
+=item B<SNAT|DNAT [ip-address|ip-range|ip-port-range]>
+
+Allows source/destination address translation, only valid for
+iptables(8), requires an ip-number, range or ip/port value.
+
+=item B<TOS>
+
+Changes the packets TOS-field according to the set-tos parameter
+specified, only valid for iptables.
+
+=item B<table [table-name]>
+
+Selects this table for the rule. Valid table names are "filter",
+"nat" and "mangle".
+
+=item B<reject-with [value]>
+
+Rejects a packet with an ICMP value type message.
+
+=item B<limit [value]>
+
+Limits these type of packets to a maximim.
+
+=item B<burst [value]>
+
+Limits bursts of these packets.
+
+=item B<mac [value]>
+
+Matches packets originating from these mac-addresses.
+
+=item B<state [value]>
+
+Matches packets with this state. The value may be specified as
+a normal ferm-list: "(ESTABLISHED,RELATED)" but "NEW:RELATED",
+and single values are also allowed.
+
+=item B<tcp-flags [!] [flagmask] [flagmatch]>
+
+Specify tcp-flags, the B<!> is optional and has to precede the mask,
+mask and match are mandatory. The list of mask or match flags may
+be specified as a normal ferm-list: "(SYN,ACK,RST)", but "SYN:ACK:RST"
+and single values are also allowed.
+
+=item B<tcp-option [value]>
+
+Specify a tcp-option for this rule.
+
+=item B<log-[level|prefix|tcp-sequence|tcp-options|ip-options] [value]>
+
+Specifies several extra tcp/ip options.
+
+=item B<[u|g|p|s]id-owner [value]>
+
+Matches packets originating from this User, Group, Pid or Session ID.
+
+=item B<set [name] [value]>
+
+Set variable "name" to value "value", you can dereference the variables
+by "$name". You may also put variables within B<set> statements.
+
+=back
+
+=head1 SHORTHANDS
+
+Here's a complete list of possible shorthands, just
+to reduce the amount of typing:
+
+=over 4
+
+=item interface:
+
+if
+
+=item outerface:
+
+of
+
+=item protocol:
+
+proto
+
+=item source:
+
+src
+
+=item destination:
+
+dest
+
+=item fragment:
+
+frag
+
+=item ACCEPT:
+
+accept
+
+=item DENY:
+
+deny, DROP, drop
+
+=item REJECT:
+
+reject
+
+=item MASQ:
+
+masq
+
+=item RETURN:
+
+return
+
+=item REDIRECT:
+
+redirect, PROXY, proxy
+
+=item MARK:
+
+mark
+
+=item QUEUE:
+
+queue
+
+=item SNAT:
+
+snat
+
+=item DNAT:
+
+dnat
+
+=item goto:
+
+to, jump
+
+=item icmptype
+
+icmp-type
+
+=item reverse:
+
+bidirectional, swap
+
+=item tcp-option:
+
+tcpoption
+
+=item mac:
+
+mac-source, macsource
+
+=item burst:
+
+limit-burst, limitburst
+
+=item uid-owner:
+
+uidowner, uid
+
+=item gid-owner:
+
+gidowner, gid
+
+=item pid-owner:
+
+pidowner, pid
+
+=item sid-owner:
+
+sidowner, sid
+
+=item log-level:
+
+loglev
+
+=item log-prefix:
+
+logprefix
+
+=item log-tcp-sequence:
+
+logseq
+
+=item log-tcp-options:
+
+logtcpopt
+
+=item log-ip-options:
+
+logipopt
+
+=item reject-with:
+
+rejectwith
+
+=item setmark
+
+set-mark
+
+=item tos/settos-values:
+
+The following Type Of Services values may be given:
+
+    mincost min-cost 2 02 0x02
+
+    reliability reliable 4 04 0x04
+
+    max-throughput maxthroughput 8 08 0x08
+
+    lowdelay interactive min-delay 10 0x10
+
+    clear 0 00 0x00
+
+=back
+
+=head1 OPTIONS
+
+Options can be specified with the "option" keyword, which
+can be defined anywhere within the document. Although
+that may be fine, you almost allways want to define
+them at the beginning of your document, because the
+behaviour changes at the moment they are specified.
+
+All options can also be specified on the command line, which
+has a few more available. The equivalent for the commandline
+options that are also available in the firewall file is mentioned
+in the firewall file options section.
+
+=head2 Command line options
+
+=over 12
+
+=item B<--noexec>
+
+Do not execute the ipchains(8) or iptables(8) commands, but
+skip instead. This way you can parse your data, use B<--lines>
+to view the output.
+
+=item B<--lines>
+
+Show the firewall lines that were generated from the rules. They
+will be shown just before they are executed, so if you get error
+messages from ipchains(8) etc., you can see which rule caused
+the error.
+
+=item B<--verbose>
+
+Shows some more details of the stages of execution of the program.
+
+=item B<--relaxed>
+
+Do not fuzz about errors, instead continue and let ipchains(8) etc.
+give errors back.
+
+=item B<--help>
+
+Show a brief list of available commandline options.
+
+=item B<--version>
+
+Shows the version number of the program.
+
+=item B<--use [ipchains|iptables|ipfwadm]>
+
+Use this kernel program to implement the rules into the kernel.
+Also available as firewall file option "option [...]". This option
+must be set, either on the commandline or in a ferm config file.
+
+=item B<--automod>
+
+Automatically insert the correct module parameter when using iptables,
+making the B<module> parameter unnecessary
+
+=back
+
+=head2 Firewall file options
+
+=over 8
+
+=item B<option clearall>
+
+Clears the entire firewall, deletes all user chains and flushes
+the built in chains. Does not alter policies.
+
+=item B<option flushall>
+
+Flushes all chains but does not delete them.
+
+=item B<option flushchains>
+
+Flushes any chain which is defined in the setup, even
+built-in chains are flushed when referred.
+
+=item B<option createchains>
+
+Creates any chain which is referred to, even when no rule is
+specified for the chain, but is only referred by with a 
+"goto" keyword.
+
+=item B<option automod>
+
+Automatically insert the correct module parameter when using iptables,
+making the B<module> parameter unnecessary
+
+=item B<option relaxed>
+
+Makes the program not whining over serious errors, although
+that's not very handy because it will fail to install the
+rules.
+
+=item B<option [iptables|ipchains|ipfwadm]>
+
+Define which kernel program you have to use to install rules.
+This one is required, since on some systems, they can both
+be present, or you want to use a wrapper for an older version.
+Currently defaults to ipchains.
+
+=back
+
+
+=head1 SEE ALSO
+
+ipchains(8), ipfwadm(8), iptables(8)
+
+
+=head1 NOTES
+
+A good firewall is not the only step in security, even the
+firewall may be insecure, or someone breaks into your house
+and steals the hard disk out of your PC. Do not rely on this
+firewall tool for the use of mission critical or confidential
+data. It is not fit for such a purpose!
+
+Instead, use this tool to expand your current use of ipchains(8)
+and routing, create a flexible firewall and look out for
+anything suspicious. Be carefull with open ports and servers,
+always get the latest, patched versions. Read more about
+firewalls before experimenting, you are warned! You might
+also read the COPYING file provided with the package or
+visit www.gnu.org to find more about the license.
+
+
+=head1 EXAMPLES
+
+The package comes with a directory full of goodies (examples)
+that you can try, adjust for your system or just read if
+you want to understand the syntax and it's possibilities.
+Look in the "examples" directory.
+
+
+=head1 REQUIREMENTS
+
+=head2 Operating system
+
+The Operating system currently supported is only linux, although
+it may be possible to port this program to support FreeBSD or
+SOLARIS firewall systems, provided they supply a similar
+firewalling scheme. (Does anybody known about that?)
+
+=head2 Software/packages
+
+Required are 2 packages: Perl5, under which this B<ferm>
+runs, and one of the kernel firewall programs, suited for
+your system and kernel version.
+
+=head2 Kernel
+
+The respective required kernel versions for each of the kernel
+firewall programs (ipchains(8), ipfwadm(8) or iptables(8)) is also
+needed. This means you have to have a kernel which can use the
+firewalling thing, something you might have to compile a kernel
+for, or set some switches in /proc. Look at the man pages of
+those kernel programs for more information.
+
+
+=head1 RESTRICTIONS
+
+B<ferm> allows almost anything the used firewall program
+allows, so go ahead and specify complex port ranges, icmp
+by number or worse. Just be warned.
+
+Although quite sophisticated, the kernel interface programs
+ipchains(8) and iptables(8) are very limited in some respects.
+B<ferm> is only an interface to improve the handling of
+these programs, and is therefore limited by the possibilities
+of these programs.
+
+Ipfwadm(8) is extremely limited in rule-building, upgrade or
+succomb in it. Nothing B<ferm> can do about it.
+
+
+=head1 BUGS
+
+The ipfwadm(8) interface is really limited due to being unable to
+test it and having no experience with it at all. I'll be
+concentration on iptables(8), which supports much more options
+and will be quite more flexible.
+
+Several nasty cleanups are not done well, which may result
+in surviving data. Tried to remove all of them but suspect
+more of them to occur.
+
+The --log-prefix construct does not allow certain characters to
+be put between "". Make sure you don't use the bracket {} and []
+characters, the ! and , are also not correctly parsed.
+
+
+=head1 TODO
+
+* Improve ipfwadm(8) handling or removing it altogether
+
+* Add more examples, with modularized snipplets (include option)
+
+* Make rpm's for RH and SuSE, or better: get you to do that!
+
+* Review the second half of the manual page
+
+* Make ferm bug you more about errors, i.e. increase validity
+  checking to high levels
+
+
+=head1 COPYRIGHT
+
+Copyright (C) 2001, Auke Kok <koka@geo.vu.nl>
+
+=head1 LICENSE
+
+B<ferm> is released under the Gnu Public License, see the
+COPYING file that came with the package or visit www.gnu.org.
+
+This is free software; see the source for copying conditions.
+There is NO warranty; not even for MERCHANTABILITY or FITNESS
+FOR A PARTICULAR PURPOSE.
+
+=head1 AUTHOR
+
+Auke Kok (koka@geo.vu.nl)
+
+=cut
+
+

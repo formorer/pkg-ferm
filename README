@@ -1,0 +1,93 @@
+
+        README for ferm
+
+        Auke Kok <koka@geo.vu.nl.
+
+
+Contents:
+
+	1. Introduction
+	2. Installing
+	3. Basic use
+	4. Package contents
+
+
+Introduction
+
+	Ferm is a tool to maintain and setup complicated firewall
+	rules. It allows to reduce the tedious task of carefully inserting
+	rules and chains by a large factor, thus enabling the firewall
+	administrator to spend more time on developing good rules
+	then the proper implementation of the rule.
+
+	Ferm is a simple perl program, so it's lightweight, does
+	not require any compiling or building, and it's construct
+	can be adapted and modified quickly, so new features should
+	be easy to adopt. The fact that it's perl-based makes it
+	more trustworthy as well.
+
+	Ferm supports ipchains firewalls, ipfwadm rules and
+	iptables firewalls. Changing to another system will be
+	very easy, and ferm will help in the process.
+
+
+Installing
+
+	./make install
+
+	The package does not need to be compiled, just make sure
+	you have perl (which is present in any base linux system)
+	and either ipchains, ipfwadm or iptables, and the according
+	firewall enabled kernel installed.
+
+	Run the make install install script as root to install the
+	package in it's best location, so it can be reached from
+	the command line when called. The manual page will also
+	be installed.
+
+	That's all!
+
+
+Uninstalling
+
+	./make uninstall
+
+	Ferm can now be quickly removed from the system by issuing
+	a "make uninstall" command (as root, of course). This
+	will not remove any configuration files of course!
+
+
+Basic use
+
+	ferm is designed to parse structured firewall files, 
+	merely it's own language (quite C-like) to describe
+	firewall-rules. Look at the examples for a good idea.
+	To install a firewall, create an appropriate firewall
+	file that suits your needs, store it into a good spot
+	like /etc/firewall.conf and execute:
+
+		ferm /etc/firewall.conf
+
+	ferm will read the file, translate it into your
+	[ipchains|iptables|ipfwadm] rules, and install these
+	into the kernel firewalling system! Read the manual and
+	the examples to get the idea about the syntax of the
+	firewall files.
+
+
+Package Contents
+	
+	* README	This file
+	* AUTHORS	List of people who worked on the project
+	* COPYING	Copy of the GPL
+	* CHANGES	A list of changes in the development of ferm
+	* ferm		The program
+	* ferm.1	The man page
+        * ferm.txt      The man page as plain text
+	* ferm.html	The man page as html file
+	* examples/*	Some examples
+	* Makefile	Installation Makefile
+
+
+--
+Auke Kok <koka@geo.vu.nl>

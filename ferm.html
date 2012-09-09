@@ -1,0 +1,1172 @@
+<HTML>
+<HEAD>
+<TITLE>B<ferm> - a firewall rule parser for linux</TITLE>
+<LINK REV="made" HREF="mailto:kokg@geo.vu.nl">
+</HEAD>
+
+<BODY>
+
+<!-- INDEX BEGIN -->
+
+<UL>
+
+	<LI><A HREF="#NAME">NAME</A>
+	<LI><A HREF="#SYNOPSYS">SYNOPSYS</A>
+	<LI><A HREF="#DESCRIPTION">DESCRIPTION</A>
+	<LI><A HREF="#STRUCTURE_OF_A_FIREWALL_FILE">STRUCTURE OF A FIREWALL FILE</A>
+	<UL>
+
+		<LI><A HREF="#Firewall_keys">Firewall keys</A>
+		<LI><A HREF="#Option_keys">Option keys</A>
+		<LI><A HREF="#keywords">keywords</A>
+	</UL>
+
+	<LI><A HREF="#SHORTHANDS">SHORTHANDS</A>
+	<LI><A HREF="#OPTIONS">OPTIONS</A>
+	<UL>
+
+		<LI><A HREF="#Command_line_options">Command line options</A>
+		<LI><A HREF="#Firewall_file_options">Firewall file options</A>
+	</UL>
+
+	<LI><A HREF="#SEE_ALSO">SEE ALSO</A>
+	<LI><A HREF="#NOTES">NOTES</A>
+	<LI><A HREF="#EXAMPLES">EXAMPLES</A>
+	<LI><A HREF="#REQUIREMENTS">REQUIREMENTS</A>
+	<UL>
+
+		<LI><A HREF="#Operating_system">Operating system</A>
+		<LI><A HREF="#Software_packages">Software/packages</A>
+		<LI><A HREF="#Kernel">Kernel</A>
+	</UL>
+
+	<LI><A HREF="#RESTRICTIONS">RESTRICTIONS</A>
+	<LI><A HREF="#BUGS">BUGS</A>
+	<LI><A HREF="#TODO">TODO</A>
+	<LI><A HREF="#COPYRIGHT">COPYRIGHT</A>
+	<LI><A HREF="#LICENSE">LICENSE</A>
+	<LI><A HREF="#AUTHOR">AUTHOR</A>
+</UL>
+<!-- INDEX END -->
+
+<HR>
+<P>
+<H1><A NAME="NAME">NAME</A></H1>
+<P>
+<STRONG>ferm</STRONG> - a firewall rule parser for linux
+
+<P>
+<HR>
+<H1><A NAME="SYNOPSYS">SYNOPSYS</A></H1>
+<P>
+<STRONG>ferm</STRONG>  <EM>options</EM>  <EM>inputfiles</EM>
+
+
+
+<P>
+<HR>
+<H1><A NAME="DESCRIPTION">DESCRIPTION</A></H1>
+<P>
+<STRONG>ferm</STRONG> compiles ready to go firewall-rules from a structured rule-setup. These
+rules will be executed by the preferred kernel interface, such as
+<CODE>ipchains(8)</CODE> and <CODE>iptables(8).</CODE>
+
+<P>
+Besides just executing all rules in one command, the obvious gain is the
+possibility to provide a structured description of a firewall. No need
+anymore for tedious typing all firewalls into custom scripts, you can now
+write logically and coherent rules using a C-style nesting structure, and
+let <STRONG>ferm</STRONG> create all rules for you.
+
+<P>
+<STRONG>ferm</STRONG> will also aid in modularizing firewalls, because it creates the possibility
+to split up the firewall into several different files, which can be
+reloaded at will, so you can dynamically adjust your rules.
+
+<P>
+<STRONG>ferm</STRONG>, pronounced ``firm'', stands for ``For Easy Rule Making''.
+
+<P>
+<HR>
+<H1><A NAME="STRUCTURE_OF_A_FIREWALL_FILE">STRUCTURE OF A FIREWALL FILE</A></H1>
+<P>
+The structure of a proper firewall file looks like simplified C-code. Only
+a few syntactic characters are used in ferm- configuration files. Besides
+these special caracters, ferm uses 'keys' and 'values', think of them as
+options and parameters, or as variables and values, whatever.
+
+<P>
+With these words, you define the characteristics of your firewall. Every
+firewall consists of two things: First, look if network traffic matches
+certain conditions, and second, what to do with that traffic.
+
+<P>
+You may specify conditions that are valid for the kernel interface program
+you are using, probably <CODE>iptables(8).</CODE> For instance, in
+iptables, when you are trying to match tcp packets, you would say:
+
+<P>
+<PRE>    iptables --protocol tcp
+</PRE>
+<P>
+In ferm, this will become:
+
+<P>
+<PRE>    protocol tcp;
+</PRE>
+<P>
+Just typing this in ferm doesn't do anything, you need to tell ferm
+(actually, you need to tell <CODE>iptables(8)</CODE> and the kernel) what
+to do with any traffic that matches this condition:
+
+<P>
+<PRE>    iptables --protocol tcp -j ACCEPT
+</PRE>
+<P>
+Or, translated to <STRONG>ferm</STRONG>:
+
+<P>
+<PRE>    protocol tcp accept;
+</PRE>
+<P>
+Noticed the <STRONG>;</STRONG> character? We're getting to that now, because there are some special
+characters in <STRONG>ferm</STRONG> that make life easy.
+
+<P>
+Here's a list of the special characters:
+
+<DL>
+<DT><STRONG><A NAME="item__">;</A></STRONG><DD>
+<P>
+The effectuation character. This character defines the end of a rule.
+Anything defined before this character will be put into one or more rules.
+
+<P>
+This character *makes* the rule. It gathers all the information, all
+parameters and targets, special things or whatever, that currently is
+'valid', and tries to make a decent rule out of it. <STRONG>ferm</STRONG> will do nothing without this character!
+
+<P>
+Example:
+
+<P>
+<PRE>    proto tcp ACCEPT;
+</PRE>
+<P>
+THis example shows a single rule, defined by two keys and one value.
+
+<DT><STRONG><A NAME="item__">{}</A></STRONG><DD>
+<P>
+The nesting symbol defines a 'block' of rules.
+
+<P>
+Anything defined before this block will still be available within all rules
+inside this block. You can nest blocks in blocks as far as you like. For
+every rule defined in this block the values defined before this block will
+apply. Usually you would define an often used parameter as the protocol in
+front of this block, and anything special inside it.
+
+<P>
+You can put as many rules (using the &lt;;&gt; character) as you like
+insode this block. but there should always be one or more, although you
+will get away with none. Not very usefull except for when you frequently
+edit you config file, and might want to leave a chain empty.
+
+<P>
+Since the nesting block is left associative, it cannot be bound to keys
+defined after the block.
+
+<P>
+Example:
+
+<P>
+<PRE>    chain INPUT proto tcp {
+        syn DENY;
+        ACCEPT;
+    }
+</PRE>
+<P>
+This block shows two rules inside a block, which will both be merged with
+anything in front of it, so you will get two rules:
+
+<P>
+<PRE>    iptables -A INPUT -p tcp -y -j DENY
+    iptables -A INPUT -p tcp -j ACCEPT
+</PRE>
+<DT><STRONG><A NAME="item__">$</A></STRONG><DD>
+<P>
+Further more, ferm now supports variables, so you can define your favorite
+targets, interfaces etc. before you use them. It works like this:
+
+<P>
+<PRE>    set IF eth0
+    set $IF ACCEPT
+    set TARGET $IF
+</PRE>
+<P>
+will result in this:
+
+<P>
+<PRE>    $IF = eth0
+    $eth0 = ACCEPT
+    $TARGET = eth0
+</PRE>
+<DT><STRONG><A NAME="item__">()</A></STRONG><DD>
+<P>
+The array symbol. Using the parentheses, you can define a 'list' of values
+that should be applied for the key to the left of it.
+
+<P>
+Example:
+
+<P>
+<PRE>    proto ( tcp udp icmp )
+</PRE>
+<P>
+this will result in three rules:
+
+<P>
+<PRE>    ... -p tcp ...
+    ... -p udp ...
+    ... -p icmp ...
+    
+Only values can be 'listed', so you cannot do something like this:
+</PRE>
+<P>
+<PRE>    proto tcp ( ACCEPT LOG );
+</PRE>
+<P>
+but you can do this:
+
+<P>
+<PRE>    chain (INPUT OUTPUT FORWARD) proto (icmp,udp,tcp) DENY;
+</PRE>
+<P>
+(which will result in nine rules!)
+
+<P>
+Values can be separated either by spaces or commas. The array symbol is
+both left- and right-associative, in contrast with the nesting block, which
+is left-associative only.
+
+<DT><STRONG><A NAME="item__"> # </A></STRONG><DD>
+<P>
+The comment symbol. Anything that follows this symbol up to the end of line
+is ignored.
+
+</DL>
+<P>
+These symbols glue all the keywords into a structure, which allows you to
+specify some keys only a few times, and let them apply to any key/value
+pairs defined within an entire block, for instance:
+
+<P>
+<PRE>    proto tcp {
+        dport 22 ACCEPT;
+        syn DPORT 0:1023 DENY;
+        }
+    ACCEPT;
+</PRE>
+<P>
+Now here, the 'proto tcp' is valid within the block, but not anymore after
+is, resulting in:
+
+<P>
+<PRE>    ... -p tcp --dport 22 -j accept
+    ... -p tcp -y --dport 0:1023 -j deny
+    ... -j accept # note '-p tcp' is not in here!
+</PRE>
+<P>
+<STRONG>Some important notes:</STRONG>
+
+
+
+<P>
+- Ferm inserts the rules 'chronologically', so the first rule will be
+inserted before the second one.
+
+<P>
+- Anything defined within a block is no longer valid when that block ends.
+
+<P>
+- Everything defined within the current block that is 'effectuated', will
+be no longer defined immediately after that point.
+
+<P>
+- Everything defined before a block is undefined when this block closes.
+
+<P>
+If you do not understand this, don't worry, it alle becomes clear by
+itself.
+
+<P>
+Two types of keys exist:
+
+<H2><A NAME="Firewall_keys">Firewall keys</A></H2>
+<P>
+Firewall keys define a set of firewall packet matching criteria that is
+supported by the kernel backend. They look like 'name value' pairs or like
+'switch'. For instance:
+
+<P>
+<PRE>    proto tcp
+</PRE>
+<P>
+or:
+
+<P>
+<PRE>    syn
+</PRE>
+<P>
+
+<FONT SIZE=-1>A</FONT> 'name value' pair lets you fill in a value for a
+certain condition you would like to match packets against, switches are
+like on/off light switches on the wall, if you specify a switch, you turn
+paket matching for whatever the switch stands, on. In the latter example,
+you turn SYN-packet matching on for this rule.
+
+<P>
+Both types can optionally be preceded by a <STRONG>!</STRONG>. This will be handled that you don't want something to be matching it:
+
+<P>
+<PRE>    !syn
+</PRE>
+<P>
+or:
+
+<P>
+<PRE>    ! syn
+</PRE>
+<P>
+Means you want packets which *don't* have the syn-flag set to be matched.
+Or even:
+
+<P>
+<PRE>    proto ! tcp
+</PRE>
+<P>
+Means you want to match <CODE>*anything</CODE> but* packets from the tcp
+protocol.
+
+<P>
+Read <CODE>iptables(8)</CODE> or <CODE>ipchains(8)</CODE> to see where the <STRONG>!</STRONG> can be used.
+
+<H2><A NAME="Option_keys">Option keys</A></H2>
+<P>
+Using <STRONG>option</STRONG> keys alter the behaviour of <STRONG>ferm</STRONG>; they can be used to e.g. clear chains before use, or turn off certain
+sanity checks.
+
+<P>
+Example:
+
+<P>
+<PRE>  option verbose
+</PRE>
+<P>
+This option makes <STRONG>ferm</STRONG> show a lot of information about what it is doing.
+
+
+<P>
+The syntax is very simple, let's start with a simple example:
+
+<P>
+<PRE>    chain input {
+        proto tcp ACCEPT;
+    }
+</PRE>
+<P>
+This will add a rule to the predefined input chain, matching and accepting
+all tcp packets. Ok, let's make it more complicated:
+
+<P>
+<PRE>    chain (input,output) {
+        proto (udp,tcp) ACCEPT;
+    }
+</PRE>
+<P>
+This will insert 4 rules, namely 2 in chain input, and 2 in chain output,
+matching and accepting both udp and tcp packets. Normally you would type
+this for <CODE>ipchains(8):</CODE>
+
+<P>
+<PRE>   ipchains -A input -p tcp ACCEPT
+   ipchains -A output -p tcp ACCEPT
+   ipchains -A input -p udp ACCEPT
+   ipchains -A output -p udp ACCEPT
+</PRE>
+<P>
+Note how much less typing we need to do? :-)
+
+<P>
+Basically, this is all there is to it, although you can make it quite more
+complex. Something to look at:
+
+<P>
+<PRE>   chain input policy ACCEPT {
+       destination 10/8 port ! ftp goto mychain sport :1023 tos 4 settos 8 mark 2;
+       destination 10/8 port ftp DENY;
+   }
+</PRE>
+<P>
+My point here is, that *you* need to make nice rules, keep them readable to
+you and others, and not make it into a mess.
+
+<P>
+It would aid the reader if the resulting firewall rules were placed here
+for reference. Also, you could include the nested version with better
+readability.
+
+<P>
+Try using comments to show what you are doing:
+
+<P>
+<PRE>    # this line enables transparent http-proxying for the internal network:
+    proto tcp if eth0 daddr ! 192.168.0.0/255.255.255.0
+        dport http REDIRECT 3128;
+</PRE>
+<P>
+You will be thankfull for it later!
+
+<P>
+<PRE>    chain input policy ACCEPT {
+        interface (eth0,ppp0) {
+            # deny access to notorius hackers, return here if
+            # no match was found to resume normal firewalling
+            goto badguys;
+</PRE>
+<P>
+<PRE>            protocol tcp goto fw_tcp;
+            protocol udp goto fw_udp;
+        }
+    }
+</PRE>
+<P>
+The more you nest, the better it looks. Make sure the order you specify is
+correct, you would not want to do this:
+
+<P>
+<PRE>    chain forward {
+        proto ! udp DENY;
+        proto tcp dport ftp ACCEPT;
+    }
+</PRE>
+<P>
+because the second rule will never match. Best way is to specify first
+everyting that is allowed, and then deny everything else. Look at the
+examples for more good snapshots. Most people do something like this:
+
+<P>
+<PRE>    proto tcp {
+        dport (
+            ssh http ftp
+        ) ACCEPT;
+        dport 1024:65535 ! syn ACCEPT;
+        DROP;
+    }
+</PRE>
+<P>
+<HR>
+<H2><A NAME="keywords">keywords</A></H2>
+<P>
+To make life easy, <STRONG>ferm</STRONG> allows you to use shorthands for most keywords. 
+<FONT SIZE=-1>A</FONT> list of shorthand notations is available at the end
+of this section.
+
+<P>
+What kind of value you provide for a keyword depends on the keyword
+entirely, e.g. 'protocol' expects 'tcp', 'udp' or 'icmp', 'log-prefix'
+expects a value like '``whoops, someone rang the doorbell''' and
+'destination-port' can accept values like 'http', '80' or '0:1023'. Take a
+look at the kernel backend program manual for possible values and how they
+look like.
+
+<P>
+Note you may put a value in single quotes or double quotes, if this may be
+required because a value contains spaces:
+
+<P>
+<PRE>    log-prefix &quot;Dropped tcp package: &quot;
+</PRE>
+<P>
+Please don't use commas, exclamation commas, exclamation marks,
+parentheses, curly brackets or pipe characters between quotes, <STRONG>ferm</STRONG> doesn't like that.
+
+<DL>
+<DT><STRONG><A NAME="item_chain">chain [chain-name]</A></STRONG><DD>
+<P>
+Specifies a chain that this rule will be inserted to. this is a required
+key for any rule. Chains can be built in, like <CODE>input</CODE>, <CODE>output</CODE> or <CODE>forward</CODE>, or user-defined chains.
+
+<DT><STRONG><A NAME="item_interface">interface [interface-name]</A></STRONG><DD>
+<P>
+Define the interface name, your outside network card, like eth0, or dialup
+like ppp1, or whatever device you want to match for passing packets. It is
+equivalent to the <CODE>-i</CODE> switch in <CODE>ipchains(8)</CODE> and <CODE>iptables(8).</CODE>
+
+<DT><STRONG><A NAME="item_outerface">outerface [interface-name]</A></STRONG><DD>
+<P>
+Same as interface, only for matching the outgoing interface for a packet,
+as in <CODE>iptables(8).</CODE> <CODE>ipchains(8)</CODE> hasn't got this
+parameter.
+
+<DT><STRONG><A NAME="item_protocol">protocol [protocol-name|protocol-number]</A></STRONG><DD>
+<P>
+Currently supported by the kernel are tcp, udp and icmp, or their
+respective numbers.
+
+<DT><STRONG><A NAME="item_port">port [port-spec]</A></STRONG><DD>
+<P>
+Specify a port number, name or range
+
+<DT><STRONG><A NAME="item_addr">addr [address-spec]</A></STRONG><DD>
+<P>
+Specify a network address, a hostname or ip-number.
+
+<DT><STRONG><A NAME="item_source">source|destination</A></STRONG><DD>
+<P>
+Specify that the values provided for <STRONG>port</STRONG> and <STRONG>addr</STRONG>
+above should be either <STRONG>source</STRONG> or &lt;destination&gt; ports and addresses. This works like a toggle, which can be
+left on for the entire configuration file. So, if you say <STRONG>source</STRONG> once, all occurences of <STRONG>port</STRONG> will be <STRONG>source port</STRONG>'s, as well as for addresses.
+
+<DT><STRONG><A NAME="item_saddr">saddr|daddr [address-spec]</A></STRONG><DD>
+<P>
+Specify an address specifically for the <STRONG>source</STRONG> or <STRONG>destination</STRONG>
+side, read it as a shorthand for <STRONG>source address</STRONG> and <STRONG>destination
+address</STRONG>, although it does not 'toggle' the <STRONG>source|destination</STRONG>
+state, which is remembered.
+
+<DT><STRONG><A NAME="item_sport">sport|dport [port-spec]</A></STRONG><DD>
+<P>
+Specify a port number, name or range for the <STRONG>source</STRONG> or <STRONG>destination</STRONG>
+side, read it as a shorthand for <STRONG>source port</STRONG> and <STRONG>destination
+port</STRONG>&gt;, although it does not 'toggle' the <STRONG>source|destination</STRONG>
+state, which is remembered. Ports can be specified for tcp and udp, as well
+as icmp, only in that case it means 'icmp-type' and only works when you
+specify the type numerically.
+
+<P>
+Note that you need to specify a protocol, before you can use ports, that is
+because not all protocols support the ideas of ports.
+
+<P>
+Here are some examples of valid addresses:
+
+<P>
+<PRE>    192.168/8 (identical to the next one:)
+    192.168.0.0/255.255.255.0
+    my.domain.com
+</PRE>
+<P>
+And some examples of valid ports/ranges:
+
+<P>
+<PRE>    80
+    http
+    ssh:http
+    0:1023        which is equivalent to     :1023
+    1023:65535    which is equivalent to     1023:65535
+</PRE>
+<DT><STRONG><A NAME="item_icmptype">icmptype [type]</A></STRONG><DD>
+<P>
+To specify an icmp message type. Can be numbers, but refer to the manual of
+the kernel program to retreive a list, for ipchains use ``ipchains <CODE>-h</CODE> icmp''. Examples: ping, pong.
+
+<DT><STRONG><A NAME="item_tos">tos [value]</A></STRONG><DD>
+<P>
+Matches a packet on the specified TOS-value. See settos for values.
+
+<DT><STRONG><A NAME="item_settos">settos [value]</A></STRONG><DD>
+<P>
+Set the tcp package Type Of Service bit to this value. This will be used by
+whatever traffic scheduler is willing to, mostly your own linux-machine,
+but maybe more. The original tos-bits are blanked and overwritten by this
+value. Possible values are (look in the shorthands for more, and easier
+values) :
+
+<P>
+02 04 08 10
+
+<DT><STRONG><A NAME="item_mark">mark [value]</A></STRONG><DD>
+<P>
+matches packets based on their mark-value
+
+<DT><STRONG><A NAME="item_setmark">setmark [value]</A></STRONG><DD>
+<P>
+Sets the mark-value for a packet, use with the 
+<FONT SIZE=-1>MARK</FONT> target in iptables
+
+<DT><STRONG><A NAME="item_syn">syn</A></STRONG><DD>
+<P>
+Specify that the 
+<FONT SIZE=-1>SYN</FONT> flag in a tcp package should be matched, which are
+used to build new tcp connections. You can identify incoming connections
+with this, and decide wether you want to allow it or not. Packets that do
+not have this flag are probably from an already established connection, so
+it's considered reasonably safe to let these through.
+
+<DT><STRONG><A NAME="item_fragment">fragment</A></STRONG><DD>
+<P>
+Specify that only fragmented 
+<FONT SIZE=-1>IP</FONT> packets should be matched. When packets are larger that the maximum packet size your system can handle (called Maximum Transmission Unit or 
+<FONT SIZE=-1>MTU)</FONT> they will be chopped into bits and sent one by one as single packets. See <CODE>ifconfig(8)</CODE> if you want to find the 
+<FONT SIZE=-1>MTU</FONT> for your system (the default is usually 1500 bytes).
+
+
+<P>
+Fragments are frequently used in 
+<FONT SIZE=-1>DOS</FONT> attacks, because there is no way of finding out
+the origin of a fragment packet.
+
+<DT><STRONG><A NAME="item_policy">policy [policy]</A></STRONG><DD>
+<P>
+Specifies the default policy for the current chain. Can be either of the standard actions 
+<FONT SIZE=-1>(ACCEPT,</FONT> 
+<FONT SIZE=-1>DENY,</FONT> 
+<FONT SIZE=-1>REJECT,</FONT> 
+<FONT SIZE=-1>MASQ</FONT> and 
+<FONT SIZE=-1>REDIRECT).</FONT> 
+<FONT SIZE=-1>A</FONT> packet that matches no rules will be treated as specified by the policy. You can't specify chain names here. Only the predefined (built-in) chains have policies.
+
+
+<P>
+To avoid ambiguity, always specify the policies of all predefined chains
+explicitly.
+
+<DT><STRONG><A NAME="item_log">log</A></STRONG><DD>
+<P>
+Log all packets that match this rule in the kernel log. Be carefull with
+log flooding. Note the difference with <STRONG>LOG</STRONG>
+in iptables! See <STRONG>LOG</STRONG> as well. In iptables, this makes a copy of the current rule, and inserts it with the 
+<FONT SIZE=-1>LOG</FONT> target instead of any other specified target.
+ 
+
+<P>
+See also <STRONG>log-[level|prefix|tcp-sequence|tcp-options|ip-options]</STRONG>
+
+
+
+<DT><STRONG><A NAME="item_goto">goto [chain]</A></STRONG><DD>
+<P>
+Specify that matching packets should jump to this chain, only user defined
+chains are valid jump targets.
+
+<DT><STRONG><A NAME="item_reverse">reverse</A></STRONG><DD>
+<P>
+Instructs the kernel to use this rule twice, the second time with source
+and destination swapped. Unfortunately, this doesn't work with iptables.
+
+<DT><STRONG><A NAME="item_LOG">LOG</A></STRONG><DD>
+<P>
+Identical to the 
+<FONT SIZE=-1>'LOG'</FONT> target in iptables, logs any packet that
+matches, but doesn't do anything else to it. Only valid for iptables,
+otherwise use 'log'. See <STRONG>log</STRONG> and also
+<STRONG>log-[level|prefix|tcp-sequence|tcp-options|ip-options]</STRONG>.
+
+<DT><STRONG><A NAME="item_ACCEPT">ACCEPT</A></STRONG><DD>
+<P>
+Accepts matching packets.
+
+<DT><STRONG><A NAME="item_REJECT">REJECT</A></STRONG><DD>
+<P>
+Rejects matching packets.
+
+<DT><STRONG><A NAME="item_DENY">DENY</A></STRONG><DD>
+<P>
+Denies matching packets.
+
+<DT><STRONG><A NAME="item_MASQ">MASQ [port|portrange]</A></STRONG><DD>
+<P>
+Masquerades matching packets. Optionally followed by a port or port-range
+for iptables. Specify as ``123'', ``123-456'' or ``123:456''. The port
+range parameter specifies what local ports masqueraded connections should
+originate from.
+
+<DT><STRONG><A NAME="item_RETURN">RETURN</A></STRONG><DD>
+<P>
+Returns to the parent chain where the current chain was called if the
+packet matches.
+
+<DT><STRONG><A NAME="item_REDIRECT">REDIRECT [port|portrange]</A></STRONG><DD>
+<P>
+Allows transparent proxying when rule matches, the port that is redirected to must immediately follow this keyword. The target may also be an IP-number in case you are using <CODE>iptables(8),</CODE> so something like 
+<FONT SIZE=-1>``REDIRECT</FONT> 192.168.0.5:21'' is valid there.
+
+
+<DT><STRONG><A NAME="item_SNAT">SNAT|DNAT [ip-address|ip-range|ip-port-range]</A></STRONG><DD>
+<P>
+Allows source/destination address translation, only valid for
+<CODE>iptables(8),</CODE> requires an ip-number, range or ip/port value.
+
+<DT><STRONG><A NAME="item_TOS">TOS</A></STRONG><DD>
+<P>
+Changes the packets TOS-field according to the set-tos parameter specified,
+only valid for iptables.
+
+<DT><STRONG><A NAME="item_table">table [table-name]</A></STRONG><DD>
+<P>
+Selects this table for the rule. Valid table names are ``filter'', ``nat''
+and ``mangle''.
+
+<DT><STRONG><A NAME="item_reject">reject-with [value]</A></STRONG><DD>
+<P>
+Rejects a packet with an 
+<FONT SIZE=-1>ICMP</FONT> value type message.
+
+<DT><STRONG><A NAME="item_limit">limit [value]</A></STRONG><DD>
+<P>
+Limits these type of packets to a maximim.
+
+<DT><STRONG><A NAME="item_burst">burst [value]</A></STRONG><DD>
+<P>
+Limits bursts of these packets.
+
+<DT><STRONG><A NAME="item_mac">mac [value]</A></STRONG><DD>
+<P>
+Matches packets originating from these mac-addresses.
+
+<DT><STRONG><A NAME="item_state">state [value]</A></STRONG><DD>
+<P>
+Matches packets with this state. The value may be specified as a normal ferm-list: 
+<FONT SIZE=-1>``(ESTABLISHED,RELATED)''</FONT> but 
+<FONT SIZE=-1>``NEW:RELATED'',</FONT> and single values are also allowed.
+
+
+<DT><STRONG><A NAME="item_tcp">tcp-flags [!] [flagmask] [flagmatch]</A></STRONG><DD>
+<P>
+Specify tcp-flags, the <STRONG>!</STRONG> is optional and has to precede the mask, mask and match are mandatory. The list of mask or match flags may be specified as a normal ferm-list: 
+<FONT SIZE=-1>``(SYN,ACK,RST)'',</FONT> but 
+<FONT SIZE=-1>``SYN:ACK:RST''</FONT> and single values are also allowed.
+
+
+<DT><STRONG><A NAME="item_tcp">tcp-option [value]</A></STRONG><DD>
+<P>
+Specify a tcp-option for this rule.
+
+<DT><STRONG><A NAME="item_log">log-[level|prefix|tcp-sequence|tcp-options|ip-options] [value]</A></STRONG><DD>
+<P>
+Specifies several extra tcp/ip options.
+
+<DT><STRONG><A NAME="item__u_g_p_s_id_owner">[u|g|p|s]id-owner [value]</A></STRONG><DD>
+<P>
+Matches packets originating from this User, Group, Pid or Session 
+<FONT SIZE=-1>ID.</FONT>
+
+<DT><STRONG><A NAME="item_set">set [name] [value]</A></STRONG><DD>
+<P>
+Set variable ``name'' to value ``value'', you can dereference the variables
+by ``$name''. You may also put variables within <STRONG>set</STRONG> statements.
+
+</DL>
+<P>
+<HR>
+<H1><A NAME="SHORTHANDS">SHORTHANDS</A></H1>
+<P>
+Here's a complete list of possible shorthands, just to reduce the amount of
+typing:
+
+<DL>
+<DT><STRONG><A NAME="item_interface">interface:</A></STRONG><DD>
+<P>
+if
+
+<DT><STRONG><A NAME="item_outerface">outerface:</A></STRONG><DD>
+<P>
+of
+
+<DT><STRONG><A NAME="item_protocol">protocol:</A></STRONG><DD>
+<P>
+proto
+
+<DT><STRONG><A NAME="item_source">source:</A></STRONG><DD>
+<P>
+src
+
+<DT><STRONG><A NAME="item_destination">destination:</A></STRONG><DD>
+<P>
+dest
+
+<DT><STRONG><A NAME="item_fragment">fragment:</A></STRONG><DD>
+<P>
+frag
+
+<DT><STRONG><A NAME="item_ACCEPT">ACCEPT:</A></STRONG><DD>
+<P>
+accept
+
+<DT><STRONG><A NAME="item_DENY">DENY:</A></STRONG><DD>
+<P>
+deny, 
+<FONT SIZE=-1>DROP,</FONT> drop
+
+<DT><STRONG><A NAME="item_REJECT">REJECT:</A></STRONG><DD>
+<P>
+reject
+
+<DT><STRONG><A NAME="item_MASQ">MASQ:</A></STRONG><DD>
+<P>
+masq
+
+<DT><STRONG><A NAME="item_RETURN">RETURN:</A></STRONG><DD>
+<P>
+return
+
+<DT><STRONG><A NAME="item_REDIRECT">REDIRECT:</A></STRONG><DD>
+<P>
+redirect, 
+<FONT SIZE=-1>PROXY,</FONT> proxy
+
+<DT><STRONG><A NAME="item_MARK">MARK:</A></STRONG><DD>
+<P>
+mark
+
+<DT><STRONG><A NAME="item_QUEUE">QUEUE:</A></STRONG><DD>
+<P>
+queue
+
+<DT><STRONG><A NAME="item_SNAT">SNAT:</A></STRONG><DD>
+<P>
+snat
+
+<DT><STRONG><A NAME="item_DNAT">DNAT:</A></STRONG><DD>
+<P>
+dnat
+
+<DT><STRONG><A NAME="item_goto">goto:</A></STRONG><DD>
+<P>
+to, jump
+
+<DT><STRONG>icmptype</STRONG><DD>
+<P>
+icmp-type
+
+<DT><STRONG><A NAME="item_reverse">reverse:</A></STRONG><DD>
+<P>
+bidirectional, swap
+
+<DT><STRONG><A NAME="item_tcp">tcp-option:</A></STRONG><DD>
+<P>
+tcpoption
+
+<DT><STRONG><A NAME="item_mac">mac:</A></STRONG><DD>
+<P>
+mac-source, macsource
+
+<DT><STRONG><A NAME="item_burst">burst:</A></STRONG><DD>
+<P>
+limit-burst, limitburst
+
+<DT><STRONG><A NAME="item_uid">uid-owner:</A></STRONG><DD>
+<P>
+uidowner, uid
+
+<DT><STRONG><A NAME="item_gid">gid-owner:</A></STRONG><DD>
+<P>
+gidowner, gid
+
+<DT><STRONG><A NAME="item_pid">pid-owner:</A></STRONG><DD>
+<P>
+pidowner, pid
+
+<DT><STRONG><A NAME="item_sid">sid-owner:</A></STRONG><DD>
+<P>
+sidowner, sid
+
+<DT><STRONG><A NAME="item_log">log-level:</A></STRONG><DD>
+<P>
+loglev
+
+<DT><STRONG><A NAME="item_log">log-prefix:</A></STRONG><DD>
+<P>
+logprefix
+
+<DT><STRONG><A NAME="item_log">log-tcp-sequence:</A></STRONG><DD>
+<P>
+logseq
+
+<DT><STRONG><A NAME="item_log">log-tcp-options:</A></STRONG><DD>
+<P>
+logtcpopt
+
+<DT><STRONG><A NAME="item_log">log-ip-options:</A></STRONG><DD>
+<P>
+logipopt
+
+<DT><STRONG><A NAME="item_reject">reject-with:</A></STRONG><DD>
+<P>
+rejectwith
+
+<DT><STRONG>setmark</STRONG><DD>
+<P>
+set-mark
+
+<DT><STRONG><A NAME="item_tos">tos/settos-values:</A></STRONG><DD>
+<P>
+The following Type Of Services values may be given:
+
+<P>
+<PRE>    mincost min-cost 2 02 0x02
+</PRE>
+<P>
+<PRE>    reliability reliable 4 04 0x04
+</PRE>
+<P>
+<PRE>    max-throughput maxthroughput 8 08 0x08
+</PRE>
+<P>
+<PRE>    lowdelay interactive min-delay 10 0x10
+</PRE>
+<P>
+<PRE>    clear 0 00 0x00
+</PRE>
+</DL>
+<P>
+<HR>
+<H1><A NAME="OPTIONS">OPTIONS</A></H1>
+<P>
+Options can be specified with the ``option'' keyword, which can be defined
+anywhere within the document. Although that may be fine, you almost allways
+want to define them at the beginning of your document, because the
+behaviour changes at the moment they are specified.
+
+<P>
+All options can also be specified on the command line, which has a few more
+available. The equivalent for the commandline options that are also
+available in the firewall file is mentioned in the firewall file options
+section.
+
+<P>
+<HR>
+<H2><A NAME="Command_line_options">Command line options</A></H2>
+<DL>
+<DT><STRONG><A NAME="item__noexec">--noexec</A></STRONG><DD>
+<P>
+Do not execute the <CODE>ipchains(8)</CODE> or <CODE>iptables(8)</CODE>
+commands, but skip instead. This way you can parse your data, use <STRONG>--lines</STRONG>
+to view the output.
+
+<DT><STRONG><A NAME="item__lines">--lines</A></STRONG><DD>
+<P>
+Show the firewall lines that were generated from the rules. They will be
+shown just before they are executed, so if you get error messages from
+<CODE>ipchains(8)</CODE> etc., you can see which rule caused the error.
+
+<DT><STRONG><A NAME="item__verbose">--verbose</A></STRONG><DD>
+<P>
+Shows some more details of the stages of execution of the program.
+
+<DT><STRONG><A NAME="item__relaxed">--relaxed</A></STRONG><DD>
+<P>
+Do not fuzz about errors, instead continue and let <CODE>ipchains(8)</CODE>
+etc. give errors back.
+
+<DT><STRONG><A NAME="item__help">--help</A></STRONG><DD>
+<P>
+Show a brief list of available commandline options.
+
+<DT><STRONG><A NAME="item__version">--version</A></STRONG><DD>
+<P>
+Shows the version number of the program.
+
+<DT><STRONG><A NAME="item__use">--use [ipchains|iptables|ipfwadm]</A></STRONG><DD>
+<P>
+Use this kernel program to implement the rules into the kernel. Also
+available as firewall file option ``option [...]''. This option must be
+set, either on the commandline or in a ferm config file.
+
+<DT><STRONG><A NAME="item__automod">--automod</A></STRONG><DD>
+<P>
+Automatically insert the correct module parameter when using iptables,
+making the <STRONG>module</STRONG> parameter unnecessary
+
+</DL>
+<P>
+<HR>
+<H2><A NAME="Firewall_file_options">Firewall file options</A></H2>
+<DL>
+<DT><STRONG><A NAME="item_option">option clearall</A></STRONG><DD>
+<P>
+Clears the entire firewall, deletes all user chains and flushes the built
+in chains. Does not alter policies.
+
+<DT><STRONG>option flushall</STRONG><DD>
+<P>
+Flushes all chains but does not delete them.
+
+<DT><STRONG>option flushchains</STRONG><DD>
+<P>
+Flushes any chain which is defined in the setup, even built-in chains are
+flushed when referred.
+
+<DT><STRONG>option createchains</STRONG><DD>
+<P>
+Creates any chain which is referred to, even when no rule is specified for
+the chain, but is only referred by with a ``goto'' keyword.
+
+<DT><STRONG>option automod</STRONG><DD>
+<P>
+Automatically insert the correct module parameter when using iptables,
+making the <STRONG>module</STRONG> parameter unnecessary
+
+<DT><STRONG>option relaxed</STRONG><DD>
+<P>
+Makes the program not whining over serious errors, although that's not very
+handy because it will fail to install the rules.
+
+<DT><STRONG>option [iptables|ipchains|ipfwadm]</STRONG><DD>
+<P>
+Define which kernel program you have to use to install rules. This one is
+required, since on some systems, they can both be present, or you want to
+use a wrapper for an older version. Currently defaults to ipchains.
+
+</DL>
+<P>
+<HR>
+<H1><A NAME="SEE_ALSO">SEE ALSO</A></H1>
+<P>
+<CODE>ipchains(8),</CODE> <CODE>ipfwadm(8),</CODE> <CODE>iptables(8)</CODE>
+
+<P>
+<HR>
+<H1><A NAME="NOTES">NOTES</A></H1>
+<P>
+
+<FONT SIZE=-1>A</FONT> good firewall is not the only step in security, even the firewall may be insecure, or someone breaks into your house and steals the hard disk out of your 
+<FONT SIZE=-1>PC.</FONT> Do not rely on this firewall tool for the use of mission critical or confidential data. It is not fit for such a purpose!
+
+
+<P>
+Instead, use this tool to expand your current use of <CODE>ipchains(8)</CODE> and routing, create a flexible firewall and look out for anything suspicious. Be carefull with open ports and servers, always get the latest, patched versions. Read more about firewalls before experimenting, you are warned! You might also read the 
+<FONT SIZE=-1>COPYING</FONT> file provided with the package or visit www.gnu.org to find more about the license.
+
+
+<P>
+<HR>
+<H1><A NAME="EXAMPLES">EXAMPLES</A></H1>
+<P>
+The package comes with a directory full of goodies (examples) that you can
+try, adjust for your system or just read if you want to understand the
+syntax and it's possibilities. Look in the ``examples'' directory.
+
+<P>
+<HR>
+<H1><A NAME="REQUIREMENTS">REQUIREMENTS</A></H1>
+<P>
+<HR>
+<H2><A NAME="Operating_system">Operating system</A></H2>
+<P>
+The Operating system currently supported is only linux, although it may be possible to port this program to support FreeBSD or 
+<FONT SIZE=-1>SOLARIS</FONT> firewall systems, provided they supply a similar firewalling scheme. (Does anybody known about that?)
+
+
+<P>
+<HR>
+<H2><A NAME="Software_packages">Software/packages</A></H2>
+<P>
+Required are 2 packages: Perl5, under which this <STRONG>ferm</STRONG>
+runs, and one of the kernel firewall programs, suited for your system and
+kernel version.
+
+<P>
+<HR>
+<H2><A NAME="Kernel">Kernel</A></H2>
+<P>
+The respective required kernel versions for each of the kernel firewall
+programs (ipchains(8), <CODE>ipfwadm(8)</CODE> or <CODE>iptables(8))</CODE>
+is also needed. This means you have to have a kernel which can use the
+firewalling thing, something you might have to compile a kernel for, or set
+some switches in /proc. Look at the man pages of those kernel programs for
+more information.
+
+<P>
+<HR>
+<H1><A NAME="RESTRICTIONS">RESTRICTIONS</A></H1>
+<P>
+<STRONG>ferm</STRONG> allows almost anything the used firewall program allows, so go ahead and
+specify complex port ranges, icmp by number or worse. Just be warned.
+
+<P>
+Although quite sophisticated, the kernel interface programs
+<CODE>ipchains(8)</CODE> and <CODE>iptables(8)</CODE> are very limited in
+some respects.
+<STRONG>ferm</STRONG> is only an interface to improve the handling of these programs, and is
+therefore limited by the possibilities of these programs.
+
+<P>
+<CODE>Ipfwadm(8)</CODE> is extremely limited in rule-building, upgrade or
+succomb in it. Nothing <STRONG>ferm</STRONG> can do about it.
+
+<P>
+<HR>
+<H1><A NAME="BUGS">BUGS</A></H1>
+<P>
+The <CODE>ipfwadm(8)</CODE> interface is really limited due to being unable
+to test it and having no experience with it at all. I'll be concentration
+on <CODE>iptables(8),</CODE> which supports much more options and will be
+quite more flexible.
+
+<P>
+Several nasty cleanups are not done well, which may result in surviving
+data. Tried to remove all of them but suspect more of them to occur.
+
+<P>
+The --log-prefix construct does not allow certain characters to be put
+between ``''. Make sure you don't use the bracket {} and [] characters, the
+! and , are also not correctly parsed.
+
+<P>
+<HR>
+<H1><A NAME="TODO">TODO</A></H1>
+<P>
+* Improve <CODE>ipfwadm(8)</CODE> handling or removing it altogether
+
+<P>
+* Add more examples, with modularized snipplets (include option)
+
+<P>
+* Make rpm's for 
+<FONT SIZE=-1>RH</FONT> and SuSE, or better: get you to do that!
+
+<P>
+* Review the second half of the manual page
+
+<P>
+* Make ferm bug you more about errors, i.e. increase validity checking to
+high levels
+
+<P>
+<HR>
+<H1><A NAME="COPYRIGHT">COPYRIGHT</A></H1>
+<P>
+Copyright 
+<FONT SIZE=-1>(C)</FONT> 2001, Auke Kok &lt;<A
+HREF="mailto:koka@geo.vu.nl">koka@geo.vu.nl</A>&gt;
+
+<P>
+<HR>
+<H1><A NAME="LICENSE">LICENSE</A></H1>
+<P>
+<STRONG>ferm</STRONG> is released under the Gnu Public License, see the 
+<FONT SIZE=-1>COPYING</FONT> file that came with the package or visit
+www.gnu.org.
+
+<P>
+This is free software; see the source for copying conditions. There is 
+<FONT SIZE=-1>NO</FONT> warranty; not even for 
+<FONT SIZE=-1>MERCHANTABILITY</FONT> or 
+<FONT SIZE=-1>FITNESS</FONT> 
+<FONT SIZE=-1>FOR</FONT> 
+<FONT SIZE=-1>A</FONT> 
+<FONT SIZE=-1>PARTICULAR</FONT> 
+<FONT SIZE=-1>PURPOSE.</FONT>
+
+
+<P>
+<HR>
+<H1><A NAME="AUTHOR">AUTHOR</A></H1>
+<P>
+Auke Kok (<A HREF="mailto:koka@geo.vu.nl">koka@geo.vu.nl</A>)
+
+</BODY>
+
+</HTML>

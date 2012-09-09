@@ -156,7 +156,7 @@ better readability.</p>
 <pre>
     # this line enables transparent http-proxying for the internal network:
     proto tcp if eth0 daddr ! 192.168.0.0/255.255.255.0
-        dport http REDIRECT 3128;</pre>
+        dport http REDIRECT to-ports 3128;</pre>
 <p>You will be thankful for it later!</p>
 <pre>
     chain INPUT {
@@ -2229,7 +2229,7 @@ used by your firewall script</p>
 </p>
 <hr />
 <h1><a name="copyright">COPYRIGHT</a></h1>
-<p>Copyright (C) 2001-2007 Auke Kok &lt;<a href="mailto:sofar@foo-projects.org">sofar@foo-projects.org</a>&gt;, Max
+<p>Copyright (C) 2001-2008 Auke Kok &lt;<a href="mailto:sofar@foo-projects.org">sofar@foo-projects.org</a>&gt;, Max
 Kellermann &lt;<a href="mailto:max@foo-projects.org">max@foo-projects.org</a>&gt;</p>
 <p>This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by

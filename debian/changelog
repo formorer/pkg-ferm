@@ -1,3 +1,12 @@
+ferm (2.1.1-1) experimental; urgency=low
+
+  * [c95a63e] Add vcs fields to controlfile
+  * [60e8141] Imported Upstream version 2.1.1
+              - Add support for TPROXY target
+                (Closes: #682728)
+
+ -- Alexander Wirt <formorer@debian.org>  Sun, 09 Sep 2012 16:46:45 +0200
+
 ferm (2.1-2) unstable; urgency=low
 
   [ great debian l10n teams ]

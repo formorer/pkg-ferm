@@ -1,0 +1,1135 @@
+#
+# ferm pod manual file
+#
+
+#
+# ferm, a firewall setup program that makes firewall rules easy!
+#
+# Copyright (C) 2001-2005  Auke Kok, Max Kellermann
+#
+# Comments, questions, greetings and additions to this program
+# may be sent to <ferm@foo-projects.org>
+#
+
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+#
+
+=head1 NAME
+
+B<ferm> - a firewall rule parser for linux
+
+=head1 SYNOPSIS
+
+B<ferm> I<options> I<inputfile>
+
+=head1 DESCRIPTION
+
+B<ferm> is a frontend for B<iptables>. It reads the rules from a
+structured configuration file and calls iptables(8) to insert them
+into the running kernel.
+
+B<ferm>'s goal is to make firewall rules easy to write and easy to
+read. It tries to reduce the tedious task of writing down rules, thus
+enabling the firewall administrator to spend more time on developing
+good rules than the proper implementation of the rule.
+
+To achieve this, B<ferm> uses a simple but powerful configuration
+language, which allows variables, functions, arrays, blocks. It also
+allows you to include other files, allowing you to create libraries of
+commonly used structures and functions.
+
+B<ferm>, pronounced "firm", stands for "For Easy Rule Making".
+
+=head1 INTRODUCTION
+
+Let's start with a simple example:
+
+    chain INPUT {
+        proto tcp ACCEPT;
+    }
+
+This will add a rule to the predefined input chain, matching and
+accepting all tcp packets.  Ok, let's make it more complicated:
+
+    chain (INPUT OUTPUT) {
+	proto (udp tcp) ACCEPT;
+    }
+
+This will insert 4 rules, namely 2 in chain input, and 2 in chain
+output, matching and accepting both udp and tcp packets.  Normally you
+would type this:
+
+   iptables -A INPUT -p tcp -j ACCEPT
+   iptables -A OUTPUT -p tcp -j ACCEPT
+   iptables -A INPUT -p udp -j ACCEPT
+   iptables -A OUTPUT -p udp -j ACCEPT
+
+Note how much less typing we need to do? :-)
+
+Basically, this is all there is to it, although you can make it quite
+more complex. Something to look at:
+
+   chain INPUT policy ACCEPT {
+       daddr 10/8 dport ! ftp goto mychain sport :1023 TOS 4 settos 8 mark 2;
+       daddr 10/8 dport ftp DENY;
+   }
+
+My point here is, that *you* need to make nice rules, keep
+them readable to you and others, and not make it into a mess.
+
+It would aid the reader if the resulting firewall rules were placed
+here for reference. Also, you could include the nested version with
+better readability.
+
+Try using comments to show what you are doing:
+
+    # this line enables transparent http-proxying for the internal network:
+    proto tcp if eth0 daddr ! 192.168.0.0/255.255.255.0
+        dport http REDIRECT 3128;
+
+You will be thankful for it later!
+
+    chain INPUT policy ACCEPT {
+        interface (eth0,ppp0) {
+            # deny access to notorius hackers, return here if no match
+            # was found to resume normal firewalling
+            goto badguys;
+
+            protocol tcp goto fw_tcp;
+            protocol udp goto fw_udp;
+        }
+    }
+
+The more you nest, the better it looks. Make sure the order you
+specify is correct, you would not want to do this:
+
+    chain FORWARD {
+        proto ! udp DENY;
+        proto tcp dport ftp ACCEPT;
+    }
+
+because the second rule will never match. Best way is to specify
+first everyting that is allowed, and then deny everything else.
+Look at the examples for more good snapshots. Most people do
+something like this:
+
+    proto tcp {
+        dport (
+            ssh http ftp
+        ) ACCEPT;
+        dport 1024:65535 ! syn ACCEPT;
+        DROP;
+    }
+
+=head1 STRUCTURE OF A FIREWALL FILE
+
+The structure of a proper firewall file looks like  simplified
+C-code. Only a few syntactic characters are used in ferm-
+configuration files. Besides these special caracters, ferm
+uses 'keys' and 'values', think of them as options and
+parameters, or as variables and values, whatever.
+
+With these words, you define the characteristics of your firewall.
+Every firewall consists of two things: First, look if network
+traffic matches certain conditions, and second, what to do
+with that traffic.
+
+You may specify conditions that are valid for the kernel
+interface program you are using, probably iptables(8). For
+instance, in iptables, when you are trying to match tcp
+packets, you would say:
+
+    iptables --protocol tcp
+
+In ferm, this will become:
+
+    protocol tcp;
+
+Just typing this in ferm doesn't do anything, you need to tell
+ferm (actually, you need to tell iptables(8) and the kernel) what
+to do with any traffic that matches this condition:
+
+    iptables --protocol tcp -j ACCEPT
+
+Or, translated to B<ferm>:
+
+    protocol tcp ACCEPT;
+
+The B<;> character is at the end of every ferm rule. Ferm ignores line
+breaks, meaning the above example is identical to the following:
+
+    protocol tcp
+      ACCEPT;
+
+Here's a list of the special characters:
+
+=over 8
+
+=item B<;>
+
+This character finalizes a rule.
+
+Separated by semicolons, you may write multiple rules in one line,
+although this decreases readability:
+
+    protocol tcp ACCEPT; protocol udp DROP;
+
+=item B<{}>
+
+The nesting symbol defines a 'block' of rules.
+
+The curly brackets contain any number of nested rules. All matches
+before the block are carried forward to these.
+
+The closing curly bracket finalizes the rule set. You should not write
+a ';' after that, because that would be an empty rule.
+
+Example:
+
+    chain INPUT proto icmp {
+        icmp-type echo-request ACCEPT;
+        DROP;
+    }
+
+This block shows two rules inside a block, which will both be merged
+with anything in front of it, so you will get two rules:
+
+    iptables -A INPUT -p icmp --icmp-type echo-request -j ACCEPT
+    iptables -A INPUT -p icmp -j DROP
+
+There can be multiple nesting levels:
+
+    chain INPUT {
+        proto icmp {
+            icmp-type echo-request ACCEPT;
+            DROP;
+        }
+        daddr 172.16.0.0/12 REJECT;
+    }
+
+Note that the 'REJECT' rule is not affected by 'proto icmp', although
+there is no ';' after the closing curly brace. Translated to iptables:
+
+    iptables -A INPUT -p icmp --icmp-type echo-request -j ACCEPT
+    iptables -A INPUT -p icmp -j DROP
+    iptables -A INPUT -d 172.16.0.0/12 -j REJECT
+
+=item B<$>
+
+Variable expansion. Replaces '$FOO' by the value of the variable. See
+the section I<VARIABLES> for details.
+
+=item B<&>
+
+Function call. See the section I<FUNCTIONS> for details.
+
+=item B<()>
+
+The array symbol. Using the parentheses, you can define
+a 'list' of values that should be applied for the key to the
+left of it.
+
+Example:
+
+    protocol ( tcp udp icmp )
+
+this will result in three rules:
+
+    ... -p tcp ...
+    ... -p udp ...
+    ... -p icmp ...
+
+Only values can be 'listed', so you cannot do something like this:
+
+    proto tcp ( ACCEPT LOG );
+
+but you can do this:
+
+    chain (INPUT OUTPUT FORWARD) proto (icmp udp tcp) DENY;
+
+(which will result in nine rules!)
+
+Values are separated by spaces. The array symbol is both left- and
+right-associative, in contrast with the nesting block, which is
+left-associative only.
+
+=item C< # >
+
+The comment symbol. Anything that follows this symbol up to
+the end of line is ignored.
+
+=item C<`command`>
+
+Execute the command in a shell, and insert the process output. See the
+section I<BACKTICKS> for details.
+
+=back
+
+
+=head2 Keywords
+
+In the previous section, we already introduced some basic keywords
+like "chain", "protocol" and "ACCEPT". Let's explore their nature.
+
+There are three kinds of keywords:
+
+=over 8
+
+=item
+
+B<location> keywords define where a rule will be created. Example:
+"table", "chain".
+
+=item
+
+B<match> keywords perform a test on all passing packets. The current
+rule is without effect if one (or more) of the matches does not
+pass. Example: "proto", "daddr".
+
+Most matches are followed by a parameter: "proto tcp", "daddr
+172.16.0.0/12".
+
+=item
+
+B<target> keywords state what to do with a packet. Example: "ACCEPT",
+"REJECT", "goto".
+
+Some targets define more keywords to specify details: "REJECT
+reject-with icmp-net-unreachable".
+
+=back
+
+Every rule consists of a B<location> and a B<target>, plus any number
+of B<matches>:
+
+    table filter                  # location
+    proto tcp dport (http https)  # match
+    ACCEPT;                       # target
+
+Strictly speaking, there is a fourth kind: B<ferm> keywords (which
+control ferm's internal behaviour), but they will be explained later.
+
+
+=head2 Parameters
+
+Many keywords take parameters. These can be specified as literals,
+variable references or lists (arrays):
+
+    proto udp
+    saddr %TRUSTED_HOSTS;
+    proto tcp dport (http https ssh);
+    LOG log-prefix "funky wardriver alert: ";
+
+Some of them can be negated (lists cannot be negated):
+
+    proto !esp;
+    proto udp dport !domain;
+
+Keywords which take no parameters are negated by a prefixed '!':
+
+    proto tcp !syn;
+
+Read iptables(8) to see where the B<!> can be used.
+
+
+=head2 Option keys
+
+Using B<option> keys alter the behaviour of B<ferm>; they
+can be used to e.g. clear chains before use, or turn off certain
+sanity checks.
+
+Example:
+
+  option verbose
+
+This option makes B<ferm> show a lot of information about what
+it is doing.
+
+
+=head1 BASIC KEYWORDS
+
+
+=head2 Location keywords
+
+=over 8
+
+=item B<domain [ip|ip6]>
+
+Set the domain. "ip" is default and means "IPv4" (iptables). "ip6" is
+for IPv6 support, using "ip6tables".
+
+=item B<table [filter|nat|mangle]>
+
+Specifies which netfilter table this rule will be inserted to:
+"filter" (default), "nat" or "mangle".
+
+=item B<chain [chain-name]>
+
+Specifies the netfilter chain (within the current table) this rule
+will be inserted to. Common predefined chain names are "INPUT",
+"OUTPUT", "FORWARD", "PREROUTING", "POSTROUTING", depending on the
+table. See the netfilter documentation for details.
+
+If you specify a non-existing chain here, ferm will add the rule to a
+custom chain with that name.
+
+=item B<policy [ACCEPT|DROP|..]>
+
+Specifies the default policy for the current chain (built-in
+only). Can be one of the built-in targets (ACCEPT, DROP, REJECT,
+...). A packet that matches no rules in a chain will be treated as
+specified by the policy.
+
+To avoid ambiguity, always specify the policies of all predefined
+chains explicitly.
+
+=back
+
+
+=head2 Basic match keywords
+
+=over 8
+
+=item B<interface [interface-name]>
+
+Define the interface name, your outside network card, like eth0,
+or dialup like ppp1, or whatever device you want to match for
+passing packets. It is equivalent to the C<-i> switch in
+iptables(8).
+
+=item B<outerface [interface-name]>
+
+Same as interface, only for matching the outgoing interface
+for a packet, as in iptables(8).
+
+=item B<protocol [protocol-name|protocol-number]>
+
+Currently supported by the kernel are tcp, udp and icmp, or
+their respective numbers.
+
+=item B<saddr|daddr [address-spec]>
+
+Matches on packets originating from the specified address (saddr) or
+targeted at the address (daddr).
+
+Examples:
+
+    saddr 192.168/8; # (identical to the next one:)
+    saddr 192.168.0.0/255.255.255.0;
+    daddr my.domain.com;
+
+=item B<fragment>
+
+Specify that only fragmented IP packets should be matched.
+When packets are larger that the maximum packet size your
+system can handle (called Maximum Transmission Unit or MTU)
+they will be chopped into bits and sent one by one as single
+packets. See ifconfig(8) if you want to find the MTU for
+your system (the default is usually 1500 bytes).
+
+Fragments are frequently used in DOS attacks, because there
+is no way of finding out the origin of a fragment packet.
+
+=item B<sport|dport [port-spec]>
+
+Matches on packets on the specified TCP or UDP port. "sport" matches
+the source port, and dport matches the destination port.
+
+This match can be used only after you specified "protocol tcp" or
+"protocol udp", because only these two protocols actually have ports.
+
+And some examples of valid ports/ranges:
+
+    dport 80;
+    dport http;
+    dport ssh:http;
+    dport 0:1023; # equivalent to :1023
+    dport 1023:65535;
+
+=item B<icmp-type [type]>
+
+To specify an icmp message type. Only available after "protocol icmp".
+
+Can be numbers, but refer to the manual of the kernel program to
+retreive a list, for iptables use "iptables -p icmp C<-h>". Examples:
+ping, pong.
+
+=item B<syn>
+
+Specify that the SYN flag in a tcp package should be matched,
+which are used to build new tcp connections. You can identify
+incoming connections with this, and decide wether you want
+to allow it or not. Packets that do not have this flag are
+probably from an already established connection, so it's
+considered reasonably safe to let these through.
+
+=item B<module [module-name]>
+
+Load an iptables module. Most modules provide more match
+keywords. We'll get to that later.
+
+=back
+
+
+=head2 Basic target keywords
+
+=over 8
+
+=item B<goto [custom-chain-name]>
+
+Jumps to a custom chain. If no rule in the custom chain matched,
+netfilter returns to the next rule in the previous chain.
+
+=item B<ACCEPT>
+
+Accepts matching packets.
+
+=item B<DROP>
+
+Drop matching packets without further notice.
+
+=item B<REJECT>
+
+Rejects matching packets, i.e. send an ICMP packet to the sender,
+which is port-unreachable by default. You may specify another ICMP
+type.
+
+    REJECT; # default to icmp-port-unreachable
+    REJECT reject-with icmp-net-unreachable;
+
+Type "iptables -j REJECT -h" for details.
+
+=item B<RETURN>
+
+Finish the current chain and return to the calling chain (if "goto
+[custom-chain-name]" was used).
+
+=back
+
+
+=head1 ADDITIONAL KEYWORDS
+
+Netfilter is modular. Modules may provide additional targets and match
+keywords. The list of netfilter modules is constantly growing, and
+ferm tries to keep up with supporting them all. This chapter describes
+modules which are currently supported.
+
+
+=head2 Netfilter match modules
+
+=over 8
+
+=item B<addrtype>
+
+Check the address type; either source address or destination address.
+
+    mod addrtype src-type BROADCAST;
+    mod addrtype dst-type LOCAL;
+
+Type "iptables -m addrtype -h" for details.
+
+=item B<ah>
+
+Checks the SPI header in an AH packet.
+
+    mod ah ahspi 0x101;
+    mod ah ahspi ! 0x200:0x2ff;
+
+=item B<connmark>
+
+Check the mark field associated with the connection, set by the
+CONNMARK target.
+
+    mod connmark mark 64;
+    mod connmark mark 6/7;
+
+=item B<conntrack>
+
+Check connection tracking information.
+
+    mod conntrack ctstate (ESTABLISHED RELATED);
+    mod conntrack ctproto tcp;
+    mod conntrack ctorigsrc 192.168.0.2;
+    mod conntrack ctorigdst 1.2.3.0/24;
+    mod conntrack ctreplsrc 2.3.4.5;
+    mod conntrack ctrepldst ! 3.4.5.6;
+    mod conntrack ctstatus ASSURED;
+    mod conntrack ctexpire 60;
+    mod conntrack ctexpire 180:240;
+
+Type "iptables -m conntrack -h" for details.
+
+=item B<dscp>
+
+Match the 6 bit DSCP field within the TOS field.
+
+    mod dscp dscp 11;
+    mod dscp dscp-class AF41;
+
+=item B<ecn>
+
+Match the ECN bits of an IPv4 TCP header.
+
+    mod ecn ecn-tcp-cwr;
+    mod ecn ecn-tcp-ece;
+    mod ecn ecn-ip-ect 2;
+
+Type "iptables -m ecn -h" for details.
+
+=item B<esp>
+
+Checks the SPI header in an ESP packet.
+
+    mod esp espspi 0x101;
+    mod esp espspi ! 0x200:0x2ff;
+
+=item B<helper>
+
+Checks which conntrack helper module tracks this connection.  The port
+may be specified with "-portnr".
+
+    mod helper helper irc;
+    mod helper helper ftp-21;
+
+=item B<iprange>
+
+Match a range of IPv4 addresses.
+
+    mod iprange src-range 192.168.2.0-192.168.3.255;
+    mod iprange dst-range ! 192.168.6.0-192.168.6.255;
+
+=item B<length>
+
+Check the package length.
+
+    mod length length 128; # exactly 128 bytes
+    mod length length 512:768; # range
+
+=item B<limit>
+
+Limits the packet rate.
+
+    mod limit limit 1/second;
+    mod limit limit 15/minute limit-burst 10;
+
+Type "iptables -m limit -h" for details.
+
+=item B<mac>
+
+Match the source MAC address.
+
+    mod mac mac-source 01:23:45:67:89;
+
+=item B<mark>
+
+Matches packets based on their netfilter mark field. This may be a 32
+bit integer between 0 and 4294967295.
+
+    mod mark mark 42;
+
+=item B<multiport>
+
+Match a set of source or destination ports (UDP and TCP only).
+
+    mod multiport source-ports (https ftp);
+    mod multiport destination-ports (mysql domain);
+
+This rule has a big advantage over "dport" and "sport": it generates
+only one rule for up to 15 ports instead of one rule for every port.
+
+=item B<nth>
+
+Match every 'n'th packet.
+
+    mod nth every 3;
+    mod nth counter 5 every 2;
+    mod nth start 2 every 3;
+    mod nth start 5 packet 2 every 6;
+
+Type "iptables -m nth -h" for details.
+
+=item B<owner>
+
+Check information about the packet creator, namely user id, group id,
+process id, session id and command name.
+
+    mod owner uid-owner 0;
+    mod owner gid-owner 1000;
+    mod owner pid-owner 5432;
+    mod owner sid-owner 6543;
+    mod owner cmd-owner "sendmail";
+
+=item B<physdev>
+
+Matches the physical device on which a packet entered or is about to
+leave the machine. This is useful for bridged interfaces.
+
+    mod physdev physdev-in ppp1;
+    mod physdev physdev-out eth2;
+    mod physdev physdev-is-in;
+    mod physdev physdev-is-out;
+    mod physdev physdev-is-bridged;
+
+=item B<pkttype>
+
+Check the link-layer packet type.
+
+    mod pkttype pkt-type unicast;
+    mod pkttype pkt-type broadcase;
+    mod pkttype pkt-type multicast;
+
+=item B<random>
+
+Match a random percentage of all packets.
+
+    mod random average 70;
+
+=item B<realm>
+
+Match the routing realm. Useful in environments using BGP.
+
+    mod realm realm 3;
+
+=item B<recent>
+
+Temporarily mark source IP addresses.
+
+    mod recent set;
+    mod recent rcheck seconds 60;
+    mod recent set rsource name "badguy";
+    mod recent set rdest;
+    mod recent rcheck rsource name "badguy" seconds 60;
+    mod recent update seconds 120;
+
+This netfilter module has a design flaw: although it is implemented as
+a match module, it has target-like behaviour when using the "set"
+keyword.
+
+L<http://snowman.net/projects/ipt_recent/>
+
+=item B<state>
+
+Checks the connection tracking state.
+
+    mod state state INVALID DROP;
+    mod state state (ESTABLISHED RELATED) ACCEPT;
+
+Type "iptables -m state -h" for details.
+
+=item B<tcp>
+
+Checks TCP specific attributes. This module is automatically loaded
+when you use "protocol tcp".
+
+    proto tcp sport 1234;
+    proto tcp dport 2345;
+    proto tcp tcp-flags SYN,ACK SYN;
+    proto tcp tcp-flags ! SYN,ACK SYN;
+    proto tcp syn;
+    proto tcp tcp-option 2;
+    proto tcp mss 512;
+
+Type "iptables -p tcp -h" for details.
+
+=item B<time>
+
+Check if the time a packet arrives is in given range.
+
+    mod time timestart 12:00;
+    mod time timestop 13:30;
+    mod time days (Mon Wed Fri);
+    mod time datestart 2005:01:01;
+    mod time datestart 2005:01:01:23:59:59;
+    mod time datestop 2005:04:01;
+
+Type "iptables -m time -h" for details.
+
+=item B<tos>
+
+Matches a packet on the specified TOS-value.
+
+    mod tos tos Minimize-Cost;
+
+Type "iptables -m tos -h" for details.
+
+=item B<ttl>
+
+Matches the ttl (time to live) field in the IP header.
+
+    mod ttl ttl-eq 12; # ttl equals
+    mod ttl ttl-gt 10; # ttl greater than
+    mod ttl ttl-lt 16; # ttl less than
+
+=item B<unclean>
+
+Matches packets which seem malformed or unusual. This match has no
+further parameters.
+
+=back
+
+
+=head2 Netfilter target modules
+
+The following additional targets are available in ferm, provided that
+you enabled them in your kernel:
+
+=over 8
+
+=item B<DNAT to [ip-address|ip-range|ip-port-range]>
+
+Change the destination address of the packet.
+
+    DNAT to 10.0.0.4;
+    DNAT to 10.0.0.4:80;
+    DNAT to 10.0.0.4:1024-2048;
+    DNAT to 10.0.1.1-10.0.1.20;
+
+=item B<LOG>
+
+Log all packets that match this rule in the kernel log. Be carefull
+with log flooding. Note that this is a "non-terminating target",
+i.e. rule traversal continues at the next rule.
+
+    LOG log-level warning log-prefix "Look at this: ";
+    LOG log-tcp-sequence log-tcp-options;
+    LOG log-ip-options;
+
+=item B<MARK>
+
+Sets the netfilter mark field for the packet (a 32 bit integer between
+0 and 4294967295):
+
+    MARK set-mark 42;
+
+=item B<MASQUERADE>
+
+Masquerades matching packets. Optionally followed by a port or
+port-range for iptables. Specify as "123", "123-456" or "123:456".
+The port range parameter specifies what local ports masqueraded
+connections should originate from.
+
+    MASQUERADE;
+    MASQUERADE to-ports 1234:2345;
+
+=item B<REDIRECT to-ports [ports]>
+
+Transparent proxying: alter the destination IP of the packet to the
+machine itself.
+
+    proto tcp dport http REDIRECT to-ports 3128;
+
+=item B<SNAT to [ip-address|ip-range|ip-port-range]>
+
+Change the source address of the packet.
+
+    SNAT to 1.2.3.4;
+    SNAT to 1.2.3.4:20000-30000;
+
+=item B<TOS set-tos [value]>
+
+Set the tcp package Type Of Service bit to this value.  This will be
+used by whatever traffic scheduler is willing to, mostly your own
+linux-machine, but maybe more. The original tos-bits are blanked and
+overwritten by this value.
+
+    TOS set-tos Maximize-Throughput;
+
+Type "iptables -j TOS -h" for details.
+
+=item B<TTL>
+
+Modify the TTL header field.
+
+    TTL ttl-set 16;
+    TTL ttl-dec 1; # decrease by 1
+    TTL ttl-inc 4; # increase by 4
+
+=back
+
+=head1 ADVANCED FEATURES
+
+=head2 Variables
+
+In complex firewall files, it is helpful to use variables, e.g. to
+give a network interface a meaningful name.
+
+To set variables, write:
+
+    def $DEV_INTERNET = eth0;
+    def $PORTS = (http ftp);
+    def $MORE_PORTS = ($PORTS 8080);
+
+In the real ferm code, variables are used like any other keyword
+parameter:
+
+    chain INPUT interface $DEV_INTERNET proto tcp dport $MORE_PORTS ACCEPT;
+
+Note that variables can only be used in keyword parameters
+("192.168.1.1", "http"); they cannot contain ferm keywords like
+"proto" or "interface".
+
+Variables are only valid in the current block:
+
+    def $DEV_INTERNET = eth1;
+    chain INPUT {
+        proto tcp {
+            def $DEV_INTERNET = ppp0;
+            interface $DEV_INTERNET dport http ACCEPT;
+        }
+        interface $DEV_INTERNET DROP;
+    }
+
+will be expanded to:
+
+    chain INPUT {
+        proto tcp {
+            interface ppp0 dport http ACCEPT;
+        }
+        interface eth1 DROP;
+    }
+
+The "def $DEV_INTERNET = ppp0" is only valid in the "proto tcp" block;
+the parent block still knows "set $DEV_INTERNET = eth1".
+
+Include files are special - variables declared in an included file are
+still available in the calling block. This is useful when you include
+a file which only declares variables.
+
+=head2 Automatic variables
+
+Some variables are set internally by ferm. Ferm scripts can use them
+just like any other variable.
+
+=over 8
+
+=item B<$DOMAIN>
+
+The current domain. "ip" or "ip6".
+
+=item B<$TABLE>
+
+The current netfilter table.
+
+=item B<$CHAIN>
+
+The current netfilter chain.
+
+=back
+
+=head2 Functions
+
+Functions are similar to variables, except that they may have
+parameters, and they provide ferm commands, not values.
+
+    def &FOO() = proto (tcp udp) dport domain;
+    &FOO() ACCEPT;
+
+    def &TCP_TUNNEL($port, $dest) = {
+        table filter chain FORWARD interface ppp0 proto tcp dport $port daddr $dest outerface eth0 ACCEPT;
+        table nat chain PREROUTING interface ppp0 proto tcp dport $port daddr 1.2.3.4 DNAT to $dest;
+    }
+
+    &TCP_TUNNEL(http, 192.168.1.33);
+    &TCP_TUNNEL(ftp, 192.168.1.30);
+    &TCP_TUNNEL((ssh smtp), 192.168.1.2);
+
+A function call which contains a block (like '{...}') must be the last
+command in a ferm rule, i.e. it must be followed by ';'. The '&FOO()'
+example does not contain a block, thus you may write 'ACCEPT' after
+the call. To circumvent this, you can reorder the keywords:
+
+    def &IPSEC() = { proto (esp ah); proto udp dport 500; }
+    ACCEPT &IPSEC();
+
+=head2 Backticks
+
+With backticks, you may use the output of an external command:
+
+    def $DNSSERVERS = `grep nameserver /etc/resolv.conf | awk '{print $2}'`
+    chain INPUT proto tcp saddr $DNSSERVERS ACCEPT;
+
+The command is executed with F</bin/sh>, just like backticks in
+perl. ferm does not do any variable expansion here.
+
+The output is then tokenized, and saved as a ferm list (array). Lines
+beginning with '#' are ignored; the other lines may contain any number
+of values, separated by whitespace.
+
+=head2 Includes
+
+The B<include> keyword allows you to include external files:
+
+    include 'vars.ferm';
+
+The file name is relative to the calling file, e.g. when including
+from F</etc/ferm/ferm.conf>, the above statement includes
+F</etc/ferm/vars.ferm>. Variables and functions declared in an
+included file are still available in the calling file.
+
+B<include> works within a block:
+
+    chain INPUT {
+        include 'input.ferm';
+    }
+
+If you specify a directory (with a trailing '/'), all files in this
+directory are included, sorted alphabetically:
+
+    include 'ferm.d/';
+
+
+=head1 RECIPES
+
+The F<./examples/> directory contains numerous ferm configuration
+which can be used to begin a new firewall. This sections contains more
+samples, recipes and tricks.
+
+=head2 Easy port forwarding
+
+Ferm function make routine tasks quick and easy:
+
+    def &FORWARD_TCP($proto, $port, $dest) = {
+        table filter chain FORWARD interface $DEV_WORLD outerface $DEV_DMZ daddr $dest proto $proto dport $port ACCEPT;
+        table nat chain PREROUTING interface $DEV_WORLD daddr $HOST_STATIC proto $proto dport $port DNAT to $dest;
+    }
+
+    &FORWARD_TCP(tcp, http, 192.168.1.2);
+    &FORWARD_TCP(tcp, smtp, 192.168.1.3);
+    &FORWARD_TCP((tcp udp), domain, 192.168.1.4);
+
+=head1 OPTIONS
+
+Options can be specified with the "option" keyword, which
+can be defined anywhere within the document. Although
+that may be fine, you almost allways want to define
+them at the beginning of your document, because the
+behaviour changes at the moment they are specified.
+
+All options can also be specified on the command line, which
+has a few more available. The equivalent for the commandline
+options that are also available in the firewall file is mentioned
+in the firewall file options section.
+
+=head2 Command line options
+
+=over 12
+
+=item B<--noexec>
+
+Do not execute the iptables(8) commands, but skip instead. This way
+you can parse your data, use B<--lines> to view the output.
+
+=item B<--lines>
+
+Show the firewall lines that were generated from the rules. They
+will be shown just before they are executed, so if you get error
+messages from iptables(8) etc., you can see which rule caused
+the error.
+
+=item B<--verbose>
+
+Shows some more details of the stages of execution of the program.
+
+=item B<--help>
+
+Show a brief list of available commandline options.
+
+=item B<--version>
+
+Shows the version number of the program.
+
+=item B<--location [/path/to/filename]>
+
+Explicitly define the exact name and location of the
+kernel backend program, for the paranoid people out there.
+
+=item B<--fast>
+
+Enable fast mode: ferm generates an iptables-save(8) file, and
+installs it with iptables-restore(8). This is much faster, because
+ferm calls iptables(8) once for every rule by default.
+
+=item B<--domain {ip|ip6}>
+
+Handle only the specified domain. B<ferm> output may be empty if the
+domain is not configured in the input file.
+
+=back
+
+
+=head1 SEE ALSO
+
+iptables(8)
+
+
+=head1 NOTES
+
+A good firewall is not the only step in security, even the
+firewall may be insecure, or someone breaks into your house
+and steals the hard disk out of your PC. Do not rely on this
+firewall tool for the use of mission critical or confidential
+data. It is not fit for such a purpose!
+
+Instead, use this tool to expand your current use of iptables(8)
+and routing, create a flexible firewall and look out for
+anything suspicious. Be carefull with open ports and servers,
+always get the latest, patched versions. Read more about
+firewalls before experimenting, you are warned! You might
+also read the COPYING file provided with the package or
+visit www.gnu.org to find more about the license.
+
+
+=head1 REQUIREMENTS
+
+=head2 Operating system
+
+Linux 2.4 or newer, with netfilter support and all netfilter modules
+used by your firewall script
+
+=head2 Software
+
+iptables and perl 5.6
+
+=head1 BUGS
+
+Bugs? What bugs?
+
+=head1 COPYRIGHT
+
+Copyright (C) 2001-2005 Auke Kok <sofar@foo-projects.org>, Max
+Kellermann <max@foo-projects.org>
+
+This program is free software; you can redistribute it and/or modify
+it under the terms of the GNU General Public License as published by
+the Free Software Foundation; either version 2 of the License, or (at
+your option) any later version.
+
+This program is distributed in the hope that it will be useful, but
+WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program; if not, write to the Free Software
+Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307
+USA
+
+=head1 AUTHOR
+
+Auke Kok <sofar@foo-projects.org>, Max Kellermann
+<max@foo-projects.org>
+
+=cut

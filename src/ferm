@@ -25,7 +25,7 @@
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #
 
-# $Id: ferm 1292 2008-12-02 21:20:43Z max $
+# $Id$
 
 BEGIN {
     eval { require strict; import strict; };
@@ -47,9 +47,9 @@ use vars qw($has_strict $has_getopt);
 use vars qw($DATE $VERSION);
 
 # subversion keyword magic
-$DATE = '$Date: 2008-12-02 22:20:43 +0100 (Tue, 02 Dec 2008) $' =~ m,(\d{4})-(\d\d)-(\d\d), ? $1.$2.$3 : '';
+$DATE = '$Date$' =~ m,(\d{4})-(\d\d)-(\d\d), ? $1.$2.$3 : '';
 
-$VERSION = '2.0.4';
+$VERSION = '2.0.5';
 #$VERSION .= '~svn' . $DATE;
 
 ## interface variables
@@ -57,7 +57,7 @@ $VERSION = '2.0.4';
 use vars qw(%option);
 
 ## hooks
-use vars qw(@pre_hooks @post_hooks);
+use vars qw(@pre_hooks @post_hooks @flush_hooks);
 
 ## parser variables
 # $script: current script file
@@ -269,7 +269,7 @@ add_match_def 'psd', qw(psd-weight-threshold psd-delay-threshold),
 add_match_def 'quota', qw(quota=s);
 add_match_def 'random', qw(average);
 add_match_def 'realm', qw(realm!);
-add_match_def 'recent', qw(name=s !set*0 !rcheck*0 !update*0 !seconds !hitcount rttl*0 rsource*0 rdest*0);
+add_match_def 'recent', qw(name=s !set*0 !remove*0 !rcheck*0 !update*0 !seconds !hitcount rttl*0 rsource*0 rdest*0);
 add_match_def 'rt', qw(rt-type! rt-segsleft! rt-len! rt-0-res*0 rt-0-addrs=c rt-0-not-strict*0);
 add_match_def 'set', qw(set=sc);
 add_match_def 'state', qw(state=c);
@@ -518,6 +518,15 @@ open_script($ARGV[0]);
 enter(0);
 die unless @stack == 2;
 
+# enable/disable hooks depending on --flush
+
+if ($option{flush}) {
+    undef @pre_hooks;
+    undef @post_hooks;
+} else {
+    undef @flush_hooks;
+}
+
 # execute all generated rules
 my $status;
 
@@ -534,7 +543,7 @@ while (my ($domain, $domain_info) = each %domains) {
     $status = $s if defined $s;
 }
 
-foreach my $cmd (@post_hooks) {
+foreach my $cmd (@post_hooks, @flush_hooks) {
     print "$cmd\n" if $option{lines};
     system($cmd) unless $option{noexec};
 }
@@ -770,6 +779,8 @@ sub collect_filenames(@) {
 
             # sort those names for a well-defined order
             foreach my $name (sort { $a cmp $b } @names) {
+                # ignore dpkg's backup files
+                next if $name =~ /\.dpkg-(old|dist|new|tmp)$/;
                 # don't include hidden and backup files
                 next if $name =~ /^\.|~$/;
 
@@ -894,6 +905,20 @@ sub join_value($$) {
     }
 }
 
+sub negate_value($$;$) {
+    my ($value, $class, $allow_array) = @_;
+
+    if (ref $value) {
+        error('double negation is not allowed')
+          if ref $value eq 'negated' or ref $value eq 'pre_negated';
+
+        error('it is not possible to negate an array')
+          if ref $value eq 'ARRAY' and not $allow_array;
+    }
+
+    return bless [ $value ], $class || 'negated';
+}
+
 # returns the next parameter, which may either be a scalar or an array
 sub getvalues {
     my $code = shift;
@@ -976,10 +1001,7 @@ sub getvalues {
 
         $token = getvalues($code);
 
-        error('it is not possible to negate an array')
-          if ref $token and not $options{allow_array_negation};
-
-        return bless [ $token ], 'negated';
+        return negate_value($token, undef, $options{allow_array_negation});
     } elsif ($token eq ',') {
         return $token
           if $options{comma_allowed};
@@ -1372,7 +1394,7 @@ sub parse_keyword(\%$$) {
         } (1..$params) ], 'params';
     }
 
-    $value = bless [ $value ], exists $def->{pre_negation} ? 'pre_negated' : 'negated'
+    $value = negate_value($value, exists $def->{pre_negation} && 'pre_negated')
       if $negated;
 
     return $value;
@@ -1561,6 +1583,11 @@ sub enter($$) {
 
             # hooks for custom shell commands
             if ($keyword eq 'hook') {
+                warning("'hook' is deprecated, use '\@hook'");
+                $keyword = '@hook';
+            }
+
+            if ($keyword eq '@hook') {
                 error('"hook" must be the first token in a command')
                   if exists $rule{domain};
 
@@ -1570,6 +1597,8 @@ sub enter($$) {
                     $hooks = \@pre_hooks;
                 } elsif ($position eq 'post') {
                     $hooks = \@post_hooks;
+                } elsif ($position eq 'flush') {
+                    $hooks = \@flush_hooks;
                 } else {
                     error("Invalid hook position: '$position'");
                 }

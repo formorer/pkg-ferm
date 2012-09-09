@@ -124,7 +124,7 @@
 .\" ========================================================================
 .\"
 .IX Title "FERM 1"
-.TH FERM 1 "2008-10-03" "ferm 2.0.4" "FIREWALL RULES MADE EASY"
+.TH FERM 1 "2009-02-28" "ferm 2.0.5" "FIREWALL RULES MADE EASY"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -1762,14 +1762,17 @@ There is no \fB\f(CB@elsif\fB\fR, use \fB\f(CB@else\fB \f(CB@if\fB\fR instead.
 .IX Subsection "Hooks"
 To run custom commands, you may install hooks:
 .PP
-.Vb 2
-\&    hook pre "echo 0 >/proc/sys/net/ipv4/conf/eth0/forwarding";
-\&    hook post "echo 1 >/proc/sys/net/ipv4/conf/eth0/forwarding";
+.Vb 3
+\&    @hook pre "echo 0 >/proc/sys/net/ipv4/conf/eth0/forwarding";
+\&    @hook post "echo 1 >/proc/sys/net/ipv4/conf/eth0/forwarding";
+\&    @hook flush "echo 0 >/proc/sys/net/ipv4/conf/eth0/forwarding";
 .Ve
 .PP
 The specified command is executed using the shell.  \*(L"pre\*(R" means run
 the command before applying the firewall rules, and \*(L"post\*(R" means run
-the command afterwards.  You may install any number of hooks.
+the command afterwards.  \*(L"flush\*(R" hooks are run after ferm has flushed
+the firewall rules (option \-\-flush).  You may install any number of
+hooks.
 .SH "FUNCTIONS"
 .IX Header "FUNCTIONS"
 There are several built-in functions which you might find useful.

@@ -5,7 +5,7 @@
 #
 # ferm, a firewall setup program that makes firewall rules easy!
 #
-# Copyright (C) 2001-2010 Max Kellermann, Auke Kok
+# Copyright (C) 2001-2011 Max Kellermann, Auke Kok
 #
 # Comments, questions, greetings and additions to this program
 # may be sent to <ferm@foo-projects.org>
@@ -352,7 +352,7 @@ Many keywords take parameters. These can be specified as literals,
 variable references or lists (arrays):
 
     proto udp
-    saddr %TRUSTED_HOSTS;
+    saddr $TRUSTED_HOSTS;
     proto tcp dport (http https ssh);
     LOG log-prefix "funky wardriver alert: ";
 
@@ -443,7 +443,7 @@ Optionally, you may define the name of the sub chain:
  }
 
 The name can either be a quoted string literal, or an expanded ferm
-expression such as @substr($var,0,20).
+expression such as @cat("interface_", $iface) or @substr($var,0,20).
 
 You can achieve the same by explicitly declaring a custom chain, but
 you may feel that using B<@subchain> requires less typing.
@@ -1458,7 +1458,12 @@ just like any other variable.
 
 =item B<$FILENAME>
 
-The name of the configuration file.
+The name of the configuration file relative to the directory ferm was
+started in.
+
+=item B<$FILEBNAME>
+
+The base name of the configuration file.
 
 =item B<$DIRNAME>
 
@@ -1475,6 +1480,18 @@ The current netfilter table.
 =item B<$CHAIN>
 
 The current netfilter chain.
+
+=item B<$LINE>
+
+The line of the current script.  It can be used like this:
+
+    @def &log($msg) = {
+	     LOG log-prefix "rule=$msg:$LINE ";
+    }
+    .
+    .
+    .
+    &log("log message");
 
 =back
 
@@ -1654,6 +1671,28 @@ the end of the string.
 
 Returns the length in characters of the value of EXPR.
 
+=head2 @basename(path)
+
+Return the base name of the file for a given path
+(File::Spec::splitpath).
+
+=head2 @dirname(path)
+
+Return the name of the last directory for a given path, assuming the
+last component is a file name (File::Spec::splitpath).
+
+=head2 @ipfilter(list)
+
+Filters out the IP addresses that obviously do not match the current
+domain.  That is useful to create common variables and rules for IPv4
+and IPv6:
+
+    @def $TRUSTED_HOSTS = (192.168.0.40 2001:abcd:ef::40);
+
+    domain (ip ip6) chain INPUT {
+        saddr @ipfilter($TRUSTED_HOSTS) proto tcp dport ssh ACCEPT;
+    }
+
 =head1 RECIPES
 
 The F<./examples/> directory contains numerous ferm configuration
@@ -1784,7 +1823,7 @@ If you find a bug, please tell us: ferm@foo-projects.org
 
 =head1 COPYRIGHT
 
-Copyright (C) 2001-2010 Max Kellermann <max@foo-projects.org>, Auke
+Copyright (C) 2001-2011 Max Kellermann <max@foo-projects.org>, Auke
 Kok <sofar@foo-projects.org>
 
 This program is free software; you can redistribute it and/or modify

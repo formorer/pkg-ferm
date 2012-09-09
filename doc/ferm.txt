@@ -280,7 +280,7 @@ STRUCTURE OF A FIREWALL FILE
     variable references or lists (arrays):
 
         proto udp
-        saddr %TRUSTED_HOSTS;
+        saddr $TRUSTED_HOSTS;
         proto tcp dport (http https ssh);
         LOG log-prefix "funky wardriver alert: ";
 
@@ -361,7 +361,8 @@ BASIC KEYWORDS
              }
 
             The name can either be a quoted string literal, or an expanded
-            ferm expression such as @substr($var,0,20).
+            ferm expression such as @cat("interface_", $iface) or
+            @substr($var,0,20).
 
             You can achieve the same by explicitly declaring a custom chain,
             but you may feel that using @subchain requires less typing.
@@ -1171,7 +1172,11 @@ ADVANCED FEATURES
     just like any other variable.
 
     $FILENAME
-            The name of the configuration file.
+            The name of the configuration file relative to the directory
+            ferm was started in.
+
+    $FILEBNAME
+            The base name of the configuration file.
 
     $DIRNAME
             The directory of the configuration file.
@@ -1181,6 +1186,16 @@ ADVANCED FEATURES
     $TABLE  The current netfilter table.
 
     $CHAIN  The current netfilter chain.
+
+    $LINE   The line of the current script. It can be used like this:
+
+                @def &log($msg) = {
+                         LOG log-prefix "rule=$msg:$LINE ";
+                }
+                .
+                .
+                .
+                &log("log message");
 
   Functions
     Functions are similar to variables, except that they may have
@@ -1344,6 +1359,25 @@ BUILT-IN FUNCTIONS
   @length(expression)
     Returns the length in characters of the value of EXPR.
 
+  @basename(path)
+    Return the base name of the file for a given path
+    (File::Spec::splitpath).
+
+  @dirname(path)
+    Return the name of the last directory for a given path, assuming the
+    last component is a file name (File::Spec::splitpath).
+
+  @ipfilter(list)
+    Filters out the IP addresses that obviously do not match the current
+    domain. That is useful to create common variables and rules for IPv4 and
+    IPv6:
+
+        @def $TRUSTED_HOSTS = (192.168.0.40 2001:abcd:ef::40);
+
+        domain (ip ip6) chain INPUT {
+            saddr @ipfilter($TRUSTED_HOSTS) proto tcp dport ssh ACCEPT;
+        }
+
 RECIPES
     The ./examples/ directory contains numerous ferm configuration which can
     be used to begin a new firewall. This sections contains more samples,
@@ -1439,7 +1473,7 @@ BUGS
     If you find a bug, please tell us: ferm@foo-projects.org
 
 COPYRIGHT
-    Copyright (C) 2001-2010 Max Kellermann <max@foo-projects.org>, Auke Kok
+    Copyright (C) 2001-2011 Max Kellermann <max@foo-projects.org>, Auke Kok
     <sofar@foo-projects.org>
 
     This program is free software; you can redistribute it and/or modify it

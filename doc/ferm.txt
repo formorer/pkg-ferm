@@ -1309,7 +1309,7 @@ ADVANCED FEATURES
     command afterwards. "flush" hooks are run after ferm has flushed the
     firewall rules (option --flush). You may install any number of hooks.
 
-FUNCTIONS
+BUILT-IN FUNCTIONS
     There are several built-in functions which you might find useful.
 
   @resolve((hostname1 hostname2 ...))

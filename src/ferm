@@ -3,7 +3,7 @@
 #
 # ferm, a firewall setup program that makes firewall rules easy!
 #
-# Copyright (C) 2001-2009 Max Kellermann, Auke Kok
+# Copyright (C) 2001-2010 Max Kellermann, Auke Kok
 #
 # Comments, questions, greetings and additions to this program
 # may be sent to <ferm@foo-projects.org>
@@ -46,7 +46,7 @@ use vars qw($has_strict $has_getopt);
 
 use vars qw($VERSION);
 
-$VERSION = '2.0.6';
+$VERSION = '2.0.7';
 #$VERSION .= '~git';
 
 ## interface variables
@@ -225,15 +225,16 @@ add_match_def '',
   # --fragment
   qw(!fragment*0);
 add_match_def 'account', qw(aaddr=s aname=s ashort*0);
-add_match_def 'addrtype', qw(src-type dst-type);
+add_match_def 'addrtype', qw(!src-type !dst-type),
+  qw(limit-iface-in*0 limit-iface-out*0);
 add_match_def 'ah', qw(ahspi! ahlen! ahres*0);
 add_match_def 'comment', qw(comment=s);
 add_match_def 'condition', qw(condition!);
 add_match_def 'connbytes', qw(!connbytes connbytes-dir connbytes-mode);
 add_match_def 'connlimit', qw(!connlimit-above connlimit-mask);
 add_match_def 'connmark', qw(!mark);
-add_match_def 'conntrack', qw(ctstate=c ctproto ctorigsrc! ctorigdst!),
-  qw(ctreplsrc! ctrepldst! ctstatus ctexpire=s);
+add_match_def 'conntrack', qw(!ctstate=c !ctproto ctorigsrc! ctorigdst!),
+  qw(ctreplsrc! ctrepldst! !ctstatus !ctexpire=s ctdir=s);
 add_match_def 'dscp', qw(dscp dscp-class);
 add_match_def 'ecn', qw(ecn-tcp-cwr*0 ecn-tcp-ece*0 ecn-ip-ect);
 add_match_def 'esp', qw(espspi!);
@@ -255,12 +256,13 @@ add_match_def 'mark', qw(!mark);
 add_match_def 'multiport', qw(source-ports!&multiport_params),
   qw(destination-ports!&multiport_params ports!&multiport_params);
 add_match_def 'nth', qw(every counter start packet);
-add_match_def 'owner', qw(uid-owner gid-owner pid-owner sid-owner cmd-owner);
+add_match_def 'owner', qw(!uid-owner !gid-owner pid-owner sid-owner),
+  qw(cmd-owner !socket-exists=0);
 add_match_def 'physdev', qw(physdev-in! physdev-out!),
   qw(!physdev-is-in*0 !physdev-is-out*0 !physdev-is-bridged*0);
 add_match_def 'pkttype', qw(pkt-type),
 add_match_def 'policy',
-  qw(dir pol strict*0 reqid spi proto mode tunnel-src tunnel-dst next*0);
+  qw(dir pol strict*0 !reqid !spi !proto !mode !tunnel-src !tunnel-dst next*0);
 add_match_def 'psd', qw(psd-weight-threshold psd-delay-threshold),
   qw(psd-lo-ports-weight psd-hi-ports-weight);
 add_match_def 'quota', qw(quota=s);
@@ -542,7 +544,7 @@ while (my ($domain, $domain_info) = each %domains) {
 }
 
 foreach my $cmd (@post_hooks, @flush_hooks) {
-    print "$cmd\n" if $option{lines};
+    print LINES "$cmd\n" if $option{lines};
     system($cmd) unless $option{noexec};
 }
 
@@ -1224,10 +1226,7 @@ sub shell_format_option($$) {
 
     my $cmd = '';
     if (ref $value) {
-        if (ref $value eq 'negated') {
-            $value = $value->[0];
-            $keyword .= ' !';
-        } elsif (ref $value eq 'pre_negated') {
+        if ((ref $value eq 'negated') || (ref $value eq 'pre_negated')) {
             $value = $value->[0];
             $cmd = ' !';
         }

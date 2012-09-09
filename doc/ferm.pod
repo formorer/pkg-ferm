@@ -792,6 +792,19 @@ Match a range of IPv4 addresses.
     mod iprange src-range 192.168.2.0-192.168.3.255;
     mod iprange dst-range ! 192.168.6.0-192.168.6.255;
 
+=item B<ipv4options>
+
+Match on IPv4 header options like source routing, record route,
+timestamp and router-alert.
+
+    mod ipv4options ssrr ACCEPT;
+    mod ipv4options lsrr ACCEPT;
+    mod ipv4options no-srr ACCEPT;
+    mod ipv4options !rr ACCEPT;
+    mod ipv4options !ts ACCEPT;
+    mod ipv4options !ra ACCEPT;
+    mod ipv4options !any-opt ACCEPT;
+
 =item B<ipv6header>
 
 Matches the IPv6 extension header (ip6).
@@ -998,6 +1011,13 @@ iptables(8) man page.
     mod statistic mode random probability 0.8 ACCEPT;
     mod statistic mode nth every 5 packet 0 DROP;
 
+=item B<string>
+
+Matches a string.
+
+    mod string string "foo bar" ACCEPT;
+    mod string algo kmp from 64 to 128 hex-string "deadbeef" ACCEPT;
+
 =item B<tcp>
 
 Checks TCP specific attributes. This module is automatically loaded
@@ -1074,6 +1094,20 @@ you enabled them in your kernel:
 
 =over 8
 
+=item B<CLASSIFY>
+
+Set the CBQ class.
+
+    CLASSIFY set-class 3:50;
+
+=item B<CLUSTERIP>
+
+Configure a simple cluster of nodes that share a certain IP and MAC
+address.  Connections are statically distributed between the nodes.
+
+    CLUSTERIP new hashmode sourceip clustermac 00:12:34:45:67:89
+      total-nodes 4 local-node 2 hash-init 12345;
+
 =item B<CONNMARK>
 
 Sets the netfilter mark value associated with a connection.
@@ -1117,6 +1151,13 @@ Modify the IPv6 Hop Limit field (ip6/mangle only).
     HL hl-set 5;
     HL hl-dec 2;
     HL hl-inc 1;
+
+=item B<IPV4OPTSSTRIP>
+
+Strip all the IP options from a packet.  This module does not take any
+options.
+
+    IPV4OPTSSTRIP;
 
 =item B<LOG>
 
@@ -1191,6 +1232,15 @@ Transparent proxying: alter the destination IP of the packet to the
 machine itself.
 
     proto tcp dport http REDIRECT to-ports 3128;
+
+=item B<SAME>
+
+Similar to SNAT, but a client is mapped to the same source IP for all
+its connections.
+
+    SAME to 1.2.3.4-1.2.3.7;
+    SAME to 1.2.3.8-1.2.3.15 nodst;
+    SAME to 1.2.3.16-1.2.3.31 random;
 
 =item B<SECMARK>
 

@@ -25,7 +25,7 @@
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #
 
-# $Id: ferm 985 2007-12-08 23:35:29Z max $
+# $Id: ferm 1071 2007-12-19 09:35:07Z max $
 
 BEGIN {
     eval { require strict; import strict; };
@@ -47,9 +47,9 @@ use vars qw($has_strict $has_getopt);
 use vars qw($DATE $VERSION);
 
 # subversion keyword magic
-$DATE = '$Date: 2007-12-09 00:35:29 +0100 (Sun, 09 Dec 2007) $' =~ m,(\d{4})-(\d\d)-(\d\d), ? $1.$2.$3 : '';
+$DATE = '$Date: 2007-12-19 10:35:07 +0100 (Wed, 19 Dec 2007) $' =~ m,(\d{4})-(\d\d)-(\d\d), ? $1.$2.$3 : '';
 
-$VERSION = '1.3.1';
+$VERSION = '1.3.2';
 #$VERSION .= '~svn' . $DATE;
 
 ## interface variables
@@ -238,6 +238,7 @@ use vars qw(%proto_defs %match_defs %target_defs);
 # add a module definition
 sub add_def {
     my $defs = shift;
+    my $params_default = shift;
     my $name = shift;
     die if exists $defs->{$name};
     my $def = $defs->{$name} = {};
@@ -245,7 +246,7 @@ sub add_def {
         my $keyword = $_;
         my $k = {};
 
-        my $params = 1;
+        my $params = $params_default;
         $params = $1 if $keyword =~ s,\*(\d+)$,,;
         $params = $1 if $keyword =~ s,=([acs]+|m)$,,;
         if ($keyword =~ s,&(\S+)$,,) {
@@ -267,17 +268,17 @@ sub add_def {
 
 # add a protocol module definition
 sub add_proto_def(@) {
-    add_def(\%proto_defs, @_);
+    add_def(\%proto_defs, 1, @_);
 }
 
 # add a match module definition
 sub add_match_def(@) {
-    add_def(\%match_defs, @_);
+    add_def(\%match_defs, 1, @_);
 }
 
 # add a target module definition
 sub add_target_def(@) {
-    add_def(\%target_defs, @_);
+    add_def(\%target_defs, 's', @_);
 }
 
 add_proto_def 'dccp', qw(dccp-types!=c dccp-option!);
@@ -314,6 +315,7 @@ add_match_def 'hashlimit', qw(hashlimit=s hashlimit-burst=s hashlimit-mode=s has
   qw(hashlimit-htable-expire=s hashlimit-htable-gcinterval=s);
 add_match_def 'iprange', qw(!src-range !dst-range);
 add_match_def 'iplimit', qw(!iplimit-above=s iplimit-mask=s);
+add_match_def 'ipv4options', qw(ssrr*0 lsrr*0 no-srr*0 !rr*0 !ts*0 !ra*0 !any-opt*0);
 add_match_def 'ipv6header', qw(header!=c soft*0);
 add_match_def 'limit', qw(limit=s limit-burst=s);
 add_match_def 'mac', qw(mac-source!);
@@ -337,6 +339,7 @@ add_match_def 'rt', qw(rt-type! rt-segsleft! rt-len! rt-0-res*0 rt-0-addrs=c rt-
 add_match_def 'set', qw(set=sc);
 add_match_def 'state', qw(state=c);
 add_match_def 'statistic', qw(mode=s probability=s every=s packet=s);
+add_match_def 'string', qw(algo=s from=s to=s string hex-string);
 add_match_def 'tcpmss', qw(!mss);
 add_match_def 'time', qw(timestart=s timestop=s days=c datestart=s datestop=s);
 add_match_def 'tos', qw(!tos&compat_tos_params);
@@ -345,12 +348,14 @@ add_match_def 'u32', qw(u32=m);
 
 add_target_def 'BALANCE', qw(to-destination to:=to-destination);
 add_target_def 'CLASSIFY', qw(set-class);
+add_target_def 'CLUSTERIP', qw(new*0 hashmode clustermac total-nodes local-node hash-init);
 add_target_def 'CONNMARK', qw(set-mark save-mark*0 restore-mark*0 mask);
 add_target_def 'CONNSECMARK', qw(save*0 restore*0);
-add_target_def 'DNAT', qw(to-destination to:=to-destination);
+add_target_def 'DNAT', qw(to-destination=m to:=to-destination);
 add_target_def 'DSCP', qw(set-dscp set-dscp-class);
 add_target_def 'ECN', qw(ecn-tcp-remove*0);
 add_target_def 'HL', qw(hl-set hl-dec hl-inc);
+add_target_def 'IPV4OPTSSTRIP';
 add_target_def 'LOG', qw(log-level log-prefix),
   qw(log-tcp-sequence*0 log-tcp-options*0 log-ip-options*0 log-uid*0);
 add_target_def 'MARK', qw(set-mark);
@@ -363,7 +368,7 @@ add_target_def 'NOTRACK';
 add_target_def 'REDIRECT', qw(to-ports);
 add_target_def 'REJECT', qw(reject-with);
 add_target_def 'ROUTE', qw(oif iif gw continue*0 tee*0);
-add_target_def 'SAME', qw(to nodst*0);
+add_target_def 'SAME', qw(to nodst*0 random*0);
 add_target_def 'SECMARK', qw(selctx);
 add_target_def 'SET', qw(add-set=sc del-set=sc);
 add_target_def 'SNAT', qw(to-source=m to:=to-source);
@@ -1820,7 +1825,7 @@ sub parse_builtin_matches($$$) {
         $current->{outerface} = getvalues(undef, undef, allow_negation => 1);
         return 1;
     }
-    if ($keyword =~ /^proto(?:col)?$/) {
+    if ($keyword eq 'protocol') {
         $current->{proto} = getvalues(undef, undef, allow_negation => 1);
         return 1;
     }
@@ -2484,6 +2489,11 @@ sub enter($@) {
 
                 next;
             }
+
+            # this is a workaround for the keyword overlap between
+            # "-p" (builtin) and "--proto" (xt_policy)
+            $keyword = 'protocol'
+              if $keyword eq 'proto' and not exists $modules{policy};
 
             parse_builtin_matches($current, $keyword, \$negated)
               and next;

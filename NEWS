@@ -7,6 +7,17 @@
     Max Kellermann <max@foo-projects.org>
 
 
+v1.2.4 - 24 May 2007
+  - support netfilter modules:
+    * hashlimit
+    * ipset (patch by Martin Schuster)
+  - ignore empty lines in backticks result (reported by Martin Klozik)
+  - the match module for protocol "icmpv6" is named "icmp6"
+  - implemented basic hooks (suggested by Joerg Jaspert)
+  - documentation:
+    * targets CONNMARK
+
+
 v1.2.3 - 14 Feb 2007
   - subchains may be named
   - don't copy module references to subchain (patch by Alex Metelka)

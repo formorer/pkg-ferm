@@ -766,6 +766,19 @@ Matches the IPv6 extension header (ip6).
     mod ipv6header header !(hop frag) ACCEPT;
     mod ipv6header header (auth dst) ACCEPT;
 
+=item B<hashlimit>
+
+Similar to 'mod limit', but adds the ability to add per-destination or
+per-port limits managed in a hash table.
+
+    mod hashlimit  hashlimit 10/minute  hashlimit-burst 30/minute
+      hashlimit-mode dstip  hashlimit-name foobar  ACCEPT;
+
+Possible values for hashlimit-mode: dstip dstport srcip srcport.
+
+There are more possible settings, type "iptables -m hashlimit -h" for
+documentation.
+
 =item B<length>
 
 Check the package length.
@@ -921,6 +934,14 @@ This module is automatically loaded when you use "protocol sctp".
 
 Use "iptables -p sctp C<-h>" to obtain a list of valid chunk types.
 
+=item B<set>
+
+Checks the source or destination IP/Port/MAC against a set.
+
+    mod set set badguys src DROP;
+
+See L<http://ipset.netfilter.org/> for more information.
+
 =item B<state>
 
 Checks the connection tracking state.
@@ -997,6 +1018,16 @@ The following additional targets are available in ferm, provided that
 you enabled them in your kernel:
 
 =over 8
+
+=item B<CONNMARK>
+
+Sets the netfilter mark value associated with a connection.
+
+    CONNMARK set-mark 42;
+    CONNMARK save-mark;
+    CONNMARK restore-mark;
+    CONNMARK save-mark mask 0x7fff;
+    CONNMARK restore-mark mask 0x8000;
 
 =item B<DNAT to [ip-address|ip-range|ip-port-range]>
 
@@ -1087,6 +1118,12 @@ Transparent proxying: alter the destination IP of the packet to the
 machine itself.
 
     proto tcp dport http REDIRECT to-ports 3128;
+
+=item B<SET [add-set|del-set] [setname] [flag(s)]>
+
+Add the IP to the specified set. See L<http://ipset.netfilter.org/>
+
+    proto icmp icmp-type echo-request SET add-set badguys src;
 
 =item B<SNAT to [ip-address|ip-range|ip-port-range]>
 
@@ -1262,6 +1299,16 @@ directory are included, sorted alphabetically:
 
     include 'ferm.d/';
 
+=head2 Hooks
+
+To run custom commands, you may install hooks:
+
+    hook pre "echo 0 >/proc/sys/net/ipv4/conf/eth0/forwarding";
+    hook post "echo 1 >/proc/sys/net/ipv4/conf/eth0/forwarding";
+
+The specified command is executed using the shell.  "pre" means run
+the command before applying the firewall rules, and "post" means run
+the command afterwards.  You may install any number of hooks.
 
 =head1 RECIPES
 

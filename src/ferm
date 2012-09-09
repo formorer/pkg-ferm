@@ -25,7 +25,7 @@
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #
 
-# $Id: ferm 761 2007-02-14 21:35:41Z max $
+# $Id: ferm 795 2007-05-14 11:43:57Z max $
 
 use strict;
 use IO::File;
@@ -34,14 +34,17 @@ use Getopt::Long;
 use vars qw($DATE $VERSION);
 
 # subversion keyword magic
-$DATE = '$Date: 2007-02-14 22:35:41 +0100 (Wed, 14 Feb 2007) $' =~ m,(\d{4})-(\d\d)-(\d\d), ? $1.$2.$3 : '';
+$DATE = '$Date: 2007-05-14 13:43:57 +0200 (Mon, 14 May 2007) $' =~ m,(\d{4})-(\d\d)-(\d\d), ? $1.$2.$3 : '';
 
-$VERSION = '1.2.3';
+$VERSION = '1.2.4';
 #$VERSION .= '~svn' . $DATE;
 
 ## interface variables
 # %option = command line and other options
 use vars qw(%option);
+
+## hooks
+use vars qw(@pre_hooks @post_hooks);
 
 ## parser variables
 # $script: current script file
@@ -291,6 +294,9 @@ add_match_def 'hbh', qw(hbh-len! hbh-opts=c);
 add_match_def 'helper', qw(helper);
 add_match_def 'hl', qw(hl-eq! hl-lt=s hl-gt=s);
 add_match_def 'length', qw(length!);
+add_match_def 'hashlimit', qw(hashlimit=s hashlimit-burst=s hashlimit-mode=s hashlimit-name=s),
+  qw(hashlimit-htable-size=s hashlimit-htable-max=s),
+  qw(hashlimit-htable-expire=s hashlimit-htable-gcinterval=s);
 add_match_def 'iprange', qw(!src-range !dst-range);
 add_match_def 'iplimit', qw(!iplimit-above=s iplimit-mask=s);
 add_match_def 'ipv6header', qw(header!=c soft*0);
@@ -313,6 +319,7 @@ add_match_def 'random', qw(average);
 add_match_def 'realm', qw(realm!);
 add_match_def 'recent', qw(name=s !set*0 !rcheck*0 !update*0 !seconds !hitcount rttl*0);
 add_match_def 'rt', qw(rt-type! rt-segsleft! rt-len! rt-0-res*0 rt-0-addrs=c rt-0-not-strict*0);
+add_match_def 'set', qw(set=sc);
 add_match_def 'state', qw(state=c);
 add_match_def 'tcpmss', qw(!mss);
 add_match_def 'time', qw(timestart=s timestop=s days=c datestart=s datestop=s);
@@ -338,6 +345,7 @@ add_target_def 'REDIRECT', qw(to-ports);
 add_target_def 'REJECT', qw(reject-with);
 add_target_def 'ROUTE', qw(oif iif gw continue*0 tee*0);
 add_target_def 'SAME', qw(to nodst*0);
+add_target_def 'SET', qw(add-set=sc del-set=sc);
 add_target_def 'SNAT', qw(to-source=a to:=to-source);
 add_target_def 'TARPIT';
 add_target_def 'TCPMSS', qw(set-mss clamp-mss-to-pmtu*0);
@@ -527,11 +535,21 @@ check();
 # execute all generated rules
 my $status;
 
+foreach my $cmd (@pre_hooks) {
+    print "$cmd\n" if $option{lines};
+    system($cmd) unless $option{noexec};
+}
+
 while (my ($domain, $rules) = each %rules) {
     my $s = $option{fast}
       ? execute_fast($domain, rules_to_save($rules))
         : execute_slow($domain, $rules);
     $status = $s if defined $s;
+}
+
+foreach my $cmd (@post_hooks) {
+    print "$cmd\n" if $option{lines};
+    system($cmd) unless $option{noexec};
 }
 
 if (defined $status) {
@@ -1095,7 +1113,7 @@ sub getvalues {
         $output =~ s/#.*//mg;
 
         # tokenize
-        my @tokens = split /\s+/, $output;
+        my @tokens = grep { length } split /\s+/s, $output;
 
         my @values;
         while (@tokens) {
@@ -1409,9 +1427,10 @@ sub tables {
                 next unless exists $rule{$key};
                 my $value = $rule->{$key};
 
-                unless (exists $rule{modules}{$proto}) {
-                    shell_append(\$rr, '-m', $proto);
-                    $rule{modules}{$proto} = 1;
+                my $module = $proto eq 'icmpv6' ? 'icmp6' : $proto;
+                unless (exists $rule{modules}{$module}) {
+                    shell_append(\$rr, '-m', $module);
+                    $rule{modules}{$module} = 1;
                 }
 
                 shell_append_option(\$rr, $k, $keyword, $value);
@@ -1852,6 +1871,30 @@ sub enter {
 
                 # and clean up variables set in this level
                 %$current = ();
+
+                next;
+            }
+
+            # hooks for custom shell commands
+            if ($keyword eq 'hook') {
+                error('"def" must be the first token in a command')
+                  if keys %$current;
+
+                my $position = getvar();
+                my $hooks;
+                if ($position eq 'pre') {
+                    $hooks = \@pre_hooks;
+                } elsif ($position eq 'post') {
+                    $hooks = \@post_hooks;
+                } else {
+                    error("Invalid hook position: '$position'");
+                }
+
+                push @$hooks, getvar();
+
+                $keyword = next_token();
+                error('";" expected after hook declaration')
+                  unless defined $keyword and $keyword eq ';';
 
                 next;
             }

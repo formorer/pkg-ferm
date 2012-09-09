@@ -28,7 +28,7 @@
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #
 
-# $Id: import-ferm 761 2007-02-14 21:35:41Z max $
+# $Id: import-ferm 796 2007-05-22 08:40:10Z max $
 
 use strict;
 
@@ -118,6 +118,9 @@ hl-eq hl-lt hl-gt
 rt-type rt-segsleft rt-len
 hl-set hl-dec hl-inc
 aaddr aname
+hashlimit hashlimit-burst hashlimit-mode hashlimit-name
+hashlimit-htable-size hashlimit-htable-max
+hashlimit-htable-expire hashlimit-htable-gcinterval
 EOT
 
 my %p1c = parse_table(<<EOT);
@@ -136,6 +139,7 @@ EOT
 my %p2c = parse_table(<<EOT);
 tcp-flags
 chunk-types
+add-set del-set
 EOT
 
 my @pre_negated = qw(fragment connbytes connlimit-above
@@ -579,7 +583,7 @@ sub parse_option {
         my $param = wrap_negated($keyword, $tokens, \&fetch_token);
         # protocol implicitly loads the module
         unless (ref $param) {
-            my $mod = $param eq 'ipv6-icmp' ? 'icmpv6' : $param;
+            my $mod = $param eq 'ipv6-icmp' ? 'icmp6' : $param;
             delete $line->{mod}{$mod};
         }
         $cur->{proto} = $param;
@@ -591,7 +595,9 @@ sub parse_option {
         $line->{mod}{$param} = 1
           unless exists $cur->{proto} and
             ($cur->{proto} eq $param or
-             $cur->{proto} eq 'ipv6-icmp' and $param eq 'icmpv6');
+             $cur->{proto} =~ /^(ipv6-icmp|icmpv6)$/s and $param eq 'icmp6');
+    } elsif ($option eq 'set' and exists $line->{mod}{set}) {
+        $cur->{$option} = fetch_two_tokens_comma($option, $tokens);
     } elsif (exists $p0{$option}) {
         my $keyword = $p0{$option};
         $cur->{$keyword} = wrap_pre_negated($keyword, \$pre_negated, undef);

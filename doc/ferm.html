@@ -49,6 +49,7 @@
 		<li><a href="#functions">Functions</a></li>
 		<li><a href="#backticks">Backticks</a></li>
 		<li><a href="#includes">Includes</a></li>
+		<li><a href="#hooks">Hooks</a></li>
 	</ul>
 
 	<li><a href="#recipes">RECIPES</a></li>
@@ -988,6 +989,25 @@ when you use ``protocol icmp''.</p>
     mod ipv6header header (auth dst) ACCEPT;</pre>
 </dd>
 </li>
+<dt><strong><a name="item_hashlimit"><strong>hashlimit</strong></a></strong>
+
+<dd>
+<p>Similar to 'mod limit', but adds the ability to add per-destination or
+per-port limits managed in a hash table.</p>
+</dd>
+<dd>
+<pre>
+    mod hashlimit  hashlimit 10/minute  hashlimit-burst 30/minute
+      hashlimit-mode dstip  hashlimit-name foobar  ACCEPT;</pre>
+</dd>
+<dd>
+<p>Possible values for hashlimit-mode: dstip dstport srcip srcport.</p>
+</dd>
+<dd>
+<p>There are more possible settings, type ``iptables -m hashlimit -h'' for
+documentation.</p>
+</dd>
+</li>
 <dt><strong><a name="item_length"><strong>length</strong></a></strong>
 
 <dd>
@@ -1217,6 +1237,19 @@ This module is automatically loaded when you use ``protocol sctp''.</p>
 <p>Use ``iptables -p sctp <code>-h</code>'' to obtain a list of valid chunk types.</p>
 </dd>
 </li>
+<dt><strong><a name="item_set"><strong>set</strong></a></strong>
+
+<dd>
+<p>Checks the source or destination IP/Port/MAC against a set.</p>
+</dd>
+<dd>
+<pre>
+    mod set set badguys src DROP;</pre>
+</dd>
+<dd>
+<p>See <a href="http://ipset.netfilter.org/">http://ipset.netfilter.org/</a> for more information.</p>
+</dd>
+</li>
 <dt><strong><a name="item_state"><strong>state</strong></a></strong>
 
 <dd>
@@ -1321,6 +1354,20 @@ further parameters.</p>
 <p>The following additional targets are available in ferm, provided that
 you enabled them in your kernel:</p>
 <dl>
+<dt><strong><a name="item_connmark"><strong>CONNMARK</strong></a></strong>
+
+<dd>
+<p>Sets the netfilter mark value associated with a connection.</p>
+</dd>
+<dd>
+<pre>
+    CONNMARK set-mark 42;
+    CONNMARK save-mark;
+    CONNMARK restore-mark;
+    CONNMARK save-mark mask 0x7fff;
+    CONNMARK restore-mark mask 0x8000;</pre>
+</dd>
+</li>
 <dt><strong><a name="item_dnat_to__5bip_2daddress_7cip_2drange_7cip_2dport_2"><strong>DNAT to [ip-address|ip-range|ip-port-range]</strong></a></strong>
 
 <dd>
@@ -1457,6 +1504,16 @@ machine itself.</p>
 <dd>
 <pre>
     proto tcp dport http REDIRECT to-ports 3128;</pre>
+</dd>
+</li>
+<dt><strong><a name="item_flag"><strong>SET [add-set|del-set] [setname] [flag(s)]</strong></a></strong>
+
+<dd>
+<p>Add the IP to the specified set. See <a href="http://ipset.netfilter.org/">http://ipset.netfilter.org/</a></p>
+</dd>
+<dd>
+<pre>
+    proto icmp icmp-type echo-request SET add-set badguys src;</pre>
 </dd>
 </li>
 <dt><strong><a name="item_snat_to__5bip_2daddress_7cip_2drange_7cip_2dport_2"><strong>SNAT to [ip-address|ip-range|ip-port-range]</strong></a></strong>
@@ -1646,6 +1703,16 @@ included file are still available in the calling file.</p>
 directory are included, sorted alphabetically:</p>
 <pre>
     include 'ferm.d/';</pre>
+<p>
+</p>
+<h2><a name="hooks">Hooks</a></h2>
+<p>To run custom commands, you may install hooks:</p>
+<pre>
+    hook pre &quot;echo 0 &gt;/proc/sys/net/ipv4/conf/eth0/forwarding&quot;;
+    hook post &quot;echo 1 &gt;/proc/sys/net/ipv4/conf/eth0/forwarding&quot;;</pre>
+<p>The specified command is executed using the shell.  ``pre'' means run
+the command before applying the firewall rules, and ``post'' means run
+the command afterwards.  You may install any number of hooks.</p>
 <p>
 </p>
 <hr />

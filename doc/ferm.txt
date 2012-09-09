@@ -360,6 +360,9 @@ BASIC KEYWORDS
                  proto udp dport domain ACCEPT;
              }
 
+            The name can either be a quoted string literal, or an expanded
+            ferm expression such as @substr($var,0,20).
+
             You can achieve the same by explicitly declaring a custom chain,
             but you may feel that using @subchain requires less typing.
 
@@ -1329,6 +1332,17 @@ BUILT-IN FUNCTIONS
     Be careful with resolved host names in firewall configuration. DNS
     requests may block the firewall configuration for a long time, leaving
     the machine vulnerable, or they may fail.
+
+  @cat(a, b, ...)
+    Concatenate all parameters into one string.
+
+  @substr(expression, offset, length)
+    Extracts a substring out of expression and returns it. First character
+    is at offset 0. If OFFSET is negative, starts that far from the end of
+    the string.
+
+  @length(expression)
+    Returns the length in characters of the value of EXPR.
 
 RECIPES
     The ./examples/ directory contains numerous ferm configuration which can

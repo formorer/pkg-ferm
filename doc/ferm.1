@@ -124,7 +124,7 @@
 .\" ========================================================================
 .\"
 .IX Title "FERM 1"
-.TH FERM 1 "2010-07-01" "ferm 2.0.8~git" "FIREWALL RULES MADE EASY"
+.TH FERM 1 "2011-02-14" "ferm 2.0.9" "FIREWALL RULES MADE EASY"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -566,6 +566,9 @@ Optionally, you may define the name of the sub chain:
 \&     proto udp dport domain ACCEPT;
 \& }
 .Ve
+.Sp
+The name can either be a quoted string literal, or an expanded ferm
+expression such as \f(CW@subst\fRr($var,0,20).
 .Sp
 You can achieve the same by explicitly declaring a custom chain, but
 you may feel that using \fB\f(CB@subchain\fB\fR requires less typing.
@@ -1819,6 +1822,20 @@ The default is \*(L"A\*(R".
 Be careful with resolved host names in firewall configuration.  \s-1DNS\s0
 requests may block the firewall configuration for a long time, leaving
 the machine vulnerable, or they may fail.
+.ie n .SS "@cat(a, b, ...)"
+.el .SS "\f(CW@ca\fPt(a, b, ...)"
+.IX Subsection "@cat(a, b, ...)"
+Concatenate all parameters into one string.
+.ie n .SS "@substr(expression, offset, length)"
+.el .SS "\f(CW@subst\fPr(expression, offset, length)"
+.IX Subsection "@substr(expression, offset, length)"
+Extracts a substring out of expression and returns it.  First
+character is at offset 0. If \s-1OFFSET\s0 is negative, starts that far from
+the end of the string.
+.ie n .SS "@length(expression)"
+.el .SS "\f(CW@lengt\fPh(expression)"
+.IX Subsection "@length(expression)"
+Returns the length in characters of the value of \s-1EXPR\s0.
 .SH "RECIPES"
 .IX Header "RECIPES"
 The \fI./examples/\fR directory contains numerous ferm configuration

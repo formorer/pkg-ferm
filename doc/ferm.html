@@ -30,15 +30,22 @@
 	<ul>
 
 		<li><a href="#location_keywords">Location keywords</a></li>
-		<li><a href="#basic_match_keywords">Basic match keywords</a></li>
+		<li><a href="#basic_iptables_match_keywords">Basic iptables match keywords</a></li>
 		<li><a href="#basic_target_keywords">Basic target keywords</a></li>
 	</ul>
 
 	<li><a href="#additional_keywords">ADDITIONAL KEYWORDS</a></li>
 	<ul>
 
-		<li><a href="#netfilter_match_modules">Netfilter match modules</a></li>
-		<li><a href="#netfilter_target_modules">Netfilter target modules</a></li>
+		<li><a href="#iptables_match_modules">iptables match modules</a></li>
+		<li><a href="#iptables_target_modules">iptables target modules</a></li>
+	</ul>
+
+	<li><a href="#other_domains">OTHER DOMAINS</a></li>
+	<ul>
+
+		<li><a href="#arptables_keywords">arptables keywords</a></li>
+		<li><a href="#ebtables_keywords">ebtables keywords</a></li>
 	</ul>
 
 	<li><a href="#advanced_features">ADVANCED FEATURES</a></li>
@@ -66,7 +73,6 @@
 		<li><a href="#remote_ferm">Remote <strong>ferm</strong></a></li>
 	</ul>
 
-	<li><a href="#transition_from_ferm_1_1">TRANSITION FROM FERM 1.1</a></li>
 	<li><a href="#options">OPTIONS</a></li>
 	<li><a href="#see_also">SEE ALSO</a></li>
 	<li><a href="#requirements">REQUIREMENTS</a></li>
@@ -555,7 +561,7 @@ you may feel that using <strong>@subchain</strong> requires less typing.</p>
 </dl>
 <p>
 </p>
-<h2><a name="basic_match_keywords">Basic match keywords</a></h2>
+<h2><a name="basic_iptables_match_keywords">Basic iptables match keywords</a></h2>
 <dl>
 <dt><strong><a name="item_interface__5binterface_2dname_5d"><strong>interface [interface-name]</strong></a></strong>
 
@@ -727,7 +733,7 @@ ferm tries to keep up with supporting them all. This chapter describes
 modules which are currently supported.</p>
 <p>
 </p>
-<h2><a name="netfilter_match_modules">Netfilter match modules</a></h2>
+<h2><a name="iptables_match_modules">iptables match modules</a></h2>
 <dl>
 <dt><strong><a name="item_account"><strong>account</strong></a></strong>
 
@@ -1473,7 +1479,7 @@ further parameters.</p>
 </dl>
 <p>
 </p>
-<h2><a name="netfilter_target_modules">Netfilter target modules</a></h2>
+<h2><a name="iptables_target_modules">iptables target modules</a></h2>
 <p>The following additional targets are available in ferm, provided that
 you enabled them in your kernel:</p>
 <dl>
@@ -1799,6 +1805,140 @@ overwritten by this value.</p>
 <p>
 </p>
 <hr />
+<h1><a name="other_domains">OTHER DOMAINS</a></h1>
+<p>Since version 2.0, <strong>ferm</strong> supports not only <em>ip</em> and <em>ip6</em>, but
+also <em>arp</em> (ARP tables) and <em>eb</em> (ethernet bridging tables).  The
+concepts are similar to <em>iptables</em>.</p>
+<p>
+</p>
+<h2><a name="arptables_keywords">arptables keywords</a></h2>
+<dl>
+<dt><strong><a name="item_source_2dip_2c_destination_2dip"><strong>source-ip</strong>, <strong>destination-ip</strong></a></strong>
+
+<dd>
+<p>Matches the source or destination IPv4 address.  Same as <strong>saddr</strong> and
+<strong>daddr</strong> in the <em>ip</em> domain.</p>
+</dd>
+</li>
+<dt><strong><a name="item_source_2dmac_2c_destination_2dmac"><strong>source-mac</strong>, <strong>destination-mac</strong></a></strong>
+
+<dd>
+<p>Matches the source or destination MAC address.</p>
+</dd>
+</li>
+<dt><strong><a name="item_interface_2c_outerface"><strong>interface</strong>, <strong>outerface</strong></a></strong>
+
+<dd>
+<p>Input and output interface.</p>
+</dd>
+</li>
+<dt><strong><a name="item_h_2dlength"><strong>h-length</strong></a></strong>
+
+<dd>
+<p>Hardware length of the packet.</p>
+</dd>
+<dd>
+<pre>
+    chain INPUT h-length 64 ACCEPT;</pre>
+</dd>
+</li>
+<dt><strong><a name="item_opcode"><strong>opcode</strong></a></strong>
+
+<dd>
+<p>Operation code, for details see the iptables(8).</p>
+</dd>
+<dd>
+<pre>
+    opcode 9 ACCEPT;</pre>
+</dd>
+</li>
+<dt><strong><a name="item_h_2dtype"><strong>h-type</strong></a></strong>
+
+<dd>
+<p>Hardware type.</p>
+</dd>
+<dd>
+<pre>
+    h-type 1 ACCEPT;</pre>
+</dd>
+</li>
+<dt><strong><a name="item_proto_2dtype"><strong>proto-type</strong></a></strong>
+
+<dd>
+<p>Protocol type.</p>
+</dd>
+<dd>
+<pre>
+    proto-type 0x800 ACCEPT;</pre>
+</dd>
+</li>
+<dt><strong><a name="item_mangling"><strong>Mangling</strong></a></strong>
+
+<dd>
+<p>The keywords <strong>mangle-ip-s</strong>, <strong>mangle-ip-d</strong>, <strong>mangle-mac-s</strong>,
+<strong>mangle-mac-d</strong>, <strong>mangle-target</strong> may be used for ARP mangling.  See
+<code>iptables(8)</code> for details.</p>
+</dd>
+</li>
+</dl>
+<p>
+</p>
+<h2><a name="ebtables_keywords">ebtables keywords</a></h2>
+<dl>
+<dt><strong><a name="item_proto"><strong>proto</strong></a></strong>
+
+<dd>
+<p>Matches the protocol which created the frame, e.g. <em>IPv4</em> or <strong>PPP</strong>.
+For a list, see <em>/etc/ethertypes</em>.</p>
+</dd>
+</li>
+<dt><strong><strong>interface</strong>, <strong>outerface</strong></strong>
+
+<dd>
+<p>Physical input and output interface.</p>
+</dd>
+</li>
+<dt><strong><a name="item_logical_2din_2c_logical_2dout"><strong>logical-in</strong>, <strong>logical-out</strong></a></strong>
+
+<dd>
+<p>The logical bridge interface.</p>
+</dd>
+</li>
+<dt><strong><a name="item_saddr_2c_daddr"><strong>saddr</strong>, <strong>daddr</strong></a></strong>
+
+<dd>
+<p>Matches source or destination MAC address.</p>
+</dd>
+</li>
+<dt><strong><a name="item_match_modules"><strong>Match modules</strong></a></strong>
+
+<dd>
+<p>The following match modules are supported: 802.3, arp, ip, mark_m,
+pkttype, stp, vlan, log.</p>
+</dd>
+</li>
+<dt><strong><a name="item_target_extensions"><strong>Target extensions</strong></a></strong>
+
+<dd>
+<p>The following target extensions are supported: arpreply, dnat, mark,
+redirect, snat.</p>
+</dd>
+<dd>
+<p>Please note that there is a conflict between <em>--mark</em> from the
+<em>mark_m</em> match module and <em>-j mark</em>.  Since both would be
+implemented with the ferm keyword <strong>mark</strong>, we decided to solve this by
+writing the target's name in uppercase, like in the other domains.
+The following example rewrites mark 1 to 2:</p>
+</dd>
+<dd>
+<pre>
+    mark 1 MARK 2;</pre>
+</dd>
+</li>
+</dl>
+<p>
+</p>
+<hr />
 <h1><a name="advanced_features">ADVANCED FEATURES</a></h1>
 <p>
 </p>
@@ -1849,7 +1989,7 @@ just like any other variable.</p>
 <dt><strong><a name="item__domain"><strong>$DOMAIN</strong></a></strong>
 
 <dd>
-<p>The current domain. ``ip'' or ``ip6''.</p>
+<p>The current domain.  One of <em>ip</em>, <em>ip6</em>, <em>arp</em>, <em>eb</em>.</p>
 </dd>
 </li>
 <dt><strong><a name="item__table"><strong>$TABLE</strong></a></strong>
@@ -1930,8 +2070,9 @@ directory are included, sorted alphabetically:</p>
 string are false, everything else is true.  Examples for true values:</p>
 <pre>
     (a b); 1; 'foo'; (0 0)</pre>
-<p>Examples for false values:
-    (); 0; '0'; ''</p>
+<p>Examples for false values:</p>
+<pre>
+    (); 0; '0'; ''</pre>
 <p>There is also <strong>@else</strong>:</p>
 <pre>
     @if $condition DROP; @else REJECT;</pre>
@@ -2014,106 +2155,6 @@ shell script there.</p>
 <p>
 </p>
 <hr />
-<h1><a name="transition_from_ferm_1_1">TRANSITION FROM FERM 1.1</a></h1>
-<p>ferm 1.2 aims to be 100% compatible with ferm 1.1, i.e. old
-configuration files should work as expected.  For a ``clean'' ferm 1.2
-configuration without warnings, here is a list of the most important
-changes:</p>
-<dl>
-<dt><strong><a name="item_ipfwadm_and_ipchains"><em>ipfwadm and ipchains</em></a></strong>
-
-<dd>
-<p>Support for these has been removed.</p>
-</dd>
-</li>
-<dt><strong><a name="item_options_clearall_2c_flushall_2c_flushchains_2c_cre"><em>options <strong>clearall</strong>, <strong>flushall</strong>, <strong>flushchains</strong>, <strong>createchains</strong></em></a></strong>
-
-<dd>
-<p>All these options are always implied.  There is no option anymore to
-disable them.</p>
-</dd>
-</li>
-<dt><strong><a name="item_option_automod"><em>option automod</em></a></strong>
-
-<dd>
-<p>Automatic module loading is deprecated.  It still works for now, at
-least for modules which were already supported by ferm 1.1, but it is
-expected to be removed in ferm 1.3.</p>
-</dd>
-</li>
-<dt><strong><a name="item_option_location"><em>option location</em></a></strong>
-
-<dd>
-<p>ferm assumes that the iptables utilities are always installed in
-/sbin.</p>
-</dd>
-</li>
-<dt><strong><a name="item_chain_policies"><em>Chain policies</em></a></strong>
-
-<dd>
-<p>Chain policies should be written in a dedicated statement; ferm 1.1:</p>
-</dd>
-<dd>
-<pre>
- chain INPUT policy DROP {
-   # ...
- }</pre>
-</dd>
-<dd>
-<p>ferm 1.2:</p>
-</dd>
-<dd>
-<pre>
- chain INPUT {
-   policy DROP;
-   # ...
- }</pre>
-</dd>
-</li>
-<dt><strong><a name="item_variables"><em>Variables</em></a></strong>
-
-<dd>
-<p>The concept of variables has been overhauled in ferm 1.2; you can now
-declare functions which take parameters.  Besides that, you should use
-the new syntax:</p>
-</dd>
-<dd>
-<pre>
- @def $FOO = (http ssh);
- chain INPUT proto tcp dport $FOO ACCEPT;</pre>
-</dd>
-</li>
-<dt><strong><a name="item_arrays"><em>Arrays</em></a></strong>
-
-<dd>
-<p>Arrays used to be specified with commas separating the items.  In ferm
-1.2, you separate array items only by whitespace.</p>
-</dd>
-</li>
-<dt><strong><a name="item_misc_syntax_changes"><em>Misc syntax changes</em></a></strong>
-
-<dd>
-<p>Other small syntax changes:</p>
-</dd>
-<ul>
-<li>
-<p>built-in target names must be upper case; chains are lower case</p>
-</li>
-<li>
-<p>MASQUERADE, not MASQ</p>
-</li>
-<li>
-<p>A lot of shortcuts are deprecated, since they are polluting the namespace, e.g. ``mac'', ``tosrc''.</p>
-</li>
-<li>
-<p>``source addr $A port $B'' is deprecated, use ``sdaddr $A sport $B''
-instead.  The same for ``destination''.</p>
-</li>
-</ul>
-</dl>
-<p>
-</p>
-<hr />
 <h1><a name="options">OPTIONS</a></h1>
 <dl>
 <dt><strong><a name="item__2d_2dnoexec"><strong>--noexec</strong></a></strong>
@@ -2169,8 +2210,15 @@ installs it with iptables-restore(8). This is much faster, because
 ferm calls <code>iptables(8)</code> once for every rule by default.</p>
 </dd>
 <dd>
-<p>Watch out for iptables versions older than 1.3, they might not work
-with this option due to quoting bugs.</p>
+<p>Fast mode is enabled by default since <strong>ferm</strong> 2.0, deprecating this
+option.</p>
+</dd>
+</li>
+<dt><strong><a name="item__2d_2dslow"><strong>--slow</strong></a></strong>
+
+<dd>
+<p>Disable fast mode, i.e. run <code>iptables(8)</code> for every rule, and don't use
+iptables-restore(8).</p>
 </dd>
 </li>
 <dt><strong><a name="item__2d_2dshell"><strong>--shell</strong></a></strong>
@@ -2229,8 +2277,8 @@ used by your firewall script</p>
 </p>
 <hr />
 <h1><a name="copyright">COPYRIGHT</a></h1>
-<p>Copyright (C) 2001-2008 Auke Kok &lt;<a href="mailto:sofar@foo-projects.org">sofar@foo-projects.org</a>&gt;, Max
-Kellermann &lt;<a href="mailto:max@foo-projects.org">max@foo-projects.org</a>&gt;</p>
+<p>Copyright (C) 2001-2008 Max Kellermann &lt;<a href="mailto:max@foo-projects.org">max@foo-projects.org</a>&gt;, Auke
+Kok &lt;<a href="mailto:sofar@foo-projects.org">sofar@foo-projects.org</a>&gt;</p>
 <p>This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation; either version 2 of the License, or (at
@@ -2247,8 +2295,8 @@ USA</p>
 </p>
 <hr />
 <h1><a name="author">AUTHOR</a></h1>
-<p>Auke Kok &lt;<a href="mailto:sofar@foo-projects.org">sofar@foo-projects.org</a>&gt;, Max Kellermann
-&lt;<a href="mailto:max@foo-projects.org">max@foo-projects.org</a>&gt;</p>
+<p>Max Kellermann &lt;<a href="mailto:max@foo-projects.org">max@foo-projects.org</a>&gt;, Auke Kok
+&lt;<a href="mailto:sofar@foo-projects.org">sofar@foo-projects.org</a>&gt;</p>
 
 </body>
 

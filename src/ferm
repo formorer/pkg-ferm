@@ -3,7 +3,7 @@
 #
 # ferm, a firewall setup program that makes firewall rules easy!
 #
-# Copyright (C) 2001-2008 Auke Kok, Max Kellermann
+# Copyright (C) 2001-2008 Max Kellermann, Auke Kok
 #
 # Comments, questions, greetings and additions to this program
 # may be sent to <ferm@foo-projects.org>
@@ -25,7 +25,7 @@
 # Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 #
 
-# $Id: ferm 1208 2008-05-28 15:06:12Z max $
+# $Id: ferm 1270 2008-07-26 17:30:23Z max $
 
 BEGIN {
     eval { require strict; import strict; };
@@ -47,9 +47,9 @@ use vars qw($has_strict $has_getopt);
 use vars qw($DATE $VERSION);
 
 # subversion keyword magic
-$DATE = '$Date: 2008-05-28 17:06:12 +0200 (Wed, 28 May 2008) $' =~ m,(\d{4})-(\d\d)-(\d\d), ? $1.$2.$3 : '';
+$DATE = '$Date: 2008-07-26 19:30:23 +0200 (Sat, 26 Jul 2008) $' =~ m,(\d{4})-(\d\d)-(\d\d), ? $1.$2.$3 : '';
 
-$VERSION = '1.3.4';
+$VERSION = '2.0.2';
 #$VERSION .= '~svn' . $DATE;
 
 ## interface variables
@@ -61,129 +61,28 @@ use vars qw(@pre_hooks @post_hooks);
 
 ## parser variables
 # $script: current script file
-# %oldvars = ferm 1.1 compatibility variables, name => value
 # @stack = ferm's parser stack containing local variables
 # $auto_chain = index for the next auto-generated chain
-use vars qw($script %oldvars %rules @stack $auto_chain);
+use vars qw($script @stack $auto_chain);
 
 ## netfilter variables
 # %domains = state information about all domains ("ip" and "ip6")
 # - initialized: domain initialization is done
 # - tools: hash providing the paths of the domain's tools
 # - previous: save file of the previous ruleset, for rollback
-# - reset: has this domain already been reset?
 # - tables{$name}: ferm state information about tables
+#   - has_builtin: whether built-in chains have been determined in this table
 #   - chains{$chain}: ferm state information about the chains
 #     - builtin: whether this is a built-in chain
-#     - was_created: custom chain has been created
-#     - non_empty: are there rules for this chain?
 use vars qw(%domains);
 
 ## constants
-use vars qw(%deprecated_keywords %automod);
+use vars qw(%deprecated_keywords);
 
 # keywords from ferm 1.1 which are deprecated, and the new one; these
 # are automatically replaced, and a warning is printed
-%deprecated_keywords = ( macsource => 'mac-source',
-                         mac => 'mac-source',
-                         settos => 'set-tos',
-                         ttlset => 'ttl-set',
-                         ttldec => 'ttl-dec',
-                         ttlinc => 'ttl-inc',
-                         pkttype => 'pkt-type',
-                         uid => 'uid-owner',
-                         uidowner => 'uid-owner',
-                         gid => 'gid-owner',
-                         gidowner => 'gid-owner',
-                         pid => 'pid-owner',
-                         pidowner => 'pid-owner',
-                         sid => 'sid-owner',
-                         sidowner => 'sid-owner',
-                         ttleq => 'ttl-eq',
-                         ttllt => 'ttl-lt',
-                         ttlgt => 'ttl-gt',
-                         loglev => 'log-level',
-                         logprefix => 'log-prefix',
-                         logseq => 'log-tcp-sequence',
-                         logtcpopt => 'log-tcp-options',
-                         logipopt => 'log-ip-options',
-                         setmark => 'set-mark',
-                         toports => 'to-ports',
-                         rejectwith => 'reject-with',
-                         tosrc => 'to-source',
-                         todest => 'to-destination',
-                         burst => 'limit-burst',
-                         limitburst => 'limit-burst',
-                         match => 'module',
-                         frag => 'fragment',
-                         'out-interface' => 'outerface',
-                         icmptype => 'icmp-type',
-                         tcpflags => 'tcp-flags',
-                         tcpoption => 'tcp-option',
-                         iplimitabove => 'iplimit-above',
-                         iplimitmask => 'iplimit-mask',
-                         'ip-limit-above' => 'iplimit-above',
-                         'ip-limit-mask' => 'iplimit-mask',
-                         psdweightthreshold => 'psd-weight-threshold',
-                         psddelaythreshold => 'psd-delay-threshold',
-                         psdloportsweight => 'psd-lo-ports-weight',
-                         psdhiportsweight => 'psd-hi-ports-weight',
-                         deny => 'DROP',
-                         DENY => 'DROP',
-                         MASQ => 'MASQUERADE',
-                         masq => 'MASQUERADE',
-                         masquerade => 'MASQUERADE',
-                         accept => 'ACCEPT',
-                         drop => 'DROP',
-                         return => 'RETURN',
-                         queue => 'QUEUE',
-                         balance => 'BALANCE',
-                         dnat => 'DNAT',
-                         mirror => 'MIRROR',
-                         redirect => 'REDIRECT',
-                         reject => 'REJECT',
-                         snat => 'SNAT',
-                         tcpmss => 'TCPMSS',
-                         ttl => 'TTL',
-                         ulog => 'ULOG',
-                         nop => 'NOP',
-                         goto => 'jump',
+%deprecated_keywords = ( goto => 'jump',
                        );
-
-# support for the deprecated "automod" option. provide a mapping
-# between keywords and modules required for that
-%automod = ( tos => 'tos',
-             mark => 'mark',
-             'mac-source' => 'mac',
-             limit => 'limit',
-             'limit-burst' => 'limit',
-             'iplimit-above' => 'iplimit',
-             'iplimit-mask' => 'iplimit',
-             'uid-owner' => 'owner',
-             'gid-owner' => 'owner',
-             'pid-owner' => 'owner',
-             'sid-owner' => 'owner',
-             'psd-weight-threshold' => 'psd',
-             'psd-delay-threshold' => 'psd',
-             'psd-lo-ports-weight' => 'psd',
-             'psd-hi-ports-weight' => 'psd',
-             length => 'length',
-             average => 'random',
-             every => 'nth',
-             counter => 'nth',
-             start => 'nth',
-             packet => 'nth',
-             'pkt-type' => 'pkttype',
-             state => 'state',
-             'ttl-eq' => 'ttl',
-             'ttl-gt' => 'ttl',
-             'ttl-lt' => 'ttl',
-             timestart => 'time',
-             timestop => 'time',
-             days => 'time',
-             datestart => 'time',
-             datestop => 'time',
-           );
 
 # these hashes provide the Netfilter module definitions
 use vars qw(%proto_defs %match_defs %target_defs);
@@ -236,34 +135,64 @@ use vars qw(%proto_defs %match_defs %target_defs);
 #
 
 # add a module definition
-sub add_def {
+sub add_def_x {
     my $defs = shift;
+    my $domain_family = shift;
     my $params_default = shift;
     my $name = shift;
-    die if exists $defs->{$name};
-    my $def = $defs->{$name} = {};
+    die if exists $defs->{$domain_family}{$name};
+    my $def = $defs->{$domain_family}{$name} = {};
     foreach (@_) {
         my $keyword = $_;
-        my $k = {};
+        my $k;
 
-        my $params = $params_default;
-        $params = $1 if $keyword =~ s,\*(\d+)$,,;
-        $params = $1 if $keyword =~ s,=([acs]+|m)$,,;
-        if ($keyword =~ s,&(\S+)$,,) {
-            $params = eval "\\&$1";
-            die $@ if $@;
+        if ($keyword =~ s,:=(\S+)$,,) {
+            $k = $def->{keywords}{$1} || die;
+            $k->{ferm_name} ||= $keyword;
+        } else {
+            my $params = $params_default;
+            $params = $1 if $keyword =~ s,\*(\d+)$,,;
+            $params = $1 if $keyword =~ s,=([acs]+|m)$,,;
+            if ($keyword =~ s,&(\S+)$,,) {
+                $params = eval "\\&$1";
+                die $@ if $@;
+            }
+
+            $k = {};
+            $k->{params} = $params if $params;
+
+            $k->{negation} = $k->{pre_negation} = 1 if $keyword =~ s,^!,,;
+            $k->{negation} = 1 if $keyword =~ s,!$,,;
+            $k->{name} = $keyword;
         }
-        $k->{params} = $params if $params;
-
-        $k->{negation} = $k->{pre_negation} = 1 if $keyword =~ s,^!,,;
-        $k->{negation} = 1 if $keyword =~ s,!$,,;
-
-        $k->{alias} = $1 if $keyword =~ s,:=(\S+)$,,;
 
         $def->{keywords}{$keyword} = $k;
     }
 
     return $def;
+}
+
+# add a protocol module definition
+sub add_proto_def_x(@) {
+    my $domain_family = shift;
+    add_def_x(\%proto_defs, $domain_family, 1, @_);
+}
+
+# add a match module definition
+sub add_match_def_x(@) {
+    my $domain_family = shift;
+    add_def_x(\%match_defs, $domain_family, 1, @_);
+}
+
+# add a target module definition
+sub add_target_def_x(@) {
+    my $domain_family = shift;
+    add_def_x(\%target_defs, $domain_family, 's', @_);
+}
+
+sub add_def {
+    my $defs = shift;
+    add_def_x($defs, 'ip', @_);
 }
 
 # add a protocol module definition
@@ -289,6 +218,15 @@ add_proto_def 'sctp', qw(chunk-types!=sc);
 add_proto_def 'tcp', qw(tcp-flags!=cc !syn*0 tcp-option! mss);
 add_proto_def 'udp', qw();
 
+add_match_def '',
+  # --source, --destination
+  qw(source! saddr:=source destination! daddr:=destination),
+  # --in-interface
+  qw(in-interface! interface:=in-interface if:=in-interface),
+  # --out-interface
+  qw(out-interface! outerface:=out-interface of:=out-interface),
+  # --fragment
+  qw(!fragment*0);
 add_match_def 'account', qw(aaddr=s aname=s ashort*0);
 add_match_def 'addrtype', qw(src-type dst-type);
 add_match_def 'ah', qw(ahspi! ahlen! ahres*0);
@@ -300,11 +238,9 @@ add_match_def 'connmark', qw(mark);
 add_match_def 'conntrack', qw(ctstate=c ctproto ctorigsrc! ctorigdst!),
   qw(ctreplsrc! ctrepldst! ctstatus ctexpire=s);
 add_match_def 'dscp', qw(dscp dscp-class);
-add_match_def 'dst', qw(dst-len!=s dst-opts=c);
 add_match_def 'ecn', qw(ecn-tcp-cwr*0 ecn-tcp-ece*0 ecn-ip-ect);
 add_match_def 'esp', qw(espspi!);
 add_match_def 'eui64';
-add_match_def 'frag', qw(fragid! fraglen! fragres*0 fragmore*0 fragfirst*0 fraglast*0);
 add_match_def 'fuzzy', qw(lower-limit=s upper-limit=s);
 add_match_def 'hbh', qw(hbh-len! hbh-opts=c);
 add_match_def 'helper', qw(helper);
@@ -313,7 +249,6 @@ add_match_def 'hashlimit', qw(hashlimit=s hashlimit-burst=s hashlimit-mode=s has
   qw(hashlimit-htable-size=s hashlimit-htable-max=s),
   qw(hashlimit-htable-expire=s hashlimit-htable-gcinterval=s);
 add_match_def 'iprange', qw(!src-range !dst-range);
-add_match_def 'iplimit', qw(!iplimit-above=s iplimit-mask=s);
 add_match_def 'ipv4options', qw(ssrr*0 lsrr*0 no-srr*0 !rr*0 !ts*0 !ra*0 !any-opt*0);
 add_match_def 'ipv6header', qw(header!=c soft*0);
 add_match_def 'length', qw(length!);
@@ -343,7 +278,7 @@ add_match_def 'string', qw(algo=s from=s to=s string hex-string);
 add_match_def 'tcpmss', qw(!mss);
 add_match_def 'time', qw(timestart=s timestop=s days=c datestart=s datestop=s),
   qw(!monthday=c !weekdays=c utc*0 localtz*0);
-add_match_def 'tos', qw(!tos&compat_tos_params);
+add_match_def 'tos', qw(!tos);
 add_match_def 'ttl', qw(ttl-eq ttl-lt=s ttl-gt=s);
 add_match_def 'u32', qw(!u32=m);
 
@@ -375,26 +310,78 @@ add_target_def 'SET', qw(add-set=sc del-set=sc);
 add_target_def 'SNAT', qw(to-source=m to:=to-source random*0);
 add_target_def 'TARPIT';
 add_target_def 'TCPMSS', qw(set-mss clamp-mss-to-pmtu*0);
-add_target_def 'TOS', qw(set-tos&compat_tos_params and-tos or-tos xor-tos);
+add_target_def 'TOS', qw(set-tos and-tos or-tos xor-tos);
 add_target_def 'TRACE';
 add_target_def 'TTL', qw(ttl-set ttl-dec ttl-inc);
 add_target_def 'ULOG', qw(ulog-nlgroup ulog-prefix ulog-cprange ulog-qthreshold);
 
+add_match_def_x 'arp', '',
+  # ip
+  qw(source-ip! destination-ip! saddr:=source-ip daddr:=destination-ip),
+  # mac
+  qw(source-mac! destination-mac!),
+  # --in-interface
+  qw(in-interface! interface:=in-interface if:=in-interface),
+  # --out-interface
+  qw(out-interface! outerface:=out-interface of:=out-interface),
+  # misc
+  qw(h-length=s opcode=s h-type=s proto-type=s),
+  qw(mangle-ip-s=s mangle-ip-d=s mangle-mac-s=s mangle-mac-d=s mangle-target=s);
+
+add_match_def_x 'eb', '',
+  # protocol
+  qw(protocol! proto:=protocol),
+  # --in-interface
+  qw(in-interface! interface:=in-interface if:=in-interface),
+  # --out-interface
+  qw(out-interface! outerface:=out-interface of:=out-interface),
+  # logical interface
+  qw(logical-in! logical-out!),
+  # --source, --destination
+  qw(source! saddr:=source destination! daddr:=destination),
+  # 802.3
+  qw(802_3-sap! 802_3-type!),
+  # arp
+  qw(arp-opcode! arp-htype!=ss arp-ptype!=ss),
+  qw(arp-ip-src! arp-ip-dst! arp-mac-src! arp-mac-dst!),
+  # ip
+  qw(ip-source! ip-destination! ip-tos! ip-protocol! ip-sport! ip-dport!),
+  # mark_m
+  qw(mark!),
+  # pkttype
+  qw(pkttype-type!),
+  # stp
+  qw(stp-type! stp-flags! stp-root-prio! stp-root-addr! stp-root-cost!),
+  qw(stp-sender-prio! stp-sender-addr! stp-port! stp-msg-age! stp-max-age!),
+  qw(stp-hello-time! stp-forward-delay!),
+  # vlan
+  qw(vlan-id! vlan-prio! vlan-encap!),
+  # log
+  qw(log*0 log-level=s log-prefix=s log-ip*0 log-arp*0);
+
+add_target_def_x 'eb', 'arpreply', qw(arpreply-mac arpreply-target);
+add_target_def_x 'eb', 'dnat', qw(to-destination dnat-target);
+add_target_def_x 'eb', 'MARK', qw(set-mark mark-target);
+add_target_def_x 'eb', 'redirect', qw(redirect-target);
+add_target_def_x 'eb', 'snat', qw(to-source snat-target);
+
+# import-ferm uses the above tables
+return 1 if $0 =~ /import-ferm$/;
+
 # parameter parser for ipt_multiport
 sub multiport_params {
-    my $fw = shift;
+    my $rule = shift;
 
     # multiport only allows 15 ports at a time. For this
     # reason, we do a little magic here: split the ports
     # into portions of 15, and handle these portions as
     # array elements
 
-    my $proto = find_option($fw, 'proto');
+    my $proto = $rule->{protocol};
     error('To use multiport, you have to specify "proto tcp" or "proto udp" first')
       unless defined $proto and grep { /^(?:tcp|udp|udplite)$/ } to_array($proto);
 
-    my $value = getvalues(undef, undef,
-                          allow_negation => 1,
+    my $value = getvalues(undef, allow_negation => 1,
                           allow_array_negation => 1);
     if (ref $value and ref $value eq 'ARRAY') {
         my @value = @$value;
@@ -412,37 +399,14 @@ sub multiport_params {
     }
 }
 
-# parameter parser for ipt_tos
-sub compat_tos_params {
-    my $value = getvalues(undef, undef, allow_negation => 1);
-
-    return $value if ref $value and ref $value eq 'negated';
-
-    # ferm 1.1 allowed some abbreviations.  It is this function's only
-    # job to translate these deprecated keywords to the "real" ones.
-    my @value = map {
-        my $value = $_;
-        $value =~ s/^min-?cost$/0x02/;
-        $value =~ s/^(?:reliability|reliable)$/0x04/;
-        $value =~ s/^max-?throughput$/0x08/;
-        $value =~ s/^(?:lowdelay|interactive|min-delay)$/0x10/;
-        $value =~ s/^clear$/0x00/;
-        $value
-    } to_array($value);
-
-    return @value == 1 ? $value[0] : \@value;
-}
-
 # initialize stack: command line definitions
 unshift @stack, {};
 
 # Get command line stuff
 if ($has_getopt) {
-    my ($opt_noexec, $opt_flush, $opt_lines, $opt_interactive,
-        $opt_verbose, $opt_debug,
-        $opt_location, $opt_clearall, $opt_flushall,
-        $opt_createchains, $opt_flushchains, $opt_help, $opt_automod,
-        $opt_version, $opt_use, $opt_test, $opt_fast, $opt_shell,
+    my ($opt_noexec, $opt_flush, $opt_noflush, $opt_lines, $opt_interactive,
+        $opt_help,
+        $opt_version, $opt_test, $opt_fast, $opt_slow, $opt_shell,
         $opt_domain);
 
     Getopt::Long::Configure('bundling', 'auto_help', 'no_ignore_case',
@@ -453,32 +417,25 @@ if ($has_getopt) {
         die 'Invalid --def specification'
           unless $value =~ /^\$?(\w+)=(.*)$/s;
         my ($name, $unparsed_value) = ($1, $2);
-        my @tokens = tokenize_string($unparsed_value);
-        my $value = getvalues(\&next_array_token, \@tokens);
+        my $tokens = tokenize_string($unparsed_value);
+        my $value = getvalues(sub { shift @$tokens; });
         die 'Extra tokens after --def'
-          if @tokens;
+          if @$tokens > 0;
         $stack[0]{vars}{$name} = $value;
     }
 
     local $SIG{__WARN__} = sub { die $_[0]; };
     GetOptions('noexec|n' => \$opt_noexec,
                'flush|F' => \$opt_flush,
+               'noflush' => \$opt_noflush,
                'lines|l' => \$opt_lines,
                'interactive|i' => \$opt_interactive,
-               'verbose|v' => \$opt_verbose,
-               'debug|d' => \$opt_debug,
-               'location=s' => \$opt_location,
-               clearall => \$opt_clearall,
-               flushall => \$opt_flushall,
-               createchains => \$opt_createchains,
-               flushchains => \$opt_flushchains,
                'help|h' => \$opt_help,
-               automod => \$opt_automod,
                'version|V' => \$opt_version,
-               'use=s' => \$opt_use,
                test => \$opt_test,
                remote => \$opt_test,
                fast => \$opt_fast,
+               slow => \$opt_slow,
                shell => \$opt_shell,
                'domain=s' => \$opt_domain,
                'def=s' => \&opt_def,
@@ -494,53 +451,21 @@ if ($has_getopt) {
         exit 0;
     };
 
-    $option{'noexec'} = (defined $opt_noexec);
-    $option{flush} = defined $opt_flush;
-    $option{'lines'} = (defined $opt_lines);
-    $option{interactive} = (defined $opt_interactive);
-    $option{'automod'} = (defined $opt_automod);
-    $option{test} = (defined $opt_test);
+    $option{noexec} = $opt_noexec || $opt_test;
+    $option{flush} = $opt_flush;
+    $option{noflush} = $opt_noflush;
+    $option{lines} = $opt_lines || $opt_test || $opt_shell;
+    $option{interactive} = $opt_interactive && !$opt_noexec;
+    $option{test} = $opt_test;
+    $option{fast} = !$opt_slow;
+    $option{shell} = $opt_shell;
 
-    if ($option{test}) {
-        $option{noexec} = 1;
-        $option{lines} = 1;
-    }
-
-    delete $option{interactive} if $option{noexec};
-
-    mydie('ferm interactive mode not possible: /dev/stdin is not a tty')
+    die("ferm interactive mode not possible: /dev/stdin is not a tty\n")
       if $option{interactive} and not -t STDIN;
-    mydie('ferm interactive mode not possible: /dev/stderr is not a tty')
+    die("ferm interactive mode not possible: /dev/stderr is not a tty\n")
       if $option{interactive} and not -t STDERR;
 
-    $option{fast} = 1 if defined $opt_fast;
-
-    if (defined $opt_shell) {
-        $option{$_} = 1 foreach qw(shell fast lines);
-    }
-
     $option{domain} = $opt_domain if defined $opt_domain;
-
-    print STDERR "Warning: --automod is deprecated\n"
-      if defined $opt_automod;
-
-    print STDERR "Warning: ignoring the obsolete --use/-s option\n"
-      if defined $opt_use;
-
-    print STDERR "Warning: ignoring the obsolete --debug option\n"
-      if defined $opt_debug;
-    print STDERR "Warning: ignoring the obsolete --verbose option\n"
-      if defined $opt_verbose;
-    print STDERR "Warning: ignoring the obsolete --clearall option\n"
-      if defined $opt_clearall;
-    print STDERR "Warning: ignoring the obsolete --flushall option\n"
-      if defined $opt_flushall;
-    print STDERR "Warning: ignoring the obsolete --flushchains option\n"
-      if defined $opt_flushchains;
-    print STDERR "Warning: ignoring the obsolete --createchains option\n"
-      if defined $opt_createchains;
-    print STDERR "Warning: ignoring the obsolete --location option\n"
-      if defined $opt_location;
 } else {
     # tiny getopt emulation for microperl
     my $filename;
@@ -588,14 +513,10 @@ if ($has_strict) {
 
 unshift @stack, {};
 open_script($ARGV[0]);
-read_header();
 
 # parse all input recursively
 enter(0);
 die unless @stack == 2;
-
-# check consistency
-check();
 
 # execute all generated rules
 my $status;
@@ -605,10 +526,11 @@ foreach my $cmd (@pre_hooks) {
     system($cmd) unless $option{noexec};
 }
 
-while (my ($domain, $rules) = each %rules) {
-    my $s = $option{fast}
-      ? execute_fast($domain, rules_to_save($domain, $rules))
-        : execute_slow($domain, $rules);
+while (my ($domain, $domain_info) = each %domains) {
+    next unless $domain_info->{enabled};
+    my $s = $option{fast} &&
+      defined $domain_info->{tools}{'tables-restore'}
+      ? execute_fast($domain_info) : execute_slow($domain_info);
     $status = $s if defined $s;
 }
 
@@ -635,16 +557,9 @@ exit 0;
 
 sub printversion {
     print "ferm $VERSION\n";
-    print "Copyright (C) 2001-2008 Auke Kok, Max Kellermann\n";
+    print "Copyright (C) 2001-2008 Max Kellermann, Auke Kok\n";
     print "This program is free software released under GPLv2.\n";
     print "See the included COPYING file for license details.\n";
-}
-
-
-sub mydie {
-    print STDERR @_;
-    print STDERR "\n";
-    exit 1;
 }
 
 
@@ -654,7 +569,7 @@ sub error {
     my $tabs = 0;
     my @lines;
     my $l = 0;
-    my @words = @{$script->{past_tokens}};
+    my @words = map { @$_ } @{$script->{past_tokens}};
 
     for my $w ( 0 .. $#words ) {
         if ($words[$w] eq "\x29")
@@ -686,7 +601,7 @@ sub error {
     for $l ( $start .. $#lines)
         { print STDERR $lines[$l]; if ($l != $#lines ) {print STDERR "\n"} ; };
     print STDERR "<--\n";
-    mydie(@_);
+    die("@_\n");
 }
 
 # print a warning message about code from an input file
@@ -707,24 +622,27 @@ sub find_tool($) {
 
 sub initialize_domain {
     my $domain = shift;
+    my $domain_info = $domains{$domain} ||= {};
 
-    return if exists $domains{$domain}{initialized};
+    return if exists $domain_info->{initialized};
 
-    die "Invalid domain '$domain'\n" unless $domain =~ /^ip6?$/;
+    die "Invalid domain '$domain'\n" unless $domain =~ /^(?:ip6?|arp|eb)$/;
 
-    my @tools = qw(tables tables-save tables-restore);
+    my @tools = qw(tables);
+    push @tools, qw(tables-save tables-restore)
+      if $domain =~ /^ip6?$/;
 
     # determine the location of this domain's tools
-    foreach my $tool (@tools) {
-        $domains{$domain}{tools}{$tool} = find_tool("${domain}${tool}");
-    }
+    my %tools = map { $_ => find_tool($domain . $_) } @tools;
+    $domain_info->{tools} = \%tools;
 
     # make tables-save tell us about the state of this domain
     # (which tables and chains do exist?), also remember the old
     # save data which may be used later by the rollback function
     local *SAVE;
     if (!$option{test} &&
-        open(SAVE, "$domains{$domain}{tools}{'tables-save'}|")) {
+        exists $tools{'tables-save'} &&
+        open(SAVE, "$tools{'tables-save'}|")) {
         my $save = '';
 
         my $table_info;
@@ -733,7 +651,7 @@ sub initialize_domain {
 
             if (/^\*(\w+)/) {
                 my $table = $1;
-                $table_info = $domains{$domain}{tables}{$table} ||= {};
+                $table_info = $domain_info->{tables}{$table} ||= {};
             } elsif (defined $table_info and /^:(\w+)\s+(\S+)/
                      and $2 ne '-') {
                 $table_info->{chains}{$1}{builtin} = 1;
@@ -742,13 +660,32 @@ sub initialize_domain {
         }
 
         # for rollback
-        $domains{$domain}{previous} = $save;
+        $domain_info->{previous} = $save;
     }
 
-    $domains{$domain}{initialized} = 1;
+    $domain_info->{initialized} = 1;
 }
 
-# split the an input string into words and delete comments
+sub filter_domains($) {
+    my $domains = shift;
+    my @result;
+
+    foreach my $domain (to_array($domains)) {
+        next if exists $option{domain}
+          and $domain ne $option{domain};
+
+        eval {
+            initialize_domain($domain);
+        };
+        error($@) if $@;
+
+        push @result, $domain;
+    }
+
+    return @result == 1 ? @result[0] : \@result;
+}
+
+# split the input string into words and delete comments
 sub tokenize_string($) {
     my $string = shift;
 
@@ -759,99 +696,12 @@ sub tokenize_string($) {
         push @ret, $word;
     }
 
-    return @ret;
-}
-
-# shift an array; helper function to be passed to &getvar / &getvalues
-sub next_array_token {
-    my $array = shift;
-    shift @$array;
-}
-
-# read the header of a ferm script, handle (deprecated) syntax
-sub read_header() {
-    die unless defined $script;
-    die if defined $script->{parent};
-
-    my $tokens = $script->{tokens};
-    die unless ref $tokens eq 'ARRAY';
-    die if @$tokens;
-
-    while (1) {
-        my $handle = $script->{handle};
-        my $line = <$handle>;
-        return unless defined $line;
-
-        $script->{line} ++;
-
-        my @line = tokenize_string($line);
-        next unless @line;
-
-        map { s/^(["'])(.*)\1$/$2/s } @line;
-
-        # look at the first word, then decide what to do. some special
-        # keywords are handled here, everything else gets added to @tokens
-        if ($line[0] eq 'option') {
-            # option: edit the %option hash
-            shift @line;
-            my $name = shift @line;
-            my $value = shift @line;
-
-            unless (defined $value) {
-                $value = 1;
-            } elsif ($value eq 'off') {
-                $value = undef;
-            }
-
-            if ($value and $name =~ /^(?:ipchains|iptables|ipfwadm)$/) {
-                print STDERR "The options ipchains, iptables and ipfwadm are obsolete, ignoring them\n";
-            } else {
-                print STDERR "The 'option' keyword is deprecated\n";
-                $option{$name} = $value;
-            }
-        } elsif ($line[0] eq 'set') {
-            # set: set a variable
-            shift @line;
-            my $name = getvar(\&next_array_token, \@line);
-            my $value = getvalues(\&next_array_token, \@line);
-
-            warning('"set" is deprecated, please use "def $NAME = VALUE;"');
-
-            if (@line and $line[0] eq ',') {
-                warning('Arrays without parentheses are deprecated');
-
-                $value = [ $value ]
-                  unless ref $value;
-
-                do {
-                    shift @line;
-                    my $v = getvalues(\&next_array_token, \@line);
-                    push @$value, ref $v ? @$v : $v;
-                } while (@line and $line[0] eq ',');
-            }
-
-            error('spare tokens after "set"')
-              if @line;
-
-            $oldvars{$name} = $value;
-        } else {
-            # the next parser stage eats this
-            push @$tokens, @line;
-            last;
-        }
-    }
-
-    return 1;
+    return \@ret;
 }
 
 # read some more tokens from the input file into a buffer
 sub prepare_tokens() {
-    return
-      unless defined $script;
-
     my $tokens = $script->{tokens};
-    die unless ref $tokens eq 'ARRAY';
-
     while (@$tokens == 0) {
         my $handle = $script->{handle};
         my $line = <$handle>;
@@ -859,10 +709,8 @@ sub prepare_tokens() {
 
         $script->{line} ++;
 
-        my @line = tokenize_string($line);
-
         # the next parser stage eats this
-        push @$tokens, @line;
+        push @$tokens, @{tokenize_string($line)};
     }
 
     return 1;
@@ -873,13 +721,12 @@ sub open_script($) {
     my $filename = shift;
 
     for (my $s = $script; defined $s; $s = $s->{parent}) {
-        mydie("Circular reference in $script->{filename} line $script->{line}: $filename")
+        die("Circular reference in $script->{filename} line $script->{line}: $filename\n")
           if $s->{filename} eq $filename;
     }
 
     local *FILE;
-    open FILE, "<$filename"
-      or mydie("Failed to open $filename: $!");
+    open FILE, "<$filename" or die("Failed to open $filename: $!\n");
     my $handle = *FILE;
 
     $script = { filename => $filename,
@@ -924,7 +771,7 @@ sub collect_filenames(@) {
             # sort those names for a well-defined order
             foreach my $name (sort { $a cmp $b } @names) {
                 # don't include hidden and backup files
-                next if /^\.|~$/;
+                next if $name =~ /^\.|~$/;
 
                 my $filename = $pathname . $name;
                 push @ret, $filename
@@ -952,81 +799,39 @@ sub collect_filenames(@) {
 
 # peek a token from the queue, but don't remove it
 sub peek_token() {
-    # get a token
-    prepare_tokens();
-
-    return
-      unless defined $script;
-
-    my $tokens = $script->{tokens};
-    die unless ref $tokens eq 'ARRAY';
-
-    return
-      unless @$tokens;
-
-    return $tokens->[0];
+    return unless prepare_tokens();
+    return $script->{tokens}[0];
 }
 
 # get a token from the queue
 sub next_token() {
-    prepare_tokens();
-
-    return
-      unless defined $script;
-
-    my $tokens = $script->{tokens};
-    die unless ref $tokens eq 'ARRAY';
-
-    return
-      unless @$tokens;
-
-    my $token = shift @$tokens;
+    return unless prepare_tokens();
+    my $token = shift @{$script->{tokens}};
 
     # update $script->{past_tokens}
     my $past_tokens = $script->{past_tokens};
-    die unless ref $past_tokens eq 'ARRAY';
 
-    if (@$past_tokens and
-        ($past_tokens->[@$past_tokens - 1] eq '}' or
-         $past_tokens->[@$past_tokens - 1] eq ';')) {
-        # now this is tricky: $script->{past_tokens} is used in error
-        # messages. in the following lines, we filter out everything
-        # which has become irrelevant for error messages,
-        # i.e. previous (completed) commands
-
-        my $t = pop @$past_tokens;
-
-        # track the current level - a '}' means one level up (we are
-        # going backwards)
-        my $level = $t eq '}' ? 1 : 0;
-
-        while (@$past_tokens and $level >= 0) {
-            $t = pop @$past_tokens;
-
-            if ($level == 0 and ($t eq '}' or $t eq ';')) {
-                # don't delete another command
-                push @$past_tokens, $t;
-                last;
-            } elsif ($t eq '}') {
-                # one level up
-                $level++;
-            } elsif ($t eq '{') {
-                # one level down. stop here if we're already at level
-                # zero
-                if ($level == 0) {
-                    push @$past_tokens, $t;
-                    last;
-                }
-
-                $level--;
-            }
-        }
+    if (@$past_tokens > 0) {
+        my $prev_token = $past_tokens->[-1][-1];
+        $past_tokens->[-1] = @$past_tokens > 1 ? ['{'] : []
+          if $prev_token eq ';';
+        pop @$past_tokens
+          if $prev_token eq '}';
     }
 
-    push @$past_tokens, $token;
+    push @$past_tokens, [] if $token eq '{' or @$past_tokens == 0;
+    push @{$past_tokens->[-1]}, $token;
 
     # return
     return $token;
+}
+
+sub expect_token($;$) {
+    my $expect = shift;
+    my $msg = shift;
+    my $token = next_token();
+    error($msg || "'$expect' expected")
+      unless defined $token and $token eq $expect;
 }
 
 # require that another token exists, and that it's not a "special"
@@ -1043,45 +848,6 @@ sub require_next_token {
       if $token =~ /^[;{}]$/;
 
     return $token;
-}
-
-# determine the value of an old style variable, die if the variable is
-# unknown
-sub old_variable_value($) {
-    my $name = shift;
-
-    error("no such variable: \%$name")
-      unless exists $oldvars{$name};
-
-    return $oldvars{$name};
-}
-
-# determine the value of a variable, die if the value is an array
-sub string_old_variable_value($) {
-    my $name = shift;
-    my $value = old_variable_value($name);
-
-    error("variable '$name' must be a string, is an array")
-      if ref $value;
-
-    return $value;
-}
-
-# resolve all old style variable references in the string - may be an
-# array!
-sub resolve_old_variable_refs($) {
-    my $token = shift;
-
-    if ($token =~ /^\%(\w+)$/) {
-        # if the token only of the reference, return the pure value
-        return old_variable_value($1);
-    } else {
-        # a reference in the middle of the string. replace, but only
-        # allow string variables, no arrays here
-        $token =~ s/\%(\w+)/string_old_variable_value($1)/eg;
-
-        return $token;
-    }
 }
 
 # return the value of a variable
@@ -1104,7 +870,7 @@ sub string_variable_value($) {
     my $name = shift;
     my $value = variable_value($name);
 
-    error("variable '$name' must be a string, is an array")
+    error("variable '$name' must be a string, but it is an array")
       if ref $value;
 
     return $value;
@@ -1130,17 +896,17 @@ sub join_value($$) {
 
 # returns the next parameter, which may either be a scalar or an array
 sub getvalues {
-    my ($code, $param) = (shift, shift);
+    my $code = shift;
     my %options = @_;
 
-    my $token = require_next_token($code, $param);
+    my $token = require_next_token($code);
 
     if ($token eq '(') {
         # read an array until ")"
         my @wordlist;
 
         for (;;) {
-            $token = getvalues($code, $param,
+            $token = getvalues($code,
                                parenthesis_allowed => 1,
                                comma_allowed => 1);
 
@@ -1148,7 +914,7 @@ sub getvalues {
                 last if $token eq ')';
 
                 if ($token eq ',') {
-                    warning('Comma within arrays is deprecated, please use only a space');
+                    error('Comma is not allowed within arrays, please use only a space');
                     next;
                 }
 
@@ -1188,7 +954,7 @@ sub getvalues {
 
         my @values;
         while (@tokens) {
-            my $value = getvalues(\&next_array_token, \@tokens);
+            my $value = getvalues(sub { shift @tokens });
             push @values, to_array($value);
         }
 
@@ -1198,31 +964,22 @@ sub getvalues {
             : \@values;
     } elsif ($token =~ /^\'(.*)\'$/s) {
         # single quotes: a string
-        return resolve_old_variable_refs($1);
+        return $1;
     } elsif ($token =~ /^\"(.*)\"$/s) {
         # double quotes: a string with escapes
-        $token = resolve_old_variable_refs($1);
+        $token = $1;
         $token =~ s,\$(\w+),string_variable_value($1),eg;
         return $token;
     } elsif ($token eq '!') {
         error('negation is not allowed here')
           unless $options{allow_negation};
 
-        $token = getvalues($code, $param);
+        $token = getvalues($code);
 
         error('it is not possible to negate an array')
           if ref $token and not $options{allow_array_negation};
 
         return bless [ $token ], 'negated';
-    } elsif ($token =~ /^.+,.+$/) {
-        warning('Arrays within a string are deprecated, please use parentheses');
-
-        my @array = map {
-            my $value = resolve_old_variable_refs($_);
-            ref $value ? @$value : $value;
-        } split(/,/, $token);
-
-        return \@array;
     } elsif ($token eq ',') {
         return $token
           if $options{comma_allowed};
@@ -1231,7 +988,7 @@ sub getvalues {
     } elsif ($token eq '=') {
         error('equals operator ("=") is not allowed here');
     } elsif ($token eq '$') {
-        my $name = require_next_token($code, $param);
+        my $name = require_next_token($code);
         error('variable name expected - if you want to concatenate strings, try using double quotes')
           unless $name =~ /^\w+$/;
 
@@ -1241,12 +998,6 @@ sub getvalues {
           unless defined $value;
 
         return $value;
-    } elsif ($token eq '%') {
-        my $name = require_next_token($code, $param);
-        error('variable name expected')
-          unless $name =~ /^\w+$/;
-
-        return old_variable_value($name);
     } elsif ($token eq '&') {
         error("function calls are not allowed as keyword parameter");
     } elsif ($token eq ')' and not $options{parenthesis_allowed}) {
@@ -1276,13 +1027,13 @@ sub getvalues {
             error("unknown ferm built-in function");
         }
     } else {
-        return resolve_old_variable_refs($token);
+        return $token;
     }
 }
 
 # returns the next parameter, but only allow a scalar
-sub getvar {
-    my $token = getvalues(@_);
+sub getvar() {
+    my $token = getvalues();
 
     error('array not allowed here')
       if ref $token and ref $token eq 'ARRAY';
@@ -1291,13 +1042,11 @@ sub getvar {
 }
 
 sub get_function_params(%) {
-    my $token = next_token();
-    error('function name must be followed by "()"')
-      unless defined $token and $token eq '(';
+    expect_token('(', 'function name must be followed by "()"');
 
-    $token = peek_token();
+    my $token = peek_token();
     if ($token eq ')') {
-        require_next_token;
+        require_next_token();
         return;
     }
 
@@ -1313,7 +1062,7 @@ sub get_function_params(%) {
               unless $token eq ',';
         }
 
-        push @params, getvalues(undef, undef, @_);
+        push @params, getvalues(undef, @_);
     }
 
     return @params;
@@ -1383,15 +1132,16 @@ sub eval_bool($) {
 sub is_netfilter_core_target($) {
     my $target = shift;
     die unless defined $target and length $target;
-
-    return $target =~ /^(?:ACCEPT|DROP|RETURN|QUEUE)$/;
+    return grep { $_ eq $target } qw(ACCEPT DROP RETURN QUEUE);
 }
 
-sub is_netfilter_module_target($) {
-    my $target = shift;
+sub is_netfilter_module_target($$) {
+    my ($domain_family, $target) = @_;
     die unless defined $target and length $target;
 
-    return exists $target_defs{$target};
+    return defined $domain_family &&
+      exists $target_defs{$domain_family} &&
+        $target_defs{$domain_family}{$target};
 }
 
 sub is_netfilter_builtin_chain($$) {
@@ -1401,9 +1151,28 @@ sub is_netfilter_builtin_chain($$) {
       qw(PREROUTING INPUT FORWARD OUTPUT POSTROUTING);
 }
 
+sub netfilter_canonical_protocol($) {
+    my $proto = shift;
+    return 'icmpv6'
+      if $proto eq 'ipv6-icmp';
+    return 'mh'
+      if $proto eq 'ipv6-mh';
+    return $proto;
+}
+
+sub netfilter_protocol_module($) {
+    my $proto = shift;
+    return unless defined $proto;
+    return 'icmp6'
+      if $proto eq 'icmpv6';
+    return $proto;
+}
+
 # escape the string in a way safe for the shell
 sub shell_escape($) {
     my $token = shift;
+
+    return $token if $token =~ /^[-_a-zA-Z0-9]+$/s;
 
     if ($option{fast}) {
         # iptables-save/iptables-restore are quite buggy concerning
@@ -1424,435 +1193,117 @@ sub shell_escape($) {
     return $token;
 }
 
-# append parameters to a shell command line, with the correct escape
-# sequences
-sub shell_append($@) {
-    my $ref = shift;
-
-    foreach (@_) {
-        $$ref .= ' ' . shell_escape($_);
-    }
-}
-
 # append an option to the shell command line, using information from
 # the module definition (see %match_defs etc.)
-sub shell_append_option($$$$) {
-    my ($ref, $def, $keyword, $value) = @_;
+sub shell_format_option($$) {
+    my ($keyword, $value) = @_;
 
-    my @negated;
-    if (ref $value and ref $value eq 'negated') {
-        $value = $value->[0];
-
-        if (exists $def->{pre_negation}) {
-            shell_append($ref, '!');
-        } else {
-            push @negated, '!';
+    my $cmd = '';
+    if (ref $value) {
+        if (ref $value eq 'negated') {
+            $value = $value->[0];
+            $keyword .= ' !';
+        } elsif (ref $value eq 'pre_negated') {
+            $value = $value->[0];
+            $cmd = ' !';
         }
     }
 
     unless (defined $value) {
-        shell_append($ref, "--$keyword");
-    } elsif (ref $value and ref $value eq 'params') {
-        shell_append($ref, "--$keyword", @negated, @$value);
-    } elsif (ref $value and ref $value eq 'multi') {
-        foreach (@$value) {
-            shell_append($ref, "--$keyword", $_);
+        $cmd .= " --$keyword";
+    } elsif (ref $value) {
+        if (ref $value eq 'params') {
+            $cmd .= " --$keyword ";
+            $cmd .= join(' ', map { shell_escape($_) } @$value);
+        } elsif (ref $value eq 'multi') {
+            foreach (@$value) {
+                $cmd .= " --$keyword " . shell_escape($_);
+            }
+        } else {
+            die;
         }
     } else {
-        shell_append($ref, "--$keyword", @negated, $value);
+        $cmd .= " --$keyword " . shell_escape($value);
+    }
+
+    return $cmd;
+}
+
+sub format_option($$$) {
+    my ($domain, $name, $value) = @_;
+    $value = 'icmpv6' if $domain eq 'ip6' and $name eq 'protocol'
+      and $value eq 'icmp';
+    return shell_format_option($name, $value);
+}
+
+sub append_rule($$) {
+    my ($chain_rules, $rule) = @_;
+
+    my $cmd = join('', map { $_->[2] } @{$rule->{options}});
+    push @$chain_rules, { rule => $cmd,
+                          script => $rule->{script},
+                        };
+}
+
+sub format_option($$$) {
+    my ($domain, $name, $value) = @_;
+    $value = 'icmpv6' if $domain eq 'ip6' and $name eq 'protocol'
+      and $value eq 'icmp';
+    return shell_format_option($name, $value);
+}
+
+sub unfold_rule {
+    my ($domain, $chain_rules, $rule) = (shift, shift, shift);
+    return append_rule($chain_rules, $rule) unless @_;
+
+    my $option = shift;
+    my @values = @{$option->[1]};
+
+    foreach my $value (@values) {
+        $option->[2] = format_option($domain, $option->[0], $value);
+        unfold_rule($domain, $chain_rules, $rule, @_);
     }
 }
 
-# dereference a bless'negated'
-sub extract_negation($) {
-    local $_ = shift;
-    ref && ref eq 'negated'
-      ? ( '!', $_->[0] )
-        : $_;
-}
+sub mkrules2($$$) {
+    my ($domain, $chain_rules, $rule) = @_;
 
-# reset a netfilter domain: set all policies to ACCEPT, clear all
-# rules, delete custom chains
-sub reset_domain($) {
-    my $domain = shift;
-    my $domain_info = $domains{$domain};
-
-    my $path = $domain_info->{tools}{tables};
-
-    my @rules;
-    while (my ($table, $table_info) = each %{$domain_info->{tables}}) {
-        while (my ($chain, $chain_info) = each %{$table_info->{chains}}) {
-            next unless $chain_info->{builtin} or
-              (not $table_info->{has_builtin} and
-               is_netfilter_builtin_chain($table, $chain));
-            push @rules, "$path -t $table -P $chain ACCEPT\n";
-        }
-
-        push @rules,
-          "$path -t $table -F\n", "$path -t $table -X\n";
-    }
-
-    return @rules;
-}
-
-# convert an internal rule structure into an iptables call
-sub tables($) {
-    my $rule = shift;
-    my %rule = %$rule;
-
-    my $domain = $rule{domain};
-    my $domain_info = $domains{$domain};
-
-    my $table = $rule{table};
-    my $table_info = $domain_info->{tables}{$table} ||= {};
-
-    my $rules = $rules{$domain} ||= [];
-
-    my $chain = $rule{chain};
-    my $chain_info = $table_info->{chains}{$chain} ||= {};
-
-    return if $option{flush};
-
-    my $action = $rule{action};
-
-    my $rr = shell_escape($domain_info->{tools}{tables});
-    shell_append(\$rr, '-t', $table);
-
-    # should we set a policy?
-    if (exists $chain_info->{set_policy}) {
-        my $policy = $chain_info->{policy};
-
-        push @$rules, "$rr -P $chain $policy\n";
-
-        delete $chain_info->{set_policy};
-    }
-
-    # mark this chain as "non-empty" because we will add stuff to
-    # it now; this flag is later used to check if a custom chain
-    # referenced by "jump" was actually defined
-    $chain_info->{non_empty} = 1;
-
-    # check if the chain is already defined
-    unless (exists $chain_info->{was_created} or
-            is_netfilter_builtin_chain($table, $chain)) {
-        push @$rules, "$rr -N $chain\n";
-        $chain_info->{was_created} = 1;
-    }
-
-    # check for unknown jump target
-    if (defined $action and
-        ($action->{type} eq 'jump' or
-         $action->{type} eq 'goto') and
-        not exists $table_info->{chains}{$action->{chain}}{was_created}) {
-        my $chain = $action->{chain};
-        push @$rules, "$rr -N $chain\n";
-        $table_info->{chains}{$chain}{was_created} = 1;
-    }
-
-    # return if this is a policy-only rule
-    return
-      unless $rule{has_rule};
-
-    shell_append(\$rr, '-A', $chain);
-
-    # modules; copy the hash because we might add automatic protocol
-    # modules later
-    my %modules;
-    if (exists $rule{modules}) {
-        %modules = %{$rule{modules}};
-        shell_append(\$rr, '-m', $_)
-          foreach keys %modules;
-    }
-
-    # general iptables options
-    shell_append(\$rr, '-s', extract_negation $rule{saddr})
-      if defined $rule{saddr};
-    shell_append(\$rr, '-d', extract_negation $rule{daddr})
-      if defined $rule{daddr};
-
-    shell_append(\$rr, '-i', extract_negation $rule{interface})
-      if defined $rule{'interface'};
-    shell_append(\$rr, '-o', extract_negation $rule{outerface})
-      if defined $rule{'outerface'};
-
-    shell_append(\$rr, '-p', extract_negation $rule{proto})
-      if defined $rule{proto};
-
-    if (defined $rule{'fragment'}) {
-        shell_append(\$rr, '!')
-          unless $rule{fragment} eq 'set';
-
-        shell_append(\$rr, '-f')
-    }
-
-    #
-    # match module options
-    #
-
-    if (defined $rule{proto}) {
-        my $proto = $rule{proto};
-        $proto = 'icmpv6'
-          if $domain eq 'ip6' and $proto eq 'ipv6-icmp';
-        $proto = 'mh'
-          if $domain eq 'ip6' and $proto eq 'ipv6-mh';
-
-        if (exists $proto_defs{$proto}) {
-            my $def = $proto_defs{$proto};
-            while (my ($keyword, $k) = each %{$def->{keywords}}) {
-                my $key = "protocol__${proto}__$keyword";
-                next unless exists $rule{$key};
-                my $value = $rule->{$key};
-
-                my $module = $proto eq 'icmpv6' ? 'icmp6' : $proto;
-                unless (exists $modules{$module}) {
-                    shell_append(\$rr, '-m', $module);
-                    $modules{$module} = 1;
-                }
-
-                shell_append_option(\$rr, $k, $keyword, $value);
-            }
-        }
-
-        # special case: --dport and --sport for TCP/UDP
-        if ((exists $rule{dport} or exists $rule{sport}) and
-            $proto =~ /^(?:tcp|udp|udplite|dccp|sctp)$/) {
-            unless (exists $modules{$proto}) {
-                shell_append(\$rr, '-m', $proto);
-                $modules{$proto} = 1;
-            }
-
-            shell_append_option(\$rr, { params => 1,
-                                        negation => 1,
-                                      }, 'dport', $rule{dport})
-              if exists $rule{dport};
-            shell_append_option(\$rr, { params => 1,
-                                        negation => 1,
-                                      }, 'sport', $rule{sport})
-              if exists $rule{sport};
+    my @unfold;
+    foreach my $option (@{$rule->{options}}) {
+        if (ref $option->[1] and ref $option->[1] eq 'ARRAY') {
+            push @unfold, $option
+        } else {
+            $option->[2] = format_option($domain, $option->[0], $option->[1]);
         }
     }
 
-    # modules stored in %match_defs
-    while (my ($key, $value) = each %rule) {
-        next unless $key =~ /^module__(\w+)__([-\w]+)$/;
-        my ($module_name, $keyword) = ($1, $2);
-
-        my $def = $match_defs{$module_name}{keywords}{$keyword};
-        die unless defined $def;
-
-        shell_append_option(\$rr, $def, $keyword, $value);
-    }
-
-    #
-    # target options
-    #
-
-    if ($action->{type} eq 'jump') {
-        shell_append(\$rr, '-j', $action->{chain});
-    } elsif ($action->{type} eq 'goto') {
-        shell_append(\$rr, '-g', $action->{chain});
-    } elsif ($action->{type} eq 'target') {
-        shell_append(\$rr, '-j', $action->{target});
-
-        # targets stored in %target_defs
-
-        while (my ($keyword, $value) = each %{$rule{target_options}}) {
-            my $def = $target_defs{$action->{target}}{keywords}{$keyword};
-            die unless defined $def;
-
-            shell_append_option(\$rr, $def, $keyword, $value);
-        }
-    } elsif ($action->{type} ne 'nop') {
-        die;
-    }
-
-    # this line is done
-    $rr .= "\n";
-    push @$rules, { rule => $rr,
-                    script => $rule{script},
-                  };
-};
-
-sub transform_rule($) {
-    my $rule = shift;
-
-    $rule->{proto} = 'icmpv6'
-      if $rule->{domain} eq 'ip6' and $rule->{proto} eq 'icmp';
+    unfold_rule($domain, $chain_rules, $rule, @unfold);
 }
-
-sub printrule($) {
-    my $rule = shift;
-
-    transform_rule($rule);
-
-    # prints all rules in a hash
-    tables($rule);
-}
-
 
 # convert a bunch of internal rule structures in iptables calls,
 # unfold arrays during that
 sub mkrules($) {
-    # compile the list hashes into rules
-    my $fw = shift;
+    my $rule = shift;
 
-    # pack the data in a handy format (list-of-hashes with one kw
-    # per level, so we can recurse...
-    my @fr;
+    foreach my $domain (to_array $rule->{domain}) {
+        my $domain_info = $domains{$domain};
+        $domain_info->{enabled} = 1;
 
-    foreach my $current (@$fw) {
-        while (my ($key, $value) = each %$current) {
-            push @fr, [ $key, $value ];
+        foreach my $table (to_array $rule->{table}) {
+            my $table_info = $domain_info->{tables}{$table} ||= {};
+
+            foreach my $chain (to_array $rule->{chain}) {
+                my $chain_rules = $table_info->{chains}{$chain}{rules} ||= [];
+                mkrules2($domain, $chain_rules, $rule)
+                  if $rule->{has_rule} and not $option{flush};
+            }
         }
     }
-
-    sub dofr($@) {
-        my $rule = shift;
-        my $current = shift;
-
-        my ($key, $value_string) = @$current;
-
-        unless (ref $value_string and
-                $key ne 'target_options' and
-                ref $value_string ne 'params' and
-                ref $value_string ne 'multi' and
-                ref $value_string ne 'negated') {
-                # set this one and recurse
-            $rule->{$key} = $value_string;
-
-            if (@_) {
-                dofr($rule, @_);
-            } else {
-                printrule($rule);
-            }
-
-            delete $rule->{$key};
-        } elsif (ref $value_string eq 'ARRAY') {
-            # recurse for every value
-            foreach my $value (@$value_string) {
-                # set this one and recurse
-                $rule->{$key} = $value;
-
-                if (@_) {
-                    dofr($rule, @_);
-                } else {
-                    printrule($rule);
-                }
-            }
-
-            delete $rule->{$key};
-        } elsif (ref $value_string eq 'HASH') {
-            # merge hashes
-            my $old = $rule->{$key};
-
-            $rule->{$key} = { ( defined $old
-                                ? %$old
-                                : ()
-                              ),
-                              %$value_string
-                            };
-
-            # recurse
-            if (@_) {
-                dofr($rule, @_);
-            } else {
-                printrule($rule);
-            }
-
-            # restore old value
-            if (defined $old) {
-                $rule->{$key} = $old;
-            } else {
-                delete $rule->{$key};
-            }
-        } else {
-            die ref $value_string;
-        }
-    }
-
-    dofr({}, @fr);
-}
-
-# find an option in the rule stack
-sub find_option($$) {
-    my ($fw, $key) = @_;
-
-    my $item = (grep { exists $_->{$key} } reverse @$fw)[0];
-    return unless defined $item;
-
-    return $item->{$key};
-}
-
-sub filter_domains($) {
-    my $domains = shift;
-    my $result = [];
-
-    foreach my $domain (to_array $domains) {
-        next if exists $option{domain}
-          and $domain ne $option{domain};
-
-        eval {
-            initialize_domain($domain);
-        };
-        error($@) if $@;
-
-        push @$result, $domain;
-    }
-
-    return @$result == 1 ? $result->[0] : $result;
-}
-
-# parse tokens from builtin match modules
-sub parse_builtin_matches($$$) {
-    my ($current, $keyword, $negated_ref) = @_;
-
-    if ($keyword eq 'addr') {
-        error("source/destination not declared")
-          unless exists $current->{side};
-        warning("'$keyword' is deprecated, please use 's$keyword' or 'd$keyword'");
-        if ($current->{side} eq 'source') {
-            $keyword = 's' . $keyword;
-        } elsif ($current->{side} eq 'destination') {
-            $keyword = 'd' . $keyword;
-        }
-    }
-
-    # routing base parameters
-    if ($keyword =~ /^(?:interface|if)$/) {
-        $current->{interface} = getvalues(undef, undef, allow_negation => 1);
-        return 1;
-    }
-    if ($keyword =~ /^(?:outerface|of)$/) {
-        $current->{outerface} = getvalues(undef, undef, allow_negation => 1);
-        return 1;
-    }
-    if ($keyword eq 'protocol') {
-        $current->{proto} = getvalues(undef, undef, allow_negation => 1);
-        return 1;
-    }
-
-    if ($keyword =~ /^[sd]addr$/) {
-        $current->{$keyword} = getvalues(undef, undef, allow_negation => 1);
-        return 1;
-    }
-
-    # miscelleanous switches
-    if ($keyword eq 'fragment') {
-        if ($$negated_ref) {
-            $current->{$keyword} = 'unset';
-            undef $$negated_ref;
-        } else {
-            $current->{$keyword} = 'set';
-        }
-        return 1;
-    }
-
-    return;
 }
 
 # parse a keyword from a module definition
-sub parse_keyword($$$$) {
-    my ($fw, $def, $keyword, $negated_ref) = @_;
+sub parse_keyword(\%$$) {
+    my ($rule, $def, $negated_ref) = @_;
 
     my $params = $def->{params};
 
@@ -1867,14 +1318,14 @@ sub parse_keyword($$$$) {
     unless (defined $params) {
         undef $value;
     } elsif (ref $params && ref $params eq 'CODE') {
-        $value = &$params($fw);
+        $value = &$params($rule);
     } elsif ($params eq 'm') {
         $value = bless [ to_array getvalues() ], 'multi';
     } elsif ($params =~ /^[a-z]/) {
         if (exists $def->{negation} and not $negated) {
             my $token = peek_token();
             if ($token eq '!') {
-                require_next_token;
+                require_next_token();
                 $negated = 1;
             }
         }
@@ -1884,8 +1335,7 @@ sub parse_keyword($$$$) {
             if ($p eq 's') {
                 push @params, getvar();
             } elsif ($p eq 'c') {
-                my @v = to_array getvalues(undef, undef,
-                                           non_empty => 1);
+                my @v = to_array getvalues(undef, non_empty => 1);
                 push @params, join(',', @v);
             } else {
                 die;
@@ -1899,7 +1349,7 @@ sub parse_keyword($$$$) {
         if (exists $def->{negation} and not $negated) {
             my $token = peek_token();
             if ($token eq '!') {
-                require_next_token;
+                require_next_token();
                 $negated = 1;
             }
         }
@@ -1907,12 +1357,12 @@ sub parse_keyword($$$$) {
         $value = getvalues();
 
         warning("log-prefix is too long; truncating to 29 characters: '$1'")
-          if $keyword eq 'log-prefix' && $value =~ s,^(.{29}).+$,$1,;
+          if $def->{name} eq 'log-prefix' && $value =~ s,^(.{29}).+$,$1,;
     } else {
         if (exists $def->{negation} and not $negated) {
             my $token = peek_token();
             if ($token eq '!') {
-                require_next_token;
+                require_next_token();
                 $negated = 1;
             }
         }
@@ -1922,92 +1372,117 @@ sub parse_keyword($$$$) {
         } (1..$params) ], 'params';
     }
 
-    $value = bless [ $value ], 'negated'
+    $value = bless [ $value ], exists $def->{pre_negation} ? 'pre_negated' : 'negated'
       if $negated;
 
     return $value;
 }
 
+sub append_option(\%$$) {
+    my ($rule, $name, $value) = @_;
+    push @{$rule->{options}}, [ $name, $value ];
+}
+
 # parse options of a module
-sub parse_option($$$$$$$) {
-    my ($type, $defs, $name, $fw, $current, $keyword, $negated_ref) = @_;
+sub parse_option($\%$) {
+    my ($def, $rule, $negated_ref) = @_;
 
-    my $def = $defs->{$name};
-    return unless defined $def;
-
-    my $k = $def->{keywords}{$keyword};
-    return unless defined $k;
-
-    while (exists $k->{alias}) {
-        die if $k->{alias} eq $keyword;
-        $keyword = $k->{alias};
-        $k = $defs->{$name}{keywords}{$keyword};
-        die unless defined $k;
-    }
-
-    $current->{"${type}__${name}__${keyword}"}
-      = parse_keyword($fw, $k,
-                      $keyword, $negated_ref);
-    return 1;
+    append_option(%$rule, $def->{name},
+                  parse_keyword(%$rule, $def, $negated_ref));
 }
 
-# parse options for a protocol module definition
-sub parse_protocol_options($$$$$) {
-    my ($fw, $current, $proto, $keyword, $negated_ref) = @_;
-
-    return parse_option('protocol', \%proto_defs, $proto, $fw, $current,
-                        $keyword, $negated_ref);
+sub copy_on_write($$) {
+    my ($rule, $key) = @_;
+    return unless exists $rule->{cow}{$key};
+    $rule->{$key} = {%{$rule->{$key}}};
+    delete $rule->{cow}{$key};
 }
 
-# parse options for a match module definition
-sub parse_module_options($$$$$) {
-    my ($fw, $current, $modules, $keyword, $negated_ref) = @_;
+sub new_level(\%$) {
+    my ($rule, $prev) = @_;
 
-    # modules stored in %match_defs
-    foreach my $name (keys %$modules) {
-        parse_option('module', \%match_defs, $name, $fw, $current,
-                     $keyword, $negated_ref)
-          and do {
-              # reset hash
-              keys %match_defs;
-              return 1;
-          }
+    %$rule = ();
+    if (defined $prev) {
+        # copy data from previous level
+        $rule->{cow} = { keywords => 1, };
+        $rule->{keywords} = $prev->{keywords};
+        $rule->{match} = { %{$prev->{match}} };
+        $rule->{options} = [@{$prev->{options}}];
+        foreach my $key (qw(domain domain_family table chain protocol has_action)) {
+            $rule->{$key} = $prev->{$key}
+              if exists $prev->{$key};
+        }
+    } else {
+        $rule->{cow} = {};
+        $rule->{keywords} = {};
+        $rule->{match} = {};
+        $rule->{options} = [];
     }
-
-    return;
 }
 
-# parse options for a target module definition
-sub parse_target_options($$$$) {
-    my ($fw, $current, $target, $keyword) = @_;
+sub merge_keywords(\%$) {
+    my ($rule, $keywords) = @_;
+    copy_on_write($rule, 'keywords');
+    while (my ($name, $def) = each %$keywords) {
+        $rule->{keywords}{$name} = $def;
+    }
+}
 
-    return unless exists $target_defs{$target} &&
-      exists $target_defs{$target}{keywords}{$keyword};
+sub set_domain(\%$) {
+    my ($rule, $domain) = @_;
 
-    my $k = $target_defs{$target}{keywords}{$keyword};
-
-    while (exists $k->{alias}) {
-        die if $k->{alias} eq $keyword;
-        $keyword = $k->{alias};
-        $k = $target_defs{$target}{keywords}{$keyword};
-        die unless defined $k;
+    my $filtered_domain = filter_domains($domain);
+    my $domain_family;
+    unless (ref $domain) {
+        $domain_family = $domain eq 'ip6' ? 'ip' : $domain;
+    } elsif (@$domain == 0) {
+        $domain_family = 'none';
+    } elsif (grep { not /^ip6?$/s } @$domain) {
+        error('Cannot combine non-IP domains');
+    } else {
+        $domain_family = 'ip';
     }
 
-    my $negated_dummy;
-    $current->{target_options}{$keyword}
-      = parse_keyword($fw, $k,
-                      $keyword, \$negated_dummy);
+    $rule->{domain_family} = $domain_family;
+    $rule->{keywords} = $match_defs{$domain_family}{''}{keywords};
+    $rule->{cow}{keywords} = 1;
 
-    return 1;
+    $rule->{domain} = $stack[0]{auto}{DOMAIN} = $filtered_domain;
+}
+
+sub set_target(\%$$) {
+    my ($rule, $name, $value) = @_;
+    error('There can only one action per rule')
+      if exists $rule->{has_action};
+    $rule->{has_action} = 1;
+    append_option(%$rule, $name, $value);
+}
+
+sub set_module_target(\%$$) {
+    my ($rule, $name, $defs) = @_;
+
+    if ($name eq 'TCPMSS') {
+        my $protos = $rule->{protocol};
+        error('No protocol specified before TCPMSS')
+          unless defined $protos;
+        foreach my $proto (to_array $protos) {
+            error('TCPMSS not available for protocol "$proto"')
+              unless $proto eq 'tcp';
+        }
+    }
+
+    # in ebtables, there is both "--mark" and "-j mark"... workaround:
+    $name = 'mark' if $name eq 'MARK' and $rule->{domain_family} eq 'eb';
+
+    set_target(%$rule, 'jump', $name);
+    merge_keywords(%$rule, $defs->{keywords});
 }
 
 # the main parser loop: read tokens, convert them into internal rule
 # structures
-sub enter($@) {
+sub enter($$) {
     my $lev = shift;  # current recursion depth
-    my @fw = @_; # fwset in list of hashes
-
-    die unless @fw == $lev;
+    my $prev = shift; # previous rule hash
 
     # enter is the core of the firewall setup, it is a
     # simple parser program that recognizes keywords and
@@ -2017,10 +1492,8 @@ sub enter($@) {
     my $base_level = $script->{base_level} || 0;
     die if $base_level > $lev;
 
-    my $current = {};
-    push @fw, $current;
-
-    my %modules = map { $_->{modules} ? %{$_->{modules}} : () } @fw;
+    my %rule;
+    new_level(%rule, $prev);
 
     # read keywords 1 by 1 and dump into parser
     while (defined (my $keyword = next_token())) {
@@ -2036,7 +1509,7 @@ sub enter($@) {
         }
 
         # the core: parse all data
-        SWITCH: for ($keyword)
+        for ($keyword)
         {
             # deprecated keyword?
             if (exists $deprecated_keywords{$keyword}) {
@@ -2047,29 +1520,22 @@ sub enter($@) {
 
             # effectuation operator
             if ($keyword eq ';') {
-                my $has_rule = find_option(\@fw, 'has_rule');
-                my $action = find_option(\@fw, 'action');
-                my $policy = find_option(\@fw, 'policy');
-                my $chain = find_option(\@fw, 'chain');
-
-                if ($has_rule and not defined $action) {
-                    # something is wrong when a rule was specifiedd,
+                if ($rule{has_rule} and not exists $rule{has_action}) {
+                    # something is wrong when a rule was specified,
                     # but no action
                     error('No action defined; did you mean "NOP"?');
                 }
 
-                error('No chain defined') unless defined $chain;
+                error('No chain defined') unless exists $rule{chain};
 
-                $current->{script} = { filename => $script->{filename},
-                                       line => $script->{line},
-                                     };
+                $rule{script} = { filename => $script->{filename},
+                                     line => $script->{line},
+                                   };
 
-                mkrules(\@fw)
-                  if $has_rule or defined $policy;
+                mkrules(\%rule);
 
                 # and clean up variables set in this level
-                %$current = ();
-                %modules = map { $_->{modules} ? %{$_->{modules}} : () } @fw;
+                new_level(%rule, $prev);
 
                 next;
             }
@@ -2096,7 +1562,7 @@ sub enter($@) {
             # hooks for custom shell commands
             if ($keyword eq 'hook') {
                 error('"hook" must be the first token in a command')
-                  if keys %$current;
+                  if exists $rule{domain};
 
                 my $position = getvar();
                 my $hooks;
@@ -2110,10 +1576,7 @@ sub enter($@) {
 
                 push @$hooks, getvar();
 
-                $keyword = next_token();
-                error('";" expected after hook declaration')
-                  unless defined $keyword and $keyword eq ';';
-
+                expect_token(';');
                 next;
             }
 
@@ -2125,7 +1588,7 @@ sub enter($@) {
                 unshift @stack, { auto => { %{$stack[0]{auto} || {}} } };
 
                 # recurse
-                enter($lev + 1, @fw);
+                enter($lev + 1, \%rule);
 
                 # pop stack
                 shift @stack;
@@ -2133,7 +1596,7 @@ sub enter($@) {
 
                 # after a block, the command is finished, clear this
                 # level
-                %$current = ();
+                new_level(%rule, $prev);
 
                 next;
             }
@@ -2143,9 +1606,9 @@ sub enter($@) {
                   if $lev <= $base_level;
 
                 # consistency check: check if they havn't forgotten
-                # the ';' before the last statement
+                # the ';' after the last statement
                 error('Missing semicolon before "}"')
-                  if keys %$current;
+                  if $rule{has_rule};
 
                 # and exit
                 return;
@@ -2179,7 +1642,7 @@ sub enter($@) {
                     unshift @stack, $stack;
 
                     # parse the script
-                    enter($lev + 1, @fw);
+                    enter($lev + 1, \%rule);
 
                     # pop stack
                     shift @stack;
@@ -2195,7 +1658,7 @@ sub enter($@) {
             # definition of a variable or function
             if ($keyword eq '@def' or $keyword eq 'def') {
                 error('"def" must be the first token in a command')
-                  if keys %$current;
+                  if $rule{has_rule};
 
                 my $type = require_next_token();
                 if ($type eq '$') {
@@ -2203,15 +1666,11 @@ sub enter($@) {
                     error('invalid variable name')
                       unless $name =~ /^\w+$/;
 
-                    $keyword = require_next_token();
-                    error('"=" expected after variable name')
-                      unless $keyword eq '=';
+                    expect_token('=');
 
-                    my $value = getvalues(undef, undef, allow_negation => 1);
+                    my $value = getvalues(undef, allow_negation => 1);
 
-                    $keyword = next_token();
-                    error('";" expected after variable declaration')
-                      unless defined $keyword and $keyword eq ';';
+                    expect_token(';');
 
                     $stack[0]{vars}{$name} = $value
                       unless exists $stack[-1]{vars}{$name};
@@ -2220,12 +1679,11 @@ sub enter($@) {
                     error('invalid function name')
                       unless $name =~ /^\w+$/;
 
+                    expect_token('(', 'function parameter list or "()" expected');
+
                     my @params;
-                    my $token = next_token();
-                    error('function parameter list or "()" expected')
-                      unless defined $token and $token eq '(';
                     while (1) {
-                        $token = require_next_token();
+                        my $token = require_next_token();
                         last if $token eq ')';
 
                         if (@params > 0) {
@@ -2249,9 +1707,7 @@ sub enter($@) {
 
                     $function{params} = \@params;
 
-                    $keyword = require_next_token;
-                    error('"=" expected')
-                      unless $keyword eq '=';
+                    expect_token('=');
 
                     my $tokens = collect_tokens();
                     $function{block} = 1 if grep { $_ eq '{' } @$tokens;
@@ -2272,7 +1728,7 @@ sub enter($@) {
             }
 
             if ($keyword eq '&') {
-                my $name = require_next_token;
+                my $name = require_next_token();
                 error('function name expected')
                   unless $name =~ /^\w+$/;
 
@@ -2302,9 +1758,7 @@ sub enter($@) {
                     # block {} always ends the current rule, so if the
                     # function contains a block, we have to require
                     # the calling rule also ends here
-                    my $token = next_token();
-                    error("';' expected after block function call '\&$name'")
-                      unless defined $token and $token eq ';';
+                    expect_token(';');
                 }
 
                 my @tokens = @{$function->{tokens}};
@@ -2329,98 +1783,76 @@ sub enter($@) {
             # where to put the rule?
             if ($keyword eq 'domain') {
                 error('Domain is already specified')
-                  if exists $current->{domain};
+                  if exists $rule{domain};
 
-                $current->{domain} = $stack[0]{auto}{DOMAIN}
-                  = filter_domains(getvalues());
-
+                set_domain(%rule, getvalues());
                 next;
             }
 
             if ($keyword eq 'table') {
-                error('Table is already specified')
-                  if exists $current->{table};
-                $current->{table} = $stack[0]{auto}{TABLE} = getvalues();
+                warning('Table is already specified')
+                  if exists $rule{table};
+                $rule{table} = $stack[0]{auto}{TABLE} = getvalues();
 
-                my $domain = find_option(\@fw, 'domain');
-                $current->{domain} = $domain = filter_domains('ip')
-                  unless defined $domain;
+                set_domain(%rule, 'ip')
+                  unless exists $rule{domain};
 
                 next;
             }
 
             if ($keyword eq 'chain') {
-                error('Chain is already specified')
-                  if exists $current->{chain};
-                $current->{chain} = $stack[0]{auto}{CHAIN} = getvalues();
+                warning('Chain is already specified')
+                  if exists $rule{chain};
+                $rule{chain} = $stack[0]{auto}{CHAIN} = getvalues();
 
-                # ferm 1.1 compatibility: uppercase built-in chain
-                # names
-                foreach (ref $current->{chain} ? @{$current->{chain}} : $current->{chain}) {
-                    s/^(?:input|forward|output|prerouting|postrouting)$/uc $&/e
-                      and warning('Please write built-in chain names in upper case');
+                # ferm 1.1 allowed lower case built-in chain names
+                foreach (ref $rule{chain} ? @{$rule{chain}} : $rule{chain}) {
+                    error('Please write built-in chain names in upper case')
+                      if /^(?:input|forward|output|prerouting|postrouting)$/;
                 }
 
-                my $domains = find_option(\@fw, 'domain');
-                my $tables = find_option(\@fw, 'table');
+                set_domain(%rule, 'ip')
+                  unless exists $rule{domain};
 
-                $current->{domain} = $domains = filter_domains('ip')
-                  unless defined $domains;
-                $current->{table} = $tables = 'filter'
-                  unless defined $tables;
-
-                # mark this chain as non-empty so ferm does not print a warning
-                foreach my $domain (to_array $domains) {
-                    foreach my $table (to_array $tables) {
-                        $domains{$domain}{tables}{$table}{chains}{$current->{chain}}{non_empty} = 1
-                    }
-                }
+                $rule{table} = 'filter'
+                  unless exists $rule{table};
 
                 next;
             }
 
+            error('Chain must be specified')
+              unless exists $rule{chain};
+
             # policy for built-in chain
             if ($keyword eq 'policy') {
-                my $domains = find_option(\@fw, 'domain');
-                my $tables = find_option(\@fw, 'table');
-                my $chains = find_option(\@fw, 'chain');
+                error('Cannot specify matches for policy')
+                  if $rule{has_rule};
 
-                error('Chain must be specified')
-                  unless defined $chains;
-
-                my $policy = uc getvar();
+                my $policy = getvar();
                 error("Invalid policy target: $policy")
                   unless $policy =~ /^(?:ACCEPT|DROP)$/;
 
-                foreach my $domain (to_array $domains) {
-                    foreach my $table (to_array $tables) {
-                        my $chains_info = $domains{$domain}{tables}{$table}{chains} ||= {};
+                expect_token(';');
 
-                        foreach my $chain (to_array $chains) {
-                            error("cannot set the policy for non-builtin chain '$chain'")
-                              unless is_netfilter_builtin_chain($table, $chain);
-
-                            if (exists $chains_info->{$chain}{policy}) {
-                                warning('policy for this chain is specified for the second time');
-                            } else {
-                                $chains_info->{$chain}{policy} = $policy;
-                                $chains_info->{$chain}{set_policy} = 1;
-                            }
+                foreach my $domain (to_array $rule{domain}) {
+                    foreach my $table (to_array $rule{table}) {
+                        foreach my $chain (to_array $rule{chain}) {
+                            $domains{$domain}{tables}{$table}{chains}{$chain}{policy} = $policy;
                         }
                     }
                 }
 
-                $current->{policy} = $policy;
+                new_level(%rule, $prev);
                 next;
             }
 
             # create a subchain
             if ($keyword eq '@subchain' or $keyword eq 'subchain') {
                 error('Chain must be specified')
-                  unless defined find_option(\@fw, 'chain');
+                  unless exists $rule{chain};
 
                 error('No rule specified before "@subchain"')
-                  unless find_option(\@fw, 'has_rule');
+                  unless $rule{has_rule};
 
                 my $subchain;
                 $keyword = next_token();
@@ -2432,96 +1864,70 @@ sub enter($@) {
                     $subchain = 'ferm_auto_' . ++$auto_chain;
                 }
 
+                set_target(%rule, 'jump', $subchain);
+
                 error('"{" or chain name expected after "@subchain"')
                   unless $keyword eq '{';
 
-                # create a deep copy of @fw, only containing values
+                # create a deep copy of %rule, only containing values
                 # which must be in the subchain
-                my @fw2;
-                foreach my $fw (@fw) {
-                    my $fw2 = {};
-                    foreach my $key (qw(domain table proto)) {
-                        my $value = $fw->{$key};
-                        next unless defined $value;
-                        $value = ref $value
-                          ? ( ref $value eq 'HASH'
-                              ? {%$value}
-                              : [@$value]
-                            )
-                            : $value;
-                        $fw2->{$key} = $value;
-                    }
-                    push @fw2, $fw2;
-                }
+                my %inner = ( cow => { keywords => 1, },
+                              match => {},
+                              options => [],
+                            );
+                $inner{$_} = $rule{$_} foreach qw(domain domain_family table keywords);
+                $inner{chain} = $inner{auto}{CHAIN} = $subchain;
 
-                $fw2[-1]->{chain} = $fw2[-1]->{auto}{CHAIN} = $subchain;
+                if (exists $rule{protocol}) {
+                    $inner{protocol} = $rule{protocol};
+                    append_option(%inner, 'protocol', $inner{protocol});
+                }
 
                 # enter the block
-                enter($lev + 1, @fw2);
-
-                # mark this chain as non-empty so ferm does not print a warning
-                my $domains = find_option(\@fw, 'domain');
-                my $tables = find_option(\@fw, 'table');
-
-                foreach my $domain (to_array $domains) {
-                    foreach my $table (to_array $tables) {
-                        $domains{$domain}{tables}{$table}{chains}{$subchain}{non_empty} = 1
-                    }
-                }
+                enter(1, \%inner);
 
                 # now handle the parent - it's a jump to the sub chain
-                $current->{action} = { type => 'jump',
-                                       chain => $subchain,
-                                     };
+                $rule{script} = { filename => $script->{filename},
+                                     line => $script->{line},
+                                   };
 
-                $current->{script} = { filename => $script->{filename},
-                                       line => $script->{line},
-                                     };
-
-                mkrules(\@fw);
+                mkrules(\%rule);
 
                 # and clean up variables set in this level
-                %$current = ();
+                new_level(%rule, $prev);
 
                 next;
             }
 
             # everything else must be part of a "real" rule, not just
             # "policy only"
-            $current->{has_rule}++;
-
-            # choose a side
-            if ($keyword =~ /^(?:source|src)$/) {
-                warning("'$keyword' is deprecated, please use 'saddr' or 'sport'");
-                $current->{side} = 'source';
-                next;
-            }
-
-            if ($keyword =~ /^(?:destination|dest)$/) {
-                warning("'$keyword' is deprecated, please use 'daddr' or 'dport'");
-                $current->{side} = 'destination';
-                next;
-            }
+            $rule{has_rule}++;
 
             # extended parameters:
             if ($keyword =~ /^mod(?:ule)?$/) {
-                my $domains = find_option(\@fw, 'domain');
-
                 foreach my $module (to_array getvalues) {
-                    $current->{modules}{$module} = 1;
-                    $modules{$module} = 1;
+                    next if exists $rule{match}{$module};
+
+                    my $domain_family = $rule{domain_family};
+                    my $defs = $match_defs{$domain_family}{$module};
+
+                    append_option(%rule, 'match', $module);
+                    $rule{match}{$module} = 1;
+
+                    merge_keywords(%rule, $defs->{keywords})
+                      if defined $defs;
                 }
 
                 next;
             }
 
-            # this is a workaround for the keyword overlap between
-            # "-p" (builtin) and "--proto" (xt_policy)
-            $keyword = 'protocol'
-              if $keyword eq 'proto' and not exists $modules{policy};
+            # keywords from $rule{keywords}
 
-            parse_builtin_matches($current, $keyword, \$negated)
-              and next;
+            if (exists $rule{keywords}{$keyword}) {
+                my $def = $rule{keywords}{$keyword};
+                parse_option($def, %rule, \$negated);
+                next;
+            }
 
             ###
             # actions
@@ -2529,77 +1935,31 @@ sub enter($@) {
 
             # jump action
             if ($keyword eq 'jump') {
-                error('There can only one action per rule')
-                  if exists $current->{action};
-                warning('Please declare the policy in a separate statement')
-                  if find_option(\@fw, 'policy');
-                my $chain = getvar();
-                if (is_netfilter_core_target($chain) or
-                    is_netfilter_module_target($chain)) {
-                    $current->{action} = { type => 'target',
-                                           target => $chain,
-                                         };
-                } else {
-                    $current->{action} = { type => 'jump',
-                                           chain => $chain,
-                                         };
-                }
+                set_target(%rule, 'jump', getvar());
                 next;
             };
 
             # goto action
             if ($keyword eq 'realgoto') {
-                error('There can only one action per rule')
-                  if exists $current->{action};
-                warning('Please declare the policy in a separate statement')
-                  if find_option(\@fw, 'policy');
-                $current->{action} = { type => 'goto',
-                                       chain => getvar(),
-                                     };
+                set_target(%rule, 'goto', getvar());
                 next;
             };
 
             # action keywords
             if (is_netfilter_core_target($keyword)) {
-                error('There can only one action per rule')
-                  if exists $current->{action};
-                warning('Please declare the policy in a separate statement')
-                  if find_option(\@fw, 'policy');
-                $current->{action} = { type => 'target',
-                                       target => $keyword,
-                                     };
+                set_target(%rule, 'jump', $keyword);
                 next;
             }
 
             if ($keyword eq 'NOP') {
                 error('There can only one action per rule')
-                  if exists $current->{action};
-                warning('Please declare the policy in a separate statement')
-                  if find_option(\@fw, 'policy');
-                $current->{action} = { type => 'nop',
-                                     };
+                  if exists $rule{has_action};
+                $rule{has_action} = 1;
                 next;
             }
 
-            if (is_netfilter_module_target($keyword)) {
-                error('There can only one action per rule')
-                  if exists $current->{action};
-                warning('Please declare the policy in a separate statement')
-                  if find_option(\@fw, 'policy');
-
-                if ($keyword eq 'TCPMSS') {
-                    my $protos = find_option(\@fw, 'proto');
-                    error('No protocol specified before TCPMSS')
-                      unless defined $protos;
-                    foreach my $proto (to_array $protos) {
-                        error('TCPMSS not available for protocol "$proto"')
-                          unless $proto eq 'tcp';
-                    }
-                }
-
-                $current->{action} = { type => 'target',
-                                       target => $keyword,
-                                     };
+            if (my $defs = is_netfilter_module_target($rule{domain_family}, $keyword)) {
+                set_module_target(%rule, $keyword, $defs);
                 next;
             }
 
@@ -2607,64 +1967,33 @@ sub enter($@) {
             # protocol specific options
             #
 
-            my $proto = find_option(\@fw, 'proto');
-            if (defined $proto and not ref $proto) {
-                $proto = 'icmpv6' if $proto eq 'ipv6-icmp';
-                $proto = 'mh' if $proto eq 'ipv6-mh';
+            if ($keyword eq 'proto') {
+                my $protocol = parse_keyword(%rule,
+                                             { params => 1, negation => 1 },
+                                             \$negated);
+                $rule{protocol} = $protocol;
+                append_option(%rule, 'protocol', $rule{protocol});
 
-                if ($proto eq 'icmp') {
-                    my $domains = find_option(\@fw, 'domain');
-                    $proto = 'icmpv6' if not ref $domains and $domains eq 'ip6';
+                unless (ref $protocol) {
+                    $protocol = netfilter_canonical_protocol($protocol);
+                    my $domain_family = $rule{domain_family};
+                    if (my $defs = $proto_defs{$domain_family}{$protocol}) {
+                        merge_keywords(%rule, $defs->{keywords});
+                        my $module = netfilter_protocol_module($protocol);
+                        $rule{match}{$module} = 1;
+                    }
                 }
-
-                parse_protocol_options(\@fw, $current, $proto, $keyword, \$negated)
-                  and next;
-            }
-
-            # port switches
-            if ($keyword eq 'port') {
-                error("source/destination not declared")
-                  unless exists $current->{side};
-                warning("'$keyword' is deprecated, please use 's$keyword' or 'd$keyword'");
-                if ($current->{side} eq 'source') {
-                    $keyword = 's' . $keyword;
-                } elsif ($current->{side} eq 'destination') {
-                    $keyword = 'd' . $keyword;
-                }
-            }
-
-            if ($keyword =~ /^[sd]port$/) {
-                error('To use sport or dport, you have to specify "proto tcp" or "proto udp" first')
-                  unless defined $proto and grep { /^(?:tcp|udp|udplite|dccp|sctp)$/ } to_array $proto;
-
-                $current->{$keyword} = getvalues(undef, undef,
-                                                 allow_negation => 1);
                 next;
             }
 
-            ###
-            # module specific options
-            #
+            # port switches
+            if ($keyword =~ /^[sd]port$/) {
+                my $proto = $rule{protocol};
+                error('To use sport or dport, you have to specify "proto tcp" or "proto udp" first')
+                  unless defined $proto and grep { /^(?:tcp|udp|udplite|dccp|sctp)$/ } to_array $proto;
 
-            if ($option{automod} and exists $automod{$keyword}) {
-                # suport the deprecated 'automod' option
-                $current->{modules}{$automod{$keyword}} = 1;
-                $modules{$automod{$keyword}} = 1;
-            }
-
-            if (keys %modules) {
-                parse_module_options(\@fw, $current, \%modules, $keyword, \$negated)
-                  and next;
-            }
-
-            ###
-            # target specific options
-            #
-
-            my $action = find_option(\@fw, 'action');
-            if (defined $action and $action->{type} eq 'target') {
-                parse_target_options(\@fw, $current,
-                                     $action->{target}, $keyword);
+                append_option(%rule, $keyword,
+                              getvalues(undef, allow_negation => 1));
                 next;
             }
 
@@ -2684,50 +2013,75 @@ sub enter($@) {
     # consistency check: check if they havn't forgotten
     # the ';' before the last statement
     error("Missing semicolon before end of file")
-      if keys %$current;
+      if exists $rule{domain};
 }
 
-sub check() {
-    while (my ($domain_name, $domain) = each %domains) {
-        while (my ($table_name, $table_info) = each %{$domain->{tables}}) {
-            while (my ($chain_name, $chain) = each %{$table_info->{chains}}) {
-                warning("chain $chain_name (domain $domain_name, table $table_name) was referenced, but not declared")
-                  if $chain->{was_created} and not $chain->{non_empty};
-            }
+sub execute_command {
+    my ($command, $script) = @_;
+
+    print LINES "$command\n"
+      if $option{lines};
+    return if $option{noexec};
+
+    my $ret = system($command);
+    unless ($ret == 0) {
+        if ($? == -1) {
+            print STDERR "failed to execute: $!\n";
+            exit 1;
+        } elsif ($? & 0x7f) {
+            printf STDERR "child died with signal %d\n", $? & 0x7f;
+            return 1;
+        } else {
+            print STDERR "(rule declared in $script->{filename}:$script->{line})\n"
+              if defined $script;
+            return $? >> 8;
         }
     }
+
+    return;
 }
 
-sub execute_slow($$) {
-    my ($domain, $rules) = @_;
+sub execute_slow($) {
+    my $domain_info = shift;
+
+    my $domain_cmd = $domain_info->{tools}{tables};
 
     my $status;
-    foreach (reset_domain($domain), @$rules) {
-        my $script;
+    while (my ($table, $table_info) = each %{$domain_info->{tables}}) {
+        my $table_cmd = "$domain_cmd -t $table";
 
-        if (ref) {
-            $script = $_->{script};
-            $_ = $_->{rule};
+        # reset chain policies
+        while (my ($chain, $chain_info) = each %{$table_info->{chains}}) {
+            next unless $chain_info->{builtin} or
+              (not $table_info->{has_builtin} and
+               is_netfilter_builtin_chain($table, $chain));
+            $status ||= execute_command("$table_cmd -P $chain ACCEPT")
+              unless $option{noflush};
         }
 
-        s/^\s+//s;
-        print LINES $_
-          if $option{lines};
-        next if $option{noexec};
-        next if /^#/;
+        # clear
+        unless ($option{noflush}) {
+            $status ||= execute_command("$table_cmd -F");
+            $status ||= execute_command("$table_cmd -X");
+        }
 
-        my $ret = system($_);
-        unless ($ret == 0) {
-            if ($? == -1) {
-                print STDERR "failed to execute: $!\n";
-                exit 1;
-            } elsif ($? & 0x7f) {
-                printf STDERR "child died with signal %d\n", $? & 0x7f;
-                $status = 1;
-            } else {
-                print STDERR "(rule declared in $script->{filename}:$script->{line})\n"
-                  if defined $script;
-                $status = $? >> 8;
+        next if $option{flush};
+
+        # create chains / set policy
+        while (my ($chain, $chain_info) = each %{$table_info->{chains}}) {
+            if (exists $chain_info->{policy}) {
+                $status ||= execute_command("$table_cmd -P $chain $chain_info->{policy}")
+                  unless $chain_info->{policy} eq 'ACCEPT';
+            } elsif (not is_netfilter_builtin_chain($table, $chain)) {
+                $status ||= execute_command("$table_cmd -N $chain");
+            }
+        }
+
+        # dump rules
+        while (my ($chain, $chain_info) = each %{$table_info->{chains}}) {
+            my $chain_cmd = "$table_cmd -A $chain";
+            foreach my $rule (@{$chain_info->{rules}}) {
+                $status ||= execute_command($chain_cmd . $rule->{rule});
             }
         }
     }
@@ -2735,71 +2089,55 @@ sub execute_slow($$) {
     return $status;
 }
 
-sub rules_to_save($$) {
-    my ($domain, $rules) = @_;
+sub table_to_save($$) {
+    my ($result_r, $table_info) = @_;
 
-    # parse the current ruleset, ignore -X and -F, handle policies and
-    # custom chains
-    my %policies;
-    my %rules;
-    foreach my $rule (reset_domain($domain), @$rules) {
-        $rule = $rule->{rule}
-          if ref $rule;
-
-        $rule =~ s/^\S+\s+//;
-        my $table = $rule =~ s/-t\s+(\w+)\s*//
-          ? $1 : 'filter';
-        if ($rule =~ /-P\s+(\S+)\s+(\w+)\s*/) {
-            $policies{$table}{$1} = $2;
-        } elsif ($rule =~ /-A\s+(\w+)/) {
-            push @{$rules{$table}{$1}}, $rule;
-        } elsif ($rule =~ /-N\s+(\S+)\s*/) {
-            $policies{$table}{$1} = '-';
+    foreach my $chain (sort keys %{$table_info->{chains}}) {
+        my $chain_info = $table_info->{chains}{$chain};
+        foreach my $rule (@{$chain_info->{rules}}) {
+            $$result_r .= "-A $chain$rule->{rule}\n";
         }
     }
+}
+
+sub rules_to_save($) {
+    my ($domain_info) = @_;
 
     # convert this into an iptables-save text
     my $result = "# Generated by ferm $VERSION on " . localtime() . "\n";
 
-    foreach my $table (qw(nat filter mangle raw)) {
-        my $policies = $policies{$table};
-        my $r = $rules{$table};
-
-        next
-          unless defined $policies or defined $r;
-
+    while (my ($table, $table_info) = each %{$domain_info->{tables}}) {
         # select table
         $result .= '*' . $table . "\n";
 
         # create chains / set policy
-        if (defined $policies) {
-            foreach my $chain (sort keys %$policies) {
-                my $policy = $policies->{$chain};
-                $result .= ":$chain $policy\ [0:0]\n";
-            }
-        }
-
-        # dump rules
-        if (defined $r) {
-            foreach my $chain (sort keys %$r) {
-                my $rs = $r->{$chain};
-                foreach (@$rs) {
-                    $result .= $_;
+        foreach my $chain (sort keys %{$table_info->{chains}}) {
+            my $chain_info = $table_info->{chains}{$chain};
+            my $policy = $option{flush} ? 'ACCEPT' : $chain_info->{policy};
+            unless (defined $policy) {
+                if (is_netfilter_builtin_chain($table, $chain)) {
+                    $policy = 'ACCEPT';
+                } else {
+                    $policy = '-';
                 }
             }
+            $result .= ":$chain $policy\ [0:0]\n";
         }
+
+        table_to_save(\$result, $table_info)
+          unless $option{flush};
 
         # do it
         $result .= "COMMIT\n";
-   }
+    }
 
     return $result;
 }
 
 sub restore_domain($$) {
-    my ($domain, $save) = @_;
+    my ($domain_info, $save) = @_;
 
-    my $path = $domains{$domain}{tools}{'tables-restore'};
+    my $path = $domain_info->{tools}{'tables-restore'};
 
     local *RESTORE;
     open RESTORE, "|$path"
@@ -2811,11 +2149,13 @@ sub restore_domain($$) {
       or die "Failed to run $path\n";
 }
 
-sub execute_fast($$) {
-    my ($domain, $save) = @_;
+sub execute_fast($) {
+    my $domain_info = shift;
+
+    my $save = rules_to_save($domain_info);
 
     if ($option{lines}) {
-        print LINES "$domains{$domain}{tools}{'tables-restore'} <<EOT\n"
+        print LINES "$domain_info->{tools}{'tables-restore'} <<EOT\n"
           if $option{shell};
         print LINES $save;
         print LINES "EOT\n"
@@ -2825,7 +2165,7 @@ sub execute_fast($$) {
     return if $option{noexec};
 
     eval {
-        restore_domain($domain, $save);
+        restore_domain($domain_info, $save);
     };
     if ($@) {
         print STDERR $@;
@@ -2837,11 +2177,17 @@ sub execute_fast($$) {
 
 sub rollback() {
     my $error;
-    foreach my $domain (keys %rules) {
+    while (my ($domain, $domain_info) = each %domains) {
+        next unless $domain_info->{enabled};
+        unless (defined $domain_info->{tools}{'tables-restore'}) {
+            print STDERR "Cannot rollback domain '$domain' because there is no ${domain}tables-restore\n";
+            next;
+        }
+
         my $reset = '';
-        while (my ($table, $table_info) = each %{$domains{$domain}{tables}}) {
+        while (my ($table, $table_info) = each %{$domain_info->{tables}}) {
             my $reset_chain = '';
-            foreach my $chain (keys %{$table_info->{chains}{$table}}) {
+            foreach my $chain (keys %{$table_info->{chains}}) {
                 next unless is_netfilter_builtin_chain($table, $chain);
                 $reset_chain .= ":${chain} ACCEPT [0:0]\n";
             }
@@ -2849,10 +2195,10 @@ sub rollback() {
               if length $reset_chain;
         }
 
-        $reset .= $domains{$domain}{previous}
-          if defined $domains{$domain}{previous};
+        $reset .= $domain_info->{previous}
+          if defined $domain_info->{previous};
 
-        restore_domain($domain, $reset);
+        restore_domain($domain_info, $reset);
     }
 
     print STDERR "\nFirewall rules rolled back.\n" unless $error;
@@ -2911,7 +2257,7 @@ B<ferm> I<options> I<inputfiles>
                    This implies --noexec and --lines.
  -V, --version     Show current version number
  -h, --help        Look at this text
- --fast            Generate an iptables-save file, used by iptables-restore
+ --slow            Slow mode, don't use iptables-restore
  --shell           Generate a shell script which calls iptables-restore
  --domain {ip|ip6} Handle only the specified domain
  --def '$name=v'   Override a variable

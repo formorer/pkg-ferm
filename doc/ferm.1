@@ -129,7 +129,7 @@
 .\" ========================================================================
 .\"
 .IX Title "FERM 1"
-.TH FERM 1 "2006-11-16" "ferm 1.2.2" "FIREWALL RULES MADE EASY"
+.TH FERM 1 "2007-02-14" "ferm 1.2.3" "FIREWALL RULES MADE EASY"
 .SH "NAME"
 \&\fBferm\fR \- a firewall rule parser for linux
 .SH "SYNOPSIS"
@@ -526,8 +526,9 @@ specified by the policy.
 .Sp
 To avoid ambiguity, always specify the policies of all predefined
 chains explicitly.
-.IP "\fBsubchain { ... }\fR" 8
-.IX Item "subchain { ... }"
+.ie n .IP "\fBsubchain [""\s-1CHAIN\-NAME\s0""] { ... }\fR" 8
+.el .IP "\fBsubchain [``\s-1CHAIN\-NAME\s0''] { ... }\fR" 8
+.IX Item "subchain [CHAIN-NAME] { ... }"
 Works like the normal block operators (i.e. without the \fIsubchain\fR
 keyword), except that \fBferm\fR moves rules within the curly braces into
 a new custom chain. The name for this chain is chosen automatically by
@@ -557,6 +558,15 @@ less \s-1CPU\s0 load:
 \&         proto tcp dport (http https ssh) ACCEPT;
 \&         proto udp dport domain ACCEPT;
 \&     }
+\& }
+.Ve
+.Sp
+Optionally, you may define the name of the sub chain:
+.Sp
+.Vb 4
+\& saddr (1.2.3.4 2.3.4.5 3.4.5.6) subchain "foobar" {
+\&     proto tcp dport (http https ssh) ACCEPT;
+\&     proto udp dport domain ACCEPT;
 \& }
 .Ve
 .Sp
@@ -1185,6 +1195,43 @@ connections should originate from.
 \&    MASQUERADE;
 \&    MASQUERADE to\-ports 1234:2345;
 .Ve
+.IP "\fB\s-1MIRROR\s0\fR" 8
+.IX Item "MIRROR"
+Experimental demonstration target which inverts the source and
+destination fields in the \s-1IP\s0 header.
+.Sp
+.Vb 1
+\&    MIRROR;
+.Ve
+.IP "\fB\s-1NETMAP\s0\fR" 8
+.IX Item "NETMAP"
+Map a whole network onto another network in the \fBnat\fR table.
+.Sp
+.Vb 1
+\&    NETMAP to 192.168.2.0/24;
+.Ve
+.IP "\fB\s-1NOTRACK\s0\fR" 8
+.IX Item "NOTRACK"
+Disable connection tracking for all packets matching that rule.
+.Sp
+.Vb 1
+\&    proto tcp dport (135:139 445) NOTRACK;
+.Ve
+.IP "\fB\s-1NFQUEUE\s0\fR" 8
+.IX Item "NFQUEUE"
+Userspace queueing, requires nfnetlink_queue kernel support.
+.Sp
+.Vb 1
+\&    proto tcp dport ftp NFQUEUE queue\-num 20;
+.Ve
+.IP "\fB\s-1QUEUE\s0\fR" 8
+.IX Item "QUEUE"
+Userspace queueing, the predecessor to \fB\s-1NFQUEUE\s0\fR.  All packets go to
+queue 0.
+.Sp
+.Vb 1
+\&    proto tcp dport ftp QUEUE;
+.Ve
 .IP "\fB\s-1REDIRECT\s0 to-ports [ports]\fR" 8
 .IX Item "REDIRECT to-ports [ports]"
 Transparent proxying: alter the destination \s-1IP\s0 of the packet to the
@@ -1537,6 +1584,9 @@ Generate rules for a remote machine.  Implies \fB\-\-noexec\fR and
 .IX Item "--domain {ip|ip6}"
 Handle only the specified domain. \fBferm\fR output may be empty if the
 domain is not configured in the input file.
+.IP "\fB\-\-def '$name=value'\fR" 12
+.IX Item "--def '$name=value'"
+Override a variable defined in the configuration file.
 .SH "SEE ALSO"
 .IX Header "SEE ALSO"
 \&\fIiptables\fR\|(8)
@@ -1556,7 +1606,7 @@ Bugs? What bugs?
 If you find a bug, please tell us: ferm@foo\-projects.org
 .SH "COPYRIGHT"
 .IX Header "COPYRIGHT"
-Copyright (C) 2001\-2006 Auke Kok <sofar@foo\-projects.org>, Max
+Copyright (C) 2001\-2007 Auke Kok <sofar@foo\-projects.org>, Max
 Kellermann <max@foo\-projects.org>
 .PP
 This program is free software; you can redistribute it and/or modify

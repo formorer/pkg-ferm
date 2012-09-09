@@ -492,7 +492,7 @@ specified by the policy.</p>
 chains explicitly.</p>
 </dd>
 </li>
-<dt><strong><a name="item_subchain"><strong>subchain { ... }</strong></a></strong>
+<dt><strong><a name="item_subchain__5b_22chain_2dname_22_5d__7b__2e_2e_2e__7"><strong>subchain [``CHAIN-NAME''] { ... }</strong></a></strong>
 
 <dd>
 <p>Works like the normal block operators (i.e. without the <em>subchain</em>
@@ -527,6 +527,16 @@ less CPU load:</p>
          proto tcp dport (http https ssh) ACCEPT;
          proto udp dport domain ACCEPT;
      }
+ }</pre>
+</dd>
+<dd>
+<p>Optionally, you may define the name of the sub chain:</p>
+</dd>
+<dd>
+<pre>
+ saddr (1.2.3.4 2.3.4.5 3.4.5.6) subchain &quot;foobar&quot; {
+     proto tcp dport (http https ssh) ACCEPT;
+     proto udp dport domain ACCEPT;
  }</pre>
 </dd>
 <dd>
@@ -1386,6 +1396,58 @@ connections should originate from.</p>
     MASQUERADE to-ports 1234:2345;</pre>
 </dd>
 </li>
+<dt><strong><a name="item_mirror"><strong>MIRROR</strong></a></strong>
+
+<dd>
+<p>Experimental demonstration target which inverts the source and
+destination fields in the IP header.</p>
+</dd>
+<dd>
+<pre>
+    MIRROR;</pre>
+</dd>
+</li>
+<dt><strong><a name="item_netmap"><strong>NETMAP</strong></a></strong>
+
+<dd>
+<p>Map a whole network onto another network in the <strong>nat</strong> table.</p>
+</dd>
+<dd>
+<pre>
+    NETMAP to 192.168.2.0/24;</pre>
+</dd>
+</li>
+<dt><strong><a name="item_notrack"><strong>NOTRACK</strong></a></strong>
+
+<dd>
+<p>Disable connection tracking for all packets matching that rule.</p>
+</dd>
+<dd>
+<pre>
+    proto tcp dport (135:139 445) NOTRACK;</pre>
+</dd>
+</li>
+<dt><strong><a name="item_nfqueue"><strong>NFQUEUE</strong></a></strong>
+
+<dd>
+<p>Userspace queueing, requires nfnetlink_queue kernel support.</p>
+</dd>
+<dd>
+<pre>
+    proto tcp dport ftp NFQUEUE queue-num 20;</pre>
+</dd>
+</li>
+<dt><strong><a name="item_queue"><strong>QUEUE</strong></a></strong>
+
+<dd>
+<p>Userspace queueing, the predecessor to <strong>NFQUEUE</strong>.  All packets go to
+queue 0.</p>
+</dd>
+<dd>
+<pre>
+    proto tcp dport ftp QUEUE;</pre>
+</dd>
+</li>
 <dt><strong><a name="item_redirect_to_2dports__5bports_5d"><strong>REDIRECT to-ports [ports]</strong></a></strong>
 
 <dd>
@@ -1800,6 +1862,12 @@ Implies --fast --lines.</p>
 domain is not configured in the input file.</p>
 </dd>
 </li>
+<dt><strong><a name="item__2d_2ddef__27_24name_3dvalue_27"><strong>--def '$name=value'</strong></a></strong>
+
+<dd>
+<p>Override a variable defined in the configuration file.</p>
+</dd>
+</li>
 </dl>
 <p>
 </p>
@@ -1829,7 +1897,7 @@ used by your firewall script</p>
 </p>
 <hr />
 <h1><a name="copyright">COPYRIGHT</a></h1>
-<p>Copyright (C) 2001-2006 Auke Kok &lt;<a href="mailto:sofar@foo-projects.org">sofar@foo-projects.org</a>&gt;, Max
+<p>Copyright (C) 2001-2007 Auke Kok &lt;<a href="mailto:sofar@foo-projects.org">sofar@foo-projects.org</a>&gt;, Max
 Kellermann &lt;<a href="mailto:max@foo-projects.org">max@foo-projects.org</a>&gt;</p>
 <p>This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by

@@ -324,7 +324,7 @@ BASIC KEYWORDS
             To avoid ambiguity, always specify the policies of all
             predefined chains explicitly.
 
-    subchain { ... }
+    subchain ["CHAIN-NAME"] { ... }
             Works like the normal block operators (i.e. without the
             *subchain* keyword), except that ferm moves rules within the
             curly braces into a new custom chain. The name for this chain is
@@ -351,6 +351,13 @@ BASIC KEYWORDS
                      proto tcp dport (http https ssh) ACCEPT;
                      proto udp dport domain ACCEPT;
                  }
+             }
+
+            Optionally, you may define the name of the sub chain:
+
+             saddr (1.2.3.4 2.3.4.5 3.4.5.6) subchain "foobar" {
+                 proto tcp dport (http https ssh) ACCEPT;
+                 proto udp dport domain ACCEPT;
              }
 
             You can achieve the same by explicitly declaring a custom chain,
@@ -829,6 +836,28 @@ ADDITIONAL KEYWORDS
                 MASQUERADE;
                 MASQUERADE to-ports 1234:2345;
 
+    MIRROR  Experimental demonstration target which inverts the source and
+            destination fields in the IP header.
+
+                MIRROR;
+
+    NETMAP  Map a whole network onto another network in the nat table.
+
+                NETMAP to 192.168.2.0/24;
+
+    NOTRACK Disable connection tracking for all packets matching that rule.
+
+                proto tcp dport (135:139 445) NOTRACK;
+
+    NFQUEUE Userspace queueing, requires nfnetlink_queue kernel support.
+
+                proto tcp dport ftp NFQUEUE queue-num 20;
+
+    QUEUE   Userspace queueing, the predecessor to NFQUEUE. All packets go
+            to queue 0.
+
+                proto tcp dport ftp QUEUE;
+
     REDIRECT to-ports [ports]
             Transparent proxying: alter the destination IP of the packet to
             the machine itself.
@@ -1118,6 +1147,9 @@ OPTIONS
                 Handle only the specified domain. ferm output may be empty
                 if the domain is not configured in the input file.
 
+    --def '$name=value'
+                Override a variable defined in the configuration file.
+
 SEE ALSO
     iptables(8)
 
@@ -1135,7 +1167,7 @@ BUGS
     If you find a bug, please tell us: ferm@foo-projects.org
 
 COPYRIGHT
-    Copyright (C) 2001-2006 Auke Kok <sofar@foo-projects.org>, Max
+    Copyright (C) 2001-2007 Auke Kok <sofar@foo-projects.org>, Max
     Kellermann <max@foo-projects.org>
 
     This program is free software; you can redistribute it and/or modify it

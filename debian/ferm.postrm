@@ -3,4 +3,8 @@ set -e
 
 rm -f /var/cache/ferm/*.sh /var/cache/ferm/*.tmp
 
+if [ "$1" = "purge" ]; then
+	rm -f /etc/default/ferm
+fi
+
 #DEBHELPER#

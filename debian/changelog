@@ -1,3 +1,20 @@
+ferm (2.1-3) experimental; urgency=low
+
+  [ Salvatore Bonaccorso ]
+  * Fix "ferm: modifies conffiles (policy 10.7.3): /etc/default/ferm"
+    (Closes: #688377)
+    - Don't install ferm.default as conffile in /etc/default
+    - Read /etc/default/ferm in ferm.config.
+      If /etc/default/ferm exists and ENABLED= is present then store the
+      value of ENABLED into debconf db.
+    - Create /etc/default/ferm in postinst.
+      Create /etc/default/ferm if it does not yet exists in postinst.
+      Furthermore if the admin deleted or commented the ENABLED then (re-)add
+      it to the configuration file in postinst.
+    - Remove configuration file on purge in postrm script
+
+ -- Alexander Wirt <formorer@debian.org>  Thu, 01 Nov 2012 19:28:58 +0100
+
 ferm (2.1-2) unstable; urgency=low
 
   [ great debian l10n teams ]

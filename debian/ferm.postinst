@@ -4,26 +4,43 @@ set -e
 action=$1
 version=$2
 
+# generate default file if it doesn't exist
+if [ ! -e /etc/default/ferm ]; then
+	cat > /etc/default/ferm <<-END
+	# configuration for /etc/init.d/ferm
+
+	# use iptables-restore for fast firewall initialization?
+	FAST=yes
+
+	# cache the output of ferm --lines in /var/cache/ferm?
+	CACHE=yes
+
+	# additional paramaters for ferm (like --def '$foo=bar')
+	OPTIONS=
+
+	# Enable the ferm init script? (i.e. run on bootup)
+	END
+fi
+
 if [ "$action" = configure ]; then
     . /usr/share/debconf/confmodule
     db_version 2.0
 
-    if ! test -f /etc/default/ferm || ! grep -q ^ENABLED= /etc/default/ferm; then
-        # copy the enabled flag from debconf to /etc/default/ferm
-
-        db_get ferm/enable
-        if [ "$RET" = "false" ]; then
-            VALUE="no"
-        else
-            VALUE="yes"
-        fi
-
-        {
-            echo
-            echo "# Enable the ferm init script? (i.e. run on bootup)"
-            echo "ENABLED=$VALUE"
-        } >> /etc/default/ferm
+    # get values from debconf db
+    db_get ferm/enable
+    if [ "$RET" = "false" ]; then
+	    VALUE="no"
+    else
+	    VALUE="yes"
     fi
+
+    # If the admin deleted or commented some variables but then set
+    # them via debconf, (re-)add them to the configuration file
+    grep -Eq '^ *ENABLED=' /etc/default/ferm || \
+	    echo "ENABLED=" >> /etc/default/ferm
+
+    # substitute value
+    sed -i "s/^ENABLED=.*$/ENABLED=\"$VALUE\"/" /etc/default/ferm
 
     # make the firewall configuration readable only by root and group adm
     if [ -d /etc/ferm ]; then

@@ -1,4 +1,4 @@
-ferm (2.1.1-2.1) experimental; urgency=low
+ferm (2.1.1-2) experimental; urgency=low
 
   [ Salvatore Bonaccorso ]
   * Fix "ferm: modifies conffiles (policy 10.7.3): /etc/default/ferm"

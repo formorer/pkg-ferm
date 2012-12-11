@@ -43,7 +43,7 @@ if [ "$action" = configure ]; then
     sed -i "s/^ENABLED=.*$/ENABLED=\"$VALUE\"/" /etc/default/ferm
 
     # make the firewall configuration readable only by root and group adm
-    if [ -d /etc/ferm ]; then
+    if [ -d /etc/ferm ] && [ -z $version ]; then
         chown -R root:adm /etc/ferm
         chmod 2750 /etc/ferm
     fi

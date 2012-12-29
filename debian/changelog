@@ -2,6 +2,7 @@ ferm (2.1-5) unstable; urgency=low
 
   * [f4e216a] Backport a fix from 2.1.2 which fixes a regression from the
               domain (ip ip6) fix introduced in 2.1.1 (backported to 2.1-4)
+              (Closes: #696130)
 
  -- Alexander Wirt <formorer@debian.org>  Sat, 29 Dec 2012 11:30:56 +0100
 

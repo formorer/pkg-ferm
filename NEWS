@@ -7,6 +7,17 @@
     Auke Kok <sofar@foo-projects.org>
 
 
+v2.1.2 - 17 Dec 2012
+  - support netfilter modules:
+    * osf
+  - updated netfilter modules:
+    * hashlimit: allow list after hashlimit-mode
+  - fix functions containing mixed domains
+  - check function parameter types
+  - allow policy QUEUE and RETURN
+  - support setting policy of non-builtin chains
+
+
 v2.1.1 - 29 Jul 2012
   - updated netfilter modules:
     * conntrack: support ctorigsrcport, ctorigdstport

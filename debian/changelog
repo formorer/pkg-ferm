@@ -1,3 +1,14 @@
+ferm (2.1.2-1) experimental; urgency=low
+
+  * [81c2fdf] Imported Upstream version 2.1.2 (Closes: #705606)
+    - updates hashlimit module (Closes:#679996)
+    - support setting policy of non-builtin chains (Closes: #660412)
+    - documents --timeout in manpage (Closes: #641532)
+    - implements new automatic variable $FILEBNAME (Closes: #550839)
+  * [c8c0189] Use conntrack module instead of deprecated state module
+
+ -- Alexander Wirt <formorer@debian.org>  Wed, 17 Apr 2013 14:56:27 +0200
+
 ferm (2.1.1-2) experimental; urgency=low
 
   [ Salvatore Bonaccorso ]

@@ -124,7 +124,7 @@
 .\" ========================================================================
 .\"
 .IX Title "FERM 1"
-.TH FERM 1 "2012-07-29" "ferm 2.1.1" "FIREWALL RULES MADE EASY"
+.TH FERM 1 "2012-12-17" "ferm 2.2" "FIREWALL RULES MADE EASY"
 .\" For nroff, turn off justification.  Always turn off hyphenation; it makes
 .\" way too many mistakes in technical documents.
 .if n .ad l
@@ -929,7 +929,8 @@ per-port limits managed in a hash table.
 \&      hashlimit\-mode dstip  hashlimit\-name foobar  ACCEPT;
 .Ve
 .Sp
-Possible values for hashlimit-mode: dstip dstport srcip srcport.
+Possible values for hashlimit-mode: dstip dstport srcip srcport (or a
+list with more than one of these).
 .Sp
 There are more possible settings, type \*(L"iptables \-m hashlimit \-h\*(R" for
 documentation.
@@ -997,6 +998,16 @@ Match every 'n'th packet.
 .Ve
 .Sp
 Type \*(L"iptables \-m nth \-h\*(R" for details.
+.IP "\fBosf\fR" 8
+.IX Item "osf"
+Match packets depending on the operating system of the sender.
+.Sp
+.Vb 2
+\&    mod osf genre Linux;
+\&    mod osf ! genre FreeBSD ttl 1 log 1;
+.Ve
+.Sp
+Type \*(L"iptables \-m osf \-h\*(R" for details.
 .IP "\fBowner\fR" 8
 .IX Item "owner"
 Check information about the packet creator, namely user id, group id,
@@ -1726,8 +1737,8 @@ directory are included, sorted alphabetically:
 \&    @include \*(Aqferm.d/\*(Aq;
 .Ve
 .PP
-With a trailing pipe symbol, \fBferm\fR executes a program and parses its
-output:
+With a trailing pipe symbol, \fBferm\fR executes a shell command and
+parses its output:
 .PP
 .Vb 1
 \&    @include \*(Aq/root/generate_ferm_rules.sh $HOSTNAME|\*(Aq
@@ -1936,8 +1947,13 @@ the error.
 .IX Item "--interactive"
 Apply the firewall rules and ask the user for confirmation.  Reverts
 to the previous ruleset if there is no valid user response within 30
-seconds.  This is useful for remote firewall administration: you can
-test the rules without fearing to lock yourself out.
+seconds (see \fB\-\-timeout\fR).  This is useful for remote firewall
+administration: you can test the rules without fearing to lock
+yourself out.
+.IP "\fB\-\-timeout S\fR" 12
+.IX Item "--timeout S"
+If \fB\-\-interactive\fR is used, then roll back if there is no valid user
+response after this number of seconds.  The default is 30.
 .IP "\fB\-\-help\fR" 12
 .IX Item "--help"
 Show a brief list of available commandline options.

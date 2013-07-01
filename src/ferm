@@ -48,7 +48,7 @@ use vars qw($has_strict $has_getopt);
 
 use vars qw($VERSION);
 
-$VERSION = '2.1.1';
+$VERSION = '2.2';
 #$VERSION .= '~git';
 
 ## interface variables
@@ -141,6 +141,7 @@ sub rollback();
 sub execute_fast($);
 sub execute_slow($);
 sub join_value($$);
+sub ipfilter($@);
 
 # add a module definition
 sub add_def_x {
@@ -227,7 +228,8 @@ add_proto_def 'udp', qw();
 
 add_match_def '',
   # --source, --destination
-  qw(source! saddr:=source destination! daddr:=destination),
+  qw(source!&address_magic saddr:=source),
+  qw(destination!&address_magic daddr:=destination),
   # --in-interface
   qw(in-interface! interface:=in-interface if:=in-interface),
   # --out-interface
@@ -253,7 +255,7 @@ add_match_def 'fuzzy', qw(lower-limit=s upper-limit=s);
 add_match_def 'hbh', qw(hbh-len! hbh-opts=c);
 add_match_def 'helper', qw(helper);
 add_match_def 'hl', qw(hl-eq! hl-lt=s hl-gt=s);
-add_match_def 'hashlimit', qw(hashlimit=s hashlimit-burst=s hashlimit-mode=s hashlimit-name=s),
+add_match_def 'hashlimit', qw(hashlimit=s hashlimit-burst=s hashlimit-mode=c hashlimit-name=s),
   qw(hashlimit-htable-size=s hashlimit-htable-max=s),
   qw(hashlimit-htable-expire=s hashlimit-htable-gcinterval=s);
 add_match_def 'iprange', qw(!src-range !dst-range);
@@ -266,6 +268,7 @@ add_match_def 'mark', qw(!mark);
 add_match_def 'multiport', qw(source-ports!&multiport_params),
   qw(destination-ports!&multiport_params ports!&multiport_params);
 add_match_def 'nth', qw(every counter start packet);
+add_match_def 'osf', qw(!genre ttl=s log=s);
 add_match_def 'owner', qw(!uid-owner !gid-owner pid-owner sid-owner),
   qw(cmd-owner !socket-exists=0);
 add_match_def 'physdev', qw(physdev-in! physdev-out!),
@@ -296,7 +299,8 @@ add_target_def 'CLASSIFY', qw(set-class);
 add_target_def 'CLUSTERIP', qw(new*0 hashmode clustermac total-nodes local-node hash-init);
 add_target_def 'CONNMARK', qw(set-mark save-mark*0 restore-mark*0 mask);
 add_target_def 'CONNSECMARK', qw(save*0 restore*0);
-add_target_def 'DNAT', qw(to-destination=m to:=to-destination random*0);
+add_target_def 'CT', qw(notrack*0 helper ctevents=c expevents=c zone timeout);
+add_target_def 'DNAT', qw(to-destination=m to:=to-destination persistent*0 random*0);
 add_target_def 'DSCP', qw(set-dscp set-dscp-class);
 add_target_def 'ECN', qw(ecn-tcp-remove*0);
 add_target_def 'HL', qw(hl-set hl-dec hl-inc);
@@ -316,9 +320,10 @@ add_target_def 'ROUTE', qw(oif iif gw continue*0 tee*0);
 add_target_def 'SAME', qw(to nodst*0 random*0);
 add_target_def 'SECMARK', qw(selctx);
 add_target_def 'SET', qw(add-set=sc del-set=sc);
-add_target_def 'SNAT', qw(to-source=m to:=to-source random*0);
+add_target_def 'SNAT', qw(to-source=m to:=to-source persistent*0 random*0);
 add_target_def 'TARPIT';
 add_target_def 'TCPMSS', qw(set-mss clamp-mss-to-pmtu*0);
+add_target_def 'TEE', qw(gateway);
 add_target_def 'TOS', qw(set-tos and-tos or-tos xor-tos);
 add_target_def 'TPROXY', qw(tproxy-mark on-port);
 add_target_def 'TRACE';
@@ -428,6 +433,47 @@ sub multiport_params {
             : \@params;
     } else {
         return join_value(',', $value);
+    }
+}
+
+sub ipfilter($@) {
+    my $domain = shift;
+    my @ips;
+    # very crude IPv4/IPv6 address detection
+    if ($domain eq 'ip') {
+        @ips = grep { !/:[0-9a-f]*:/ } @_;
+    } elsif ($domain eq 'ip6') {
+        @ips = grep { !m,^[0-9./]+$,s } @_;
+    }
+    return @ips;
+}
+
+sub address_magic {
+    my $rule = shift;
+    my $domain = $rule->{domain};
+    my $value = getvalues(undef, allow_negation => 1);
+
+    my @ips;
+    my $negated = 0;
+    if (ref $value and ref $value eq 'ARRAY') {
+        @ips = @$value;
+    } elsif (ref $value and ref $value eq 'negated') {
+        @ips = @$value;
+        $negated = 1;
+    } elsif (ref $value) {
+        die;
+    } else {
+        @ips = ($value);
+    }
+
+    # only do magic on domain (ip ip6); do not process on a single-stack rule
+    # as to let admins spot their errors instead of silently ignoring them
+    @ips = ipfilter($domain, @ips) if defined $rule->{domain_both};
+
+    if ($negated && scalar @ips) {
+        return bless \@ips, 'negated';
+    } else {
+        return \@ips;
     }
 }
 
@@ -1186,6 +1232,7 @@ sub getvalues {
             error('For the @resolve() function, you need the Perl library Net::DNS')
               if $@;
             my $type = $params[1] || 'A';
+            error('String expected') if ref $type;
             my $resolver = new Net::DNS::Resolver;
             @params = to_array($params[0]);
             my @result = resolve($resolver, @params, $type);
@@ -1204,24 +1251,31 @@ sub getvalues {
             return format_bool(not $params[0]);
         } elsif ($token eq '@cat') {
             my $value = '';
-            map { $value .= $_ } get_function_params();
+            map {
+                error('String expected') if ref $_;
+                $value .= $_;
+            } get_function_params();
             return $value;
         } elsif ($token eq '@substr') {
             my @params = get_function_params();
             error('Usage: @substr(string, num, num)') unless @params == 3;
+            error('String expected') if ref $params[0] or ref $params[1] or ref $params[2];
             return substr($params[0],$params[1],$params[2]);
         } elsif ($token eq '@length') {
             my @params = get_function_params();
             error('Usage: @length(string)') unless @params == 1;
+            error('String expected') if ref $params[0];
             return length($params[0]);
         } elsif ($token eq '@basename') {
             my @params = get_function_params();
             error('Usage: @basename(path)') unless @params == 1;
+            error('String expected') if ref $params[0];
 	    my($volume,$path,$file) = File::Spec->splitpath( $params[0] );
             return $file;
         } elsif ($token eq '@dirname') {
             my @params = get_function_params();
             error('Usage: @dirname(path)') unless @params == 1;
+            error('String expected') if ref $params[0];
 	    my($volume,$path,$file) = File::Spec->splitpath( $params[0] );
             return $path;
         } elsif ($token eq '@ipfilter') {
@@ -1229,15 +1283,7 @@ sub getvalues {
             error('Usage: @ipfilter((ip1 ip2 ...))') unless @params == 1;
             my $domain = $stack[0]{auto}{DOMAIN};
             error('No domain specified') unless defined $domain;
-            my @ips = to_array($params[0]);
-
-            # very crude IPv4/IPv6 address detection
-            if ($domain eq 'ip') {
-                @ips = grep { !/:[0-9a-f]*:/ } @ips;
-            } elsif ($domain eq 'ip6') {
-                @ips = grep { !m,^[0-9./]+$,s } @ips;
-            }
-
+            my @ips = ipfilter($domain, to_array($params[0]));
             return \@ips;
         } else {
             error("unknown ferm built-in function");
@@ -1644,7 +1690,7 @@ sub new_level(\%$) {
         $rule->{keywords} = $prev->{keywords};
         $rule->{match} = { %{$prev->{match}} };
         $rule->{options} = [@{$prev->{options}}];
-        foreach my $key (qw(domain domain_family table chain protocol has_rule has_action)) {
+        foreach my $key (qw(domain domain_family domain_both table chain protocol has_rule has_action)) {
             $rule->{$key} = $prev->{$key}
               if exists $prev->{$key};
         }
@@ -2055,6 +2101,7 @@ sub enter($$) {
                     my $old_line = $script->{line};
                     my $old_handle = $script->{handle};
                     my $old_tokens = $script->{tokens};
+                    my $old_base_level = $script->{base_level};
                     unshift @$old_tokens, make_line_token($script->{line});
                     delete $script->{handle};
 
@@ -2062,10 +2109,13 @@ sub enter($$) {
                         my %inner;
                         new_level(%inner, \%rule);
                         set_domain(%inner, $domain) or next;
+                        $inner{domain_both} = 1;
+                        $script->{base_level} = 0;
                         $script->{tokens} = [ @$tokens ];
-                        enter($lev, \%inner);
+                        enter(0, \%inner);
                     }
 
+                    $script->{base_level} = $old_base_level;
                     $script->{tokens} = $old_tokens;
                     $script->{handle} = $old_handle;
                     $script->{line} = $old_line;
@@ -2130,7 +2180,7 @@ sub enter($$) {
 
                 my $policy = getvar();
                 error("Invalid policy target: $policy")
-                  unless $policy =~ /^(?:ACCEPT|DROP)$/;
+                  unless is_netfilter_core_target($policy);
 
                 expect_token(';');
 
@@ -2187,7 +2237,7 @@ sub enter($$) {
                               match => {},
                               options => [],
                             );
-                $inner{$_} = $rule{$_} foreach qw(domain domain_family table keywords);
+                $inner{$_} = $rule{$_} foreach qw(domain domain_family domain_both table keywords);
                 $inner{chain} = $inner{auto}{CHAIN} = $subchain;
 
                 if (exists $rule{protocol}) {
@@ -2393,11 +2443,18 @@ sub execute_slow($) {
 
         # create chains / set policy
         while (my ($chain, $chain_info) = each %{$table_info->{chains}}) {
-            if (exists $chain_info->{policy}) {
-                $status ||= execute_command("$table_cmd -P $chain $chain_info->{policy}")
-                  unless $chain_info->{policy} eq 'ACCEPT';
-            } elsif (not is_netfilter_builtin_chain($table, $chain)) {
-                $status ||= execute_command("$table_cmd -N $chain");
+            if (is_netfilter_builtin_chain($table, $chain)) {
+                if (exists $chain_info->{policy}) {
+                    $status ||= execute_command("$table_cmd -P $chain $chain_info->{policy}")
+                      unless $chain_info->{policy} eq 'ACCEPT';
+                }
+            } else {
+                if (exists $chain_info->{policy}) {
+                    $status ||= execute_command("$table_cmd -N $chain -P $chain_info->{policy}");
+                }
+                else {
+                    $status ||= execute_command("$table_cmd -N $chain");
+                }
             }
         }
 

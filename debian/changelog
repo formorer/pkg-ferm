@@ -1,4 +1,4 @@
-ferm (2.2-1) experimental; urgency=low
+ferm (2.2-1) unstable; urgency=low
 
   * [2df2b7b] Fix watchfile
   * [0e32933] Imported Upstream version 2.2

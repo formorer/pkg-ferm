@@ -1,3 +1,10 @@
+ferm (2.2-1) experimental; urgency=low
+
+  * [2df2b7b] Fix watchfile
+  * [0e32933] Imported Upstream version 2.2
+
+ -- Alexander Wirt <formorer@debian.org>  Mon, 01 Jul 2013 21:38:49 +0200
+
 ferm (2.1.1-2) experimental; urgency=low
 
   [ Salvatore Bonaccorso ]

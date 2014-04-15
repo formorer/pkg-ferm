@@ -1,3 +1,10 @@
+ferm (2.2-2) unstable; urgency=medium
+
+  * [139cabd] Do not unconditionally overwrite ENABLED= in /etc/default/ferm.
+    Thanks to Christian Kastner for the patch (Closes: 714796)
+
+ -- Alexander Wirt <formorer@debian.org>  Tue, 15 Apr 2014 23:53:56 +0200
+
 ferm (2.2-1) unstable; urgency=low
 
   * [2df2b7b] Fix watchfile

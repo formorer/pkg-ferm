@@ -40,9 +40,11 @@ if [ "$action" = configure ]; then
 	    echo "ENABLED=\"$VALUE\"" >> /etc/default/ferm
 
     # make the firewall configuration readable only by root and group adm
-    if [ -d /etc/ferm ]; then
-        chown -R root:adm /etc/ferm
-        chmod 2750 /etc/ferm
+    if ! dpkg-statoverride --list /etc/ferm > /dev/null 2>&1
+        if [ -d /etc/ferm ]; then
+            chown -R root:adm /etc/ferm
+            chmod 2750 /etc/ferm
+        fi
     fi
 fi
 

@@ -1,4 +1,4 @@
-src/import-ferm usr/sbin
-src/ferm usr/sbin
 debian/ferm.conf etc/ferm
 examples usr/share/doc/ferm
+src/ferm usr/sbin
+src/import-ferm usr/sbin

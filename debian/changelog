@@ -1,3 +1,15 @@
+ferm (2.2-3) unstable; urgency=medium
+
+  * [54e6ad3] Honor dpkg-statoverride for /etc&/ferm (Closes: #752686)
+  * [93d9656] Move manpage installation to debian/ferm.manpages
+  * [40ff883] Remove brace expansion to make lintian happy
+  * [2799fe7] Move to dh9
+  * [22429c9] Add some docs
+  * [6db22f7] Override some broken make targets
+  * [444b07c] wrap-and-sort
+
+ -- Alexander Wirt <formorer@debian.org>  Sat, 25 Oct 2014 23:51:57 +0200
+
 ferm (2.2-2) unstable; urgency=medium
 
   * [139cabd] Do not unconditionally overwrite ENABLED= in /etc/default/ferm.

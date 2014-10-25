@@ -1,5 +1,3 @@
 src/{import-,}ferm usr/sbin
 debian/ferm.conf etc/ferm
-doc/{import-,}ferm.1 usr/share/man/man1
-doc/ferm.txt doc/ferm.html usr/share/doc/ferm
 examples usr/share/doc/ferm

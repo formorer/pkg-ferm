@@ -1,46 +1,9 @@
 #!/usr/bin/make -f
 # -*- mode: makefile; coding: utf-8 -*-
 
-# Uncomment this to turn on verbose mode.
-#export DH_VERBOSE=1
+# See debhelper(7) (uncomment to enable)
+# output every command that modifies files on the build system.
+#DH_VERBOSE = 1
 
-build: build-arch build-indep
-build-arch: build-stamp
-build-indep: build-stamp
-build-stamp:
-
-clean:
-	dh_testdir
-	dh_testroot
-	rm -f debian/stamp-*
-	dh_clean
-
-# Build architecture-independent files here.
-binary-indep:
-	dh_testdir -i
-	dh_testroot -i
-	dh_installdirs -i
-	dh_installdocs
-	dh_installchangelogs -i
-	dh_installinit -i --no-restart-on-upgrade -- start 41 S .
-	dh_installdebconf
-	dh_install -i
-	dh_lintian
-	dh_link -i
-	dh_strip -i
-	dh_compress -i
-	dh_fixperms -i
-	dh_installdeb -i
-	dh_shlibdeps -i
-	dh_gencontrol -i
-	dh_md5sums -i
-	dh_builddeb -i
-
-# Build architecture-dependent files here.
-binary-arch:
-
-source diff:								  
-	@echo >&2 'source and diff are obsolete - use dpkg-source -b'; false
-
-binary: binary-indep binary-arch
-.PHONY: build clean binary-indep binary-arch binary
+%:
+	dh $@

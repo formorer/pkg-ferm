@@ -2,3 +2,4 @@ debian/ferm.conf etc/ferm
 examples usr/share/doc/ferm
 src/ferm usr/sbin
 src/import-ferm usr/sbin
+ferm.service lib/systemd/system

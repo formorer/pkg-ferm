@@ -1,0 +1,15 @@
+--- a/ferm.service
++++ b/ferm.service
+@@ -7,9 +7,9 @@
+ [Service]
+ Type=oneshot
+ RemainAfterExit=yes
+-ExecStart=/usr/sbin/ferm /etc/ferm.conf
+-ExecReload=/usr/sbin/ferm /etc/ferm.conf
+-ExecStop=/usr/sbin/ferm -F /etc/ferm.conf
++ExecStart=/usr/sbin/ferm /etc/ferm/ferm.conf
++ExecReload=/usr/sbin/ferm /etc/ferm/ferm.conf
++ExecStop=/usr/sbin/ferm -F /etc/ferm/ferm.conf
+ 
+ [Install]
+ WantedBy=multi-user.target

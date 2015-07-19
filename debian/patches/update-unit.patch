@@ -1,0 +1,23 @@
+Update ferm.service from archlinux
+
+https://projects.archlinux.org/svntogit/community.git/plain/trunk/ferm.service?h=packages/ferm
+
+Except, we still use sbin instead of bin.
+
+--- a/ferm.service
++++ b/ferm.service
+@@ -1,10 +1,14 @@
+ [Unit]
+ Description=for Easy Rule Making
++After=ipset.service
++Before=network-pre.target
++Wants=network-pre.target
+ 
+ [Service]
+ Type=oneshot
+ RemainAfterExit=yes
+ ExecStart=/usr/sbin/ferm /etc/ferm.conf
++ExecReload=/usr/sbin/ferm /etc/ferm.conf
+ ExecStop=/usr/sbin/ferm -F /etc/ferm.conf
+ 
+ [Install]

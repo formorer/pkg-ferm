@@ -1,3 +1,10 @@
+ferm (2.2-3.1) unstable; urgency=medium
+
+  * Non-maintainer upload.
+  * Add native systemd unit, to break ordering cycle. (Closes: #796611)
+
+ -- Felipe Sateler <fsateler@debian.org>  Mon, 28 Mar 2016 20:36:07 -0300
+
 ferm (2.2-3) unstable; urgency=medium
 
   * [54e6ad3] Honor dpkg-statoverride for /etc&/ferm (Closes: #752686)

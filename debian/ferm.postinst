@@ -15,7 +15,7 @@ if [ ! -e /etc/default/ferm ]; then
 	# cache the output of ferm --lines in /var/cache/ferm?
 	CACHE=yes
 
-	# additional paramaters for ferm (like --def '\$foo=bar')
+	# additional paramaters for ferm (like --def '$foo=bar')
 	OPTIONS=
 
 	# Enable the ferm init script? (i.e. run on bootup)

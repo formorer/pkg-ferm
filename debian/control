@@ -3,7 +3,7 @@ Section: net
 Priority: optional
 Maintainer: Alexander Wirt <formorer@debian.org>
 Standards-Version: 3.9.3
-Build-Depends: debhelper (>= 9)
+Build-Depends: debhelper (>= 9), dh-systemd
 Build-Depends-Indep: po-debconf
 Vcs-Browser: https://github.com/formorer/pkg-ferm
 Vcs-Git: git://github.com/formorer/pkg-ferm.git

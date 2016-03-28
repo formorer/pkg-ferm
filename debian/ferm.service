@@ -1,0 +1,16 @@
+[Unit]
+Description=ferm firewall configuration
+DefaultDependencies=no
+Wants=network-pre.target
+Before=network-pre.target shutdown.target
+Conflicts=shutdown.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/etc/init.d/ferm start
+ExecReload=/etc/init.d/ferm reload
+ExecStop=/etc/init.d/ferm stop
+
+[Install]
+WantedBy=sysinit.target

@@ -1,9 +1,8 @@
 [Unit]
 Description=ferm firewall configuration
 DefaultDependencies=no
-Wants=network-pre.target
-Before=network-pre.target shutdown.target
-Conflicts=shutdown.target
+RequiresMountsFor=/var/cache/
+After=local-fs.target network.target
 
 [Service]
 Type=oneshot

@@ -1,3 +1,12 @@
+ferm (2.2-3.2) unstable; urgency=medium
+
+  * Non-maintainer upload.
+  * Fix breakage introduced by new systemd unit.
+    - Do not stop firewall on shutdown.
+    - Start after /var/cache is mounted and after network.
+
+ -- Felipe Sateler <fsateler@debian.org>  Tue, 29 Mar 2016 07:54:15 -0300
+
 ferm (2.2-3.1) unstable; urgency=medium
 
   * Non-maintainer upload.

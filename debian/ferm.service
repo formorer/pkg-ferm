@@ -1,0 +1,15 @@
+[Unit]
+Description=ferm firewall configuration
+DefaultDependencies=no
+RequiresMountsFor=/var/cache/
+After=local-fs.target network.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/etc/init.d/ferm start
+ExecReload=/etc/init.d/ferm reload
+ExecStop=/etc/init.d/ferm stop
+
+[Install]
+WantedBy=sysinit.target

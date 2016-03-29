@@ -1,8 +1,11 @@
-ferm (2.2-4) unstable; urgency=medium
+ferm (2.2-3.2) unstable; urgency=medium
 
-  * [ec12e74] Don't fail if /var/cache/ferm isn't writable (Closes: #821895)
+  * Non-maintainer upload.
+  * Fix breakage introduced by new systemd unit.
+    - Do not stop firewall on shutdown.
+    - Start after /var/cache is mounted and after network.
 
- -- Alexander Wirt <formorer@debian.org>  Wed, 20 Apr 2016 11:31:54 +0200
+ -- Felipe Sateler <fsateler@debian.org>  Tue, 29 Mar 2016 07:54:15 -0300
 
 ferm (2.2-3.1) unstable; urgency=medium
 

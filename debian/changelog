@@ -1,3 +1,16 @@
+ferm (2.2-5) unstable; urgency=medium
+
+  * Reimport changes from 2.2-3.2
+    Closes: #796611
+
+ -- Alexander Wirt <formorer@debian.org>  Sat, 23 Apr 2016 07:53:48 +0200
+
+ferm (2.2-4) unstable; urgency=medium
+
+  * [ec12e74] Don't fail if /var/cache/ferm isn't writable (Closes: #821895)
+
+ -- Alexander Wirt <formorer@debian.org>  Wed, 20 Apr 2016 11:31:54 +0200
+
 ferm (2.2-3.2) unstable; urgency=medium
 
   * Non-maintainer upload.

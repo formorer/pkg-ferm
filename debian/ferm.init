@@ -55,6 +55,7 @@ if [ "$ENABLED" != "yes"  ]; then
 fi
 
 [ "$CACHE" = "yes" -a ! -d $CACHE_DIR ] && CACHE=no
+[ "$CACHE" = "yes" -a ! -w $CACHE_DIR ] && CACHE=no
 
 set -e
 

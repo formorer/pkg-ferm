@@ -3,7 +3,7 @@ ferm (2.2-5) unstable; urgency=medium
   * Reimport changes from 2.2-3.2
     Closes: #796611
 
- -- Alexander Wirt <formorer@debian.org>  Sat, 23 Apr 2016 07:53:48 +0200
+ -- Alexander Wirt <formorer@debian.org>  Sat, 23 Apr 2016 07:54:53 +0200
 
 ferm (2.2-4) unstable; urgency=medium
 

@@ -448,6 +448,11 @@ expression such as @cat("interface_", $iface) or @substr($var,0,20).
 You can achieve the same by explicitly declaring a custom chain, but
 you may feel that using B<@subchain> requires less typing.
 
+=item B<@gotosubchain ["CHAIN-NAME"] { ... }>
+
+Works like B<@subchain> except that instead of using B<jump> target it
+uses B<goto> target. See discussion below for the difference between
+these two targets.
 
 =back
 
@@ -538,14 +543,11 @@ keywords. We'll get to that later.
 Jumps to a custom chain. If no rule in the custom chain matched,
 netfilter returns to the next rule in the previous chain.
 
-=item B<realgoto [custom-chain-name]>
+=item B<goto [custom-chain-name]>
 
 Go to a custom chain.  Unlike the B<jump> option, B<RETURN> will not
 continue processing in this chain but instead in the chain that called
 us via B<jump>.
-
-The keyword B<realgoto> was chosen during the transition period,
-because B<goto> (already deprecated) used to be an alias for B<jump>.
 
 =item B<ACCEPT>
 
@@ -620,6 +622,12 @@ Additional arguments for IPv6:
     mod ah ahlen !32 ACCEPT;
     mod ah ahres ACCEPT;
 
+=item B<bpf>
+
+Match using Linux Socket Filter.
+
+    mod bpf bytecode "4,48 0 0 9,21 0 1 6,6 0 0 1,6 0 0 0";
+
 =item B<comment>
 
 Adds a comment of up to 256 characters to a rule, without an effect.
@@ -647,6 +655,13 @@ average bytes per packet.
 
 Valid values for I<connbytes-dir>: I<original>, I<reply>, I<both>; for
 I<connbytes-mode>: I<packets>, I<bytes>, I<avgpkt>.
+
+=item B<connlabel>
+
+Module matches or adds connlabels to a connection.
+
+    mod connlabel label "name";
+    mod connlabel label "name" set;
 
 =item B<connlimit>
 
@@ -683,6 +698,12 @@ Check connection tracking information.
 
 Type "iptables -m conntrack -h" for details.
 
+=item B<cpu>
+
+Match cpu handling this packet.
+
+    mod cpu cpu 0;
+
 =item B<dccp>
 
 Check DCCP (Datagram Congestion Control Protocol) specific attributes.
@@ -699,6 +720,13 @@ Match the 6 bit DSCP field within the TOS field.
 
     mod dscp dscp 11;
     mod dscp dscp-class AF41;
+
+=item B<dst>
+
+Match the parameters in Destination Options header (IPv6).
+
+    mod dst dst-len 10;
+    mod dst dst-opts (type1 type2 ...);
 
 =item B<ecn>
 
@@ -811,6 +839,18 @@ list with more than one of these).
 
 There are more possible settings, type "iptables -m hashlimit -h" for
 documentation.
+
+=item B<ipvs>
+
+Match IPVS connection properties.
+
+    mod ipvs ipvs ACCEPT; # packet belongs to an IPVS connection
+    mod ipvs vproto tcp ACCEPT; # VIP protocol to match; by number or name, e.g. "tcp
+    mod ipvs vaddr 1.2.3.4/24 ACCEPT; # VIP address to match
+    mod ipvs vport http ACCEPT; # VIP port to match
+    mod ipvs vdir ORIGINAL ACCEPT; # flow direction of packet
+    mod ipvs vmethod GATE ACCEPT; # IPVS forwarding method used
+    mod ipvs vportctl 80; # VIP port of the controlling connection to match
 
 =item B<length>
 
@@ -967,6 +1007,19 @@ keyword.
 
 L<http://snowman.net/projects/ipt_recent/>
 
+=item B<rpfilter>
+
+Checks a reply to the packet would be sent via the same interface it arrived on.
+Packets from the loopback interface are always permitted.
+
+    mod rpfilter proto tcp loose RETURN;
+    mod rpfilter validmark accept-local RETURN;
+    mod rpfilter invert DROP;
+
+This netfilter module is the preferred way to perform reverse path filtering for
+IPv6, and a powerful alternative to checks controlled by sysctl
+I<net.ipv4.conf.*.rp_filter>.
+
 =item B<rt>
 
 Match the IPv6 routing header (ip6 only).
@@ -1101,6 +1154,12 @@ you enabled them in your kernel:
 
 =over 8
 
+=item B<CHECKSUM>
+
+Compute packet checksum.
+
+    CHECKSUM checksum-fill;
+
 =item B<CLASSIFY>
 
 Set the CBQ class.
@@ -1119,11 +1178,17 @@ address.  Connections are statically distributed between the nodes.
 
 Sets the netfilter mark value associated with a connection.
 
+    CONNMARK set-xmark 42/0xff;
     CONNMARK set-mark 42;
     CONNMARK save-mark;
     CONNMARK restore-mark;
+    CONNMARK save-mark nfmask 0xff ctmask 0xff;
     CONNMARK save-mark mask 0x7fff;
     CONNMARK restore-mark mask 0x8000;
+    CONNMARK and-mark 0x7;
+    CONNMARK or-mark 0x4;
+    CONNMARK xor-mark 0x7;
+    CONNMARK and-mark 0x7;
 
 =item B<CONNSECMARK>
 
@@ -1144,6 +1209,12 @@ Change the destination address of the packet.
     DNAT to 10.0.0.4:1024-2048;
     DNAT to 10.0.1.1-10.0.1.20;
 
+=item B<DNPT>
+
+Provides stateless destination IPv6-to-IPv6 Network Prefix Translation.
+
+    DNPT src-pfx 2001:42::/16 dst-pfx 2002:42::/16;
+
 =item B<ECN>
 
 This target allows to selectively work around known ECN blackholes.
@@ -1159,12 +1230,37 @@ Modify the IPv6 Hop Limit field (ip6/mangle only).
     HL hl-dec 2;
     HL hl-inc 1;
 
+=item B<HMARK>
+
+Like MARK, i.e.  set the fwmark, but the mark is calculated from
+hashing packet selector at choice.
+
+    HMARK hmark-tuple "src" hmark-mod "1" hmark-offset "1"
+      hmark-src-prefix 192.168.1.0/24 hmark-dst-prefix 192.168.2.0/24
+      hmark-sport-mask 0x1234 hmark-dport-mask 0x2345
+      hmark-spi-mask 0xdeadbeef hmark-proto-mask 0x42 hmark-rnd 0xcoffee;
+
+=item B<IDLETIMER>
+
+This target can be used to identify when interfaces have been idle for
+a certain period of time.
+
+    IDLETIMER timeout 60 label "foo";
+
 =item B<IPV4OPTSSTRIP>
 
 Strip all the IP options from a packet.  This module does not take any
 options.
 
     IPV4OPTSSTRIP;
+
+=item B<LED>
+
+This creates an LED-trigger that can then be attached to system
+indicator lights, to blink or illuminate them when certain packets
+pass through the system.
+
+    LED led-trigger-id "foo" led-delay 100 led-always-blink;
 
 =item B<LOG>
 
@@ -1214,6 +1310,12 @@ Map a whole network onto another network in the B<nat> table.
 =item B<NOTRACK>
 
 Disable connection tracking for all packets matching that rule.
+
+    proto tcp dport (135:139 445) NOTRACK;
+
+=item B<RATEEST>
+
+    RATEEST rateest-name "foo" rateest-interval 60s rateest-ewmalog 100;
 
     proto tcp dport (135:139 445) NOTRACK;
 
@@ -1268,6 +1370,7 @@ the mangle table.
 Add the IP to the specified set. See L<http://ipset.netfilter.org/>
 
     proto icmp icmp-type echo-request SET add-set badguys src;
+    SET add-set "foo" timeout 60 exist;
 
 =item B<SNAT to [ip-address|ip-range|ip-port-range]>
 
@@ -1277,12 +1380,32 @@ Change the source address of the packet.
     SNAT to 1.2.3.4:20000-30000;
     SNAT to 1.2.3.4 random;
 
+=item B<SNPT>
+
+Provides stateless source IPv6-to-IPv6 Network Prefix Translation.
+
+    SNPT src-pfx 2001:42::/16 dst-pfx 2002:42::/16;
+
+=item B<SYNPROXY>
+
+TCP 3-way handshake proxy: let the firewall handle the TCP 3-way handshake and
+only establish connection with the server socket once the client handshake has
+finished.
+
+    SYNPROXY wscale 7 mss 1460 timestamp sack-perm
+
 =item B<TCPMSS>
 
 Alter the MSS value of TCP SYN packets.
 
     TCPMSS set-mss 1400;
     TCPMSS clamp-mss-to-pmtu;
+
+=item B<TCPOPTSTRIP>
+
+This target will strip TCP options off a TCP packet.
+
+    TCPOPTSTRIP strip-options (option1 option2 ...);
 
 =item B<TOS set-tos [value]>
 
@@ -1568,10 +1691,16 @@ directory are included, sorted alphabetically:
 
     @include 'ferm.d/';
 
+The function @glob can be used to expand wild cards:
+
+    @include @glob('*.include');
+
 With a trailing pipe symbol, B<ferm> executes a shell command and
 parses its output:
 
-    @include '/root/generate_ferm_rules.sh $HOSTNAME|'
+    @include "/root/generate_ferm_rules.sh $HOSTNAME|"
+
+B<ferm> aborts, if return code is not 0.
 
 =head2 Conditionals
 
@@ -1635,6 +1764,15 @@ hooks.
 
 There are several built-in functions which you might find useful.
 
+=head2 @defined($name), @defined(&name)
+
+Tests if the variable or function is defined.
+
+    @def $a = 'foo';
+    @if @defined($a) good;
+    @if @not(@defined($a)) bad;
+    @if @defined(&funcname) good;
+
 =head2 @eq(a,b)
 
 Tests two values for equality.  Example:
@@ -1692,6 +1830,12 @@ Return the base name of the file for a given path
 
 Return the name of the last directory for a given path, assuming the
 last component is a file name (File::Spec::splitpath).
+
+=head2 @glob(path)
+
+Expand shell wildcards in the given paths (assumed to be relative to
+the current script).  Returns a list of matching files.  This function
+is useful as parameter of @include.
 
 =head2 @ipfilter(list)
 

@@ -48,7 +48,7 @@ use vars qw($has_strict $has_getopt);
 
 use vars qw($VERSION);
 
-$VERSION = '2.2';
+$VERSION = '2.3';
 #$VERSION .= '~git';
 
 ## interface variables
@@ -80,7 +80,7 @@ use vars qw(%deprecated_keywords);
 
 # keywords from ferm 1.1 which are deprecated, and the new one; these
 # are automatically replaced, and a warning is printed
-%deprecated_keywords = ( goto => 'jump',
+%deprecated_keywords = ( realgoto => 'goto',
                        );
 
 # these hashes provide the Netfilter module definitions
@@ -240,14 +240,18 @@ add_match_def 'account', qw(aaddr=s aname=s ashort*0);
 add_match_def 'addrtype', qw(!src-type !dst-type),
   qw(limit-iface-in*0 limit-iface-out*0);
 add_match_def 'ah', qw(ahspi! ahlen! ahres*0);
+add_match_def 'bpf', qw(bytecode);
 add_match_def 'comment', qw(comment=s);
 add_match_def 'condition', qw(condition!);
 add_match_def 'connbytes', qw(!connbytes connbytes-dir connbytes-mode);
+add_match_def 'connlabel', qw(!label set*0);
 add_match_def 'connlimit', qw(!connlimit-above connlimit-mask);
 add_match_def 'connmark', qw(!mark);
 add_match_def 'conntrack', qw(!ctstate=c !ctproto ctorigsrc! ctorigdst! ctorigsrcport! ctorigdstport!),
   qw(ctreplsrc! ctrepldst! !ctstatus !ctexpire=s ctdir=s);
+add_match_def 'cpu', qw(!cpu);
 add_match_def 'dscp', qw(dscp dscp-class);
+add_match_def 'dst', qw(!dst-len=s dst-opts=c);
 add_match_def 'ecn', qw(ecn-tcp-cwr*0 ecn-tcp-ece*0 ecn-ip-ect);
 add_match_def 'esp', qw(espspi!);
 add_match_def 'eui64';
@@ -256,11 +260,14 @@ add_match_def 'hbh', qw(hbh-len! hbh-opts=c);
 add_match_def 'helper', qw(helper);
 add_match_def 'hl', qw(hl-eq! hl-lt=s hl-gt=s);
 add_match_def 'hashlimit', qw(hashlimit=s hashlimit-burst=s hashlimit-mode=c hashlimit-name=s),
+  qw(hashlimit-upto=s hashlimit-above=s),
+  qw(hashlimit-srcmask=s hashlimit-dstmask=s),
   qw(hashlimit-htable-size=s hashlimit-htable-max=s),
   qw(hashlimit-htable-expire=s hashlimit-htable-gcinterval=s);
 add_match_def 'iprange', qw(!src-range !dst-range);
 add_match_def 'ipv4options', qw(ssrr*0 lsrr*0 no-srr*0 !rr*0 !ts*0 !ra*0 !any-opt*0);
 add_match_def 'ipv6header', qw(header!=c soft*0);
+add_match_def 'ipvs', qw(!ipvs*0 !vproto !vaddr !vport vdir !vportctl);
 add_match_def 'length', qw(length!);
 add_match_def 'limit', qw(limit=s limit-burst=s);
 add_match_def 'mac', qw(mac-source!);
@@ -282,6 +289,7 @@ add_match_def 'quota', qw(quota=s);
 add_match_def 'random', qw(average);
 add_match_def 'realm', qw(realm!);
 add_match_def 'recent', qw(name=s !set*0 !remove*0 !rcheck*0 !update*0 !seconds !hitcount rttl*0 rsource*0 rdest*0);
+add_match_def 'rpfilter', qw(loose*0 validmark*0 accept-local*0 invert*0);
 add_match_def 'rt', qw(rt-type! rt-segsleft! rt-len! rt-0-res*0 rt-0-addrs=c rt-0-not-strict*0);
 add_match_def 'set', qw(!match-set=sc set:=match-set);
 add_match_def 'state', qw(!state=c);
@@ -294,17 +302,26 @@ add_match_def 'tos', qw(!tos);
 add_match_def 'ttl', qw(ttl-eq ttl-lt=s ttl-gt=s);
 add_match_def 'u32', qw(!u32=m);
 
+add_target_def 'AUDIT', qw(type);
 add_target_def 'BALANCE', qw(to-destination to:=to-destination);
+add_target_def 'CHECKSUM', qw(checksum-fill*0);
 add_target_def 'CLASSIFY', qw(set-class);
 add_target_def 'CLUSTERIP', qw(new*0 hashmode clustermac total-nodes local-node hash-init);
-add_target_def 'CONNMARK', qw(set-mark save-mark*0 restore-mark*0 mask);
+add_target_def 'CONNMARK', qw(set-xmark save-mark*0 restore-mark*0 nfmask ctmask),
+  qw(and-mark or-mark xor-mark set-mark mask);
 add_target_def 'CONNSECMARK', qw(save*0 restore*0);
 add_target_def 'CT', qw(notrack*0 helper ctevents=c expevents=c zone timeout);
 add_target_def 'DNAT', qw(to-destination=m to:=to-destination persistent*0 random*0);
+add_target_def 'DNPT', qw(src-pfx dst-pfx);
 add_target_def 'DSCP', qw(set-dscp set-dscp-class);
 add_target_def 'ECN', qw(ecn-tcp-remove*0);
 add_target_def 'HL', qw(hl-set hl-dec hl-inc);
+add_target_def 'HMARK', qw(hmark-tuple hmark-mod hmark-offset),
+  qw(hmark-src-prefix hmark-dst-prefix hmark-sport-mask),
+  qw(hmark-dport-mask hmark-spi-mask hmark-proto-mask hmark-rnd);
+add_target_def 'IDLETIMER', qw(timeout label);
 add_target_def 'IPV4OPTSSTRIP';
+add_target_def 'LED', qw(led-trigger-id led-delay led-always-blink*0);
 add_target_def 'LOG', qw(log-level log-prefix),
   qw(log-tcp-sequence*0 log-tcp-options*0 log-ip-options*0 log-uid*0);
 add_target_def 'MARK', qw(set-mark set-xmark and-mark or-mark xor-mark);
@@ -312,17 +329,21 @@ add_target_def 'MASQUERADE', qw(to-ports random*0);
 add_target_def 'MIRROR';
 add_target_def 'NETMAP', qw(to);
 add_target_def 'NFLOG', qw(nflog-group nflog-prefix nflog-range nflog-threshold);
-add_target_def 'NFQUEUE', qw(queue-num);
+add_target_def 'NFQUEUE', qw(queue-num queue-balance queue-bypass*0 queue-cpu-fanout*0);
 add_target_def 'NOTRACK';
+add_target_def 'RATEEST', qw(rateest-name rateest-interval rateest-ewmalog);
 add_target_def 'REDIRECT', qw(to-ports random*0);
 add_target_def 'REJECT', qw(reject-with);
 add_target_def 'ROUTE', qw(oif iif gw continue*0 tee*0);
 add_target_def 'SAME', qw(to nodst*0 random*0);
 add_target_def 'SECMARK', qw(selctx);
-add_target_def 'SET', qw(add-set=sc del-set=sc);
+add_target_def 'SET', qw(add-set=sc del-set=sc timeout exist*0);
 add_target_def 'SNAT', qw(to-source=m to:=to-source persistent*0 random*0);
+add_target_def 'SNPT', qw(src-pfx dst-pfx);
+add_target_def 'SYNPROXY', qw(sack-perm*0 timestamp*0 ecn*0 wscale=s mss=s);
 add_target_def 'TARPIT';
 add_target_def 'TCPMSS', qw(set-mss clamp-mss-to-pmtu*0);
+add_target_def 'TCPOPTSTRIP', qw(strip-options=c);
 add_target_def 'TEE', qw(gateway);
 add_target_def 'TOS', qw(set-tos and-tos or-tos xor-tos);
 add_target_def 'TPROXY', qw(tproxy-mark on-port);
@@ -1118,6 +1139,17 @@ sub resolve($\@$) {
     return @result;
 }
 
+sub lookup_function($) {
+    my $name = shift;
+
+    foreach (@stack) {
+        return $_->{functions}{$name}
+          if exists $_->{functions}{$name};
+    }
+
+    return;
+}
+
 # returns the next parameter, which may either be a scalar or an array
 sub getvalues {
     my $code = shift;
@@ -1146,7 +1178,7 @@ sub getvalues {
             } elsif (ref $token eq 'ARRAY') {
                 push @wordlist, @$token;
             } else {
-                error('unknown toke type');
+                error('unknown token type');
             }
         }
 
@@ -1237,6 +1269,24 @@ sub getvalues {
             @params = to_array($params[0]);
             my @result = resolve($resolver, @params, $type);
             return @result == 1 ? $result[0] : \@result;
+        } elsif ($token eq '@defined') {
+            expect_token('(', 'function name must be followed by "()"');
+            my $type = require_next_token();
+            if ($type eq '$') {
+                my $name = require_next_token();
+                error('variable name expected')
+                  unless $name =~ /^\w+$/;
+                expect_token(')');
+                return defined variable_value($name);
+            } elsif ($type eq '&') {
+                my $name = require_next_token();
+                error('function name expected')
+                  unless $name =~ /^\w+$/;
+                expect_token(')');
+                return defined lookup_function($name);
+            } else {
+                error("'\$' or '&' expected")
+            }
         } elsif ($token eq '@eq') {
             my @params = get_function_params();
             error('Usage: @eq(a, b)') unless @params == 2;
@@ -1278,6 +1328,22 @@ sub getvalues {
             error('String expected') if ref $params[0];
 	    my($volume,$path,$file) = File::Spec->splitpath( $params[0] );
             return $path;
+        } elsif ($token eq '@glob') {
+            my @params = get_function_params();
+            error('Usage: @glob(string)') unless @params == 1;
+
+            # determine the current script's parent directory for relative
+            # file names
+            die unless defined $script;
+            my $parent_dir = $script->{filename} =~ m,^(.*/),
+              ? $1 : './';
+
+            my @result = map {
+                my $path = $_;
+                $path = $parent_dir . $path unless $path =~ m,^/,;
+                glob($path);
+            } to_array($params[0]);
+            return @result == 1 ? $result[0] : \@result;
         } elsif ($token eq '@ipfilter') {
             my @params = get_function_params();
             error('Usage: @ipfilter((ip1 ip2 ...))') unless @params == 1;
@@ -1426,7 +1492,7 @@ sub is_netfilter_builtin_chain($$) {
     my ($table, $chain) = @_;
 
     return grep { $_ eq $chain }
-      qw(PREROUTING INPUT FORWARD OUTPUT POSTROUTING);
+      qw(PREROUTING INPUT FORWARD OUTPUT POSTROUTING BROUTING);
 }
 
 sub netfilter_canonical_protocol($) {
@@ -1913,7 +1979,11 @@ sub enter($$) {
 
             # include another file
             if ($keyword eq '@include' or $keyword eq 'include') {
-                my @files = collect_filenames to_array getvalues;
+                # don't call collect_filenames() if the file names
+                # have been expanded already by @glob()
+                my @files = peek_token() eq '@glob'
+                  ? to_array(getvalues)
+                  : collect_filenames(to_array(getvalues));
                 $keyword = next_token;
                 error('Missing ";" - "include FILENAME" must be the last command in a rule')
                   unless defined $keyword and $keyword eq ';';
@@ -1945,6 +2015,9 @@ sub enter($$) {
 
                     # parse the script
                     enter($lev + 1, \%rule);
+
+                    #check for exit status
+                    error("'$script->{filename}': exit status is not 0") if not close $script->{handle};
 
                     # pop stack
                     shift @stack;
@@ -2040,11 +2113,7 @@ sub enter($$) {
                 error('function name expected')
                   unless $name =~ /^\w+$/;
 
-                my $function;
-                foreach (@stack) {
-                    $function = $_->{functions}{$name};
-                    last if defined $function;
-                }
+                my $function = lookup_function($name);
                 error("no such function: \&$name")
                   unless defined $function;
 
@@ -2199,11 +2268,15 @@ sub enter($$) {
             }
 
             # create a subchain
-            if ($keyword eq '@subchain' or $keyword eq 'subchain') {
+            if ($keyword eq '@subchain' or $keyword eq 'subchain' or $keyword eq '@gotosubchain') {
                 error('Chain must be specified')
                   unless exists $rule{chain};
 
-                error('No rule specified before "@subchain"')
+                my $jumptype = ($keyword =~ /^\@go/) ? 'goto' : 'jump';
+                my $jumpkey = $keyword;
+                $jumpkey =~ s/^sub/\@sub/;
+
+                error('No rule specified before $jumpkey')
                   unless $rule{has_rule};
 
                 my $subchain;
@@ -2226,9 +2299,9 @@ sub enter($$) {
                     $domains{$domain}{tables}{$table}{chains}{$subchain} ||= {};
                 }
 
-                set_target(%rule, 'jump', $subchain);
+                set_target(%rule, $jumptype, $subchain);
 
-                error('"{" or chain name expected after "@subchain"')
+                error('"{" or chain name expected after $jumpkey')
                   unless $keyword eq '{';
 
                 # create a deep copy of %rule, only containing values
@@ -2314,7 +2387,7 @@ sub enter($$) {
             };
 
             # goto action
-            if ($keyword eq 'realgoto') {
+            if ($keyword eq 'goto') {
                 set_target(%rule, 'goto', getvar());
                 next;
             };

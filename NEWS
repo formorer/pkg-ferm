@@ -7,6 +7,34 @@
     Auke Kok <sofar@foo-projects.org>
 
 
+v2.3 - 30 Mar 2016
+  - rename "realgoto" to "goto"
+  - new keyword @gotosubchain
+  - new functions @defined, @glob
+  - support netfilter match modules:
+    * bpf
+    * connlabel
+    * cpu
+    * dst
+    * ipvs
+    * rpfilter
+  - support netfilter targets:
+    * CHECKSUM
+    * CONNMARK: support set-xmark, nfmask, and-mark, or-mark, xor-mark
+    * DNPT
+    * HMARK
+    * IDLETIMER
+    * LED
+    * NFQUEUE: support queue-balance, queue-bypass, queue-cpu-fanout
+    * RATEEST
+    * SET: support timeout, exist
+    * SNPT
+    * TCPOPTSTRIP
+  - recognize BROUTING as built-in chain (for ebtables)
+  - check exit status of included shell commands
+  - documentation
+    * fixed wrongly used quotation marks in piped @include example
+
 v2.2 - 1 Jul 2013
   - support netfilter modules:
     * CT

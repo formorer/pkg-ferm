@@ -1,3 +1,11 @@
+ferm (2.3-1) unstable; urgency=medium
+
+  * Verify upstream gpg sig on tarballs
+  * Add gpg sig support to watchfile
+  * Imported Upstream version 2.3
+
+ -- Alexander Wirt <formorer@debian.org>  Sat, 30 Apr 2016 12:07:50 +0200
+
 ferm (2.2-5) unstable; urgency=medium
 
   * Reimport changes from 2.2-3.2

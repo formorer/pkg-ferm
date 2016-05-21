@@ -2,7 +2,9 @@
 Description=ferm firewall configuration
 DefaultDependencies=no
 RequiresMountsFor=/var/cache/
-After=local-fs.target network.target
+Wants=network-pre.target
+Before=network-pre.target shutdown.target
+Conflicts=shutdown.target
 
 [Service]
 Type=oneshot

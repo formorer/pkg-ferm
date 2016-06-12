@@ -1,3 +1,10 @@
+ferm (2.3-2) UNRELEASED; urgency=medium
+
+  * [3e49919] Start ferm as before network and stop as late as possible
+    (Closes: #824188)
+
+ -- Alexander Wirt <formorer@debian.org>  Sat, 21 May 2016 10:32:10 +0200
+
 ferm (2.3-1) unstable; urgency=medium
 
   * Verify upstream gpg sig on tarballs

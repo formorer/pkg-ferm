@@ -3,8 +3,33 @@
 
     version history for ferm
 
-    Max Kellermann <max@foo-projects.org>
+    Max Kellermann <max.kellermann@gmail.com>
     Auke Kok <sofar@foo-projects.org>
+
+
+v2.4 - 2 Apr 2017
+  - support netfilter match modules:
+    * cgroup
+  - updated netfilter modules:
+    * recent: add mask, reap
+  - sort domains and tables in --fast output
+  - "@preserve" preserves existing chains
+  - import-ferm: translate "-f" to "fragment"
+
+
+v2.3.1 - 5 Jan 2017
+  - support netfilter match modules:
+    * devgroup
+    * geoip
+    * socket
+  - updated netfilter modules:
+    * connlimit: add connlimit-upto, connlimit-saddr, connlimit-daddr
+    * set: add return-nomatch, update-counters, update-subcounters,
+      packets-eq, packets-lt, packets-gt, bytes-eq, bytes-lt, bytes-gt
+    * SYNPROXY: rename "timestamp" to "timestamps"
+    * TPROXY: add on-ip
+  - @resolve returns IP addresses as-is
+  - import-ferm: Perl 5.24 compatibility
 
 
 v2.3 - 30 Mar 2016

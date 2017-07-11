@@ -457,6 +457,18 @@
 <p>Works like <b>@subchain</b> except that instead of using <b>jump</b> target it uses <b>goto</b> target. See discussion below for the difference between these two targets.</p>
 
 </dd>
+<dt id="preserve"><b>@preserve</b></dt>
+<dd>
+
+<p>Preserve existing rules of the current chain:</p>
+
+<pre><code> chain (foo bar) @preserve;</code></pre>
+
+<p>With this option, <b>ferm</b> loads the previous rule set using <b>iptables-save</b>, extracts all &quot;preserved&quot; chains and inserts their data into the output.</p>
+
+<p>&quot;Preserved&quot; chains must not be modified with <b>ferm</b>: no rules and no policies.</p>
+
+</dd>
 </dl>
 
 <h2 id="Basic-iptables-match-keywords">Basic iptables match keywords</h2>
@@ -488,7 +500,7 @@
 
 <p>Examples:</p>
 
-<pre><code>    saddr 192.168/8 ACCEPT; # (identical to the next one:)
+<pre><code>    saddr 192.168.0.0/24 ACCEPT; # (identical to the next one:)
     saddr 192.168.0.0/255.255.255.0 ACCEPT;
     daddr my.domain.com ACCEPT;</code></pre>
 
@@ -520,7 +532,7 @@
 <dt id="syn"><b>syn</b></dt>
 <dd>
 
-<p>Specify that the SYN flag in a tcp package should be matched, which are used to build new tcp connections. You can identify incoming connections with this, and decide wether you want to allow it or not. Packets that do not have this flag are probably from an already established connection, so it&#39;s considered reasonably safe to let these through.</p>
+<p>Specify that the SYN flag in a tcp package should be matched, which are used to build new tcp connections. You can identify incoming connections with this, and decide whether you want to allow it or not. Packets that do not have this flag are probably from an already established connection, so it&#39;s considered reasonably safe to let these through.</p>
 
 </dd>
 <dt id="module-module-name"><b>module [module-name]</b></dt>
@@ -634,6 +646,21 @@
 <pre><code>    mod bpf bytecode &quot;4,48 0 0 9,21 0 1 6,6 0 0 1,6 0 0 0&quot;;</code></pre>
 
 </dd>
+<dt id="cgroup"><b>cgroup</b></dt>
+<dd>
+
+<p>Match using cgroupsv2 hierarchy or legacy net_cls cgroup.</p>
+
+<pre><code>    mod cgroup path ! example/path ACCEPT;</code></pre>
+
+<p>The path is relative to the root of the cgroupsv2 hiearchy, and is compared against the initial portion of a process&#39; path in the hierarchy.</p>
+
+<pre><code>    mod cgroup cgroup 10:10 DROP;
+    mod cgroup cgroup 1048592 DROP;</code></pre>
+
+<p>Matches against the value of <code>net_cls.classid</code> set on the process&#39; legacy net_cls cgroup. The class may be specified as a hexadecimal major:minor pair (see <a href="http://man.he.net/man8/tc">tc(8)</a>), or as a decimal, so those two rules are equivalent.</p>
+
+</dd>
 <dt id="comment"><b>comment</b></dt>
 <dd>
 
@@ -678,7 +705,9 @@
 
 <pre><code>    mod connlimit connlimit-above 4 REJECT;
     mod connlimit connlimit-above !4 ACCEPT;
-    mod connlimit connlimit-above 4 connlimit-mask 24 REJECT;</code></pre>
+    mod connlimit connlimit-above 4 connlimit-mask 24 REJECT;
+    mod connlimit connlimit-upto 4 connlimit-saddr REJECT;
+    mod connlimit connlimit-above 4 connlimit-daddr REJECT;</code></pre>
 
 </dd>
 <dt id="connmark"><b>connmark</b></dt>
@@ -782,6 +811,15 @@
 <p>&quot;This module matches a rate limit based on a fuzzy logic controller [FLC].&quot;</p>
 
 <pre><code>    mod fuzzy lower-limit 10 upper-limit 20 ACCEPT;</code></pre>
+
+</dd>
+<dt id="geoip"><b>geoip</b></dt>
+<dd>
+
+<p>Matches packets based on their geological location. (Needs an installed GeoDB.)</p>
+
+<pre><code>    mod geoip src-cc &quot;CN,VN,KR,BH,BR,AR,TR,IN,HK&quot; REJECT;
+    mod geoip dst-cc &quot;DE,FR,CH,AT&quot; ACCEPT;</code></pre>
 
 </dd>
 <dt id="hbh"><b>hbh</b></dt>
@@ -1058,7 +1096,8 @@
     mod recent set rsource name &quot;badguy&quot;;
     mod recent set rdest;
     mod recent rcheck rsource name &quot;badguy&quot; seconds 60;
-    mod recent update seconds 120 hitcount 3 rttl;</code></pre>
+    mod recent update seconds 120 hitcount 3 rttl;
+    mod recent mask 255.255.255.0 reap;</code></pre>
 
 <p>This netfilter module has a design flaw: although it is implemented as a match module, it has target-like behaviour when using the &quot;set&quot; keyword.</p>
 
@@ -2089,21 +2128,21 @@
 
 <p>Bugs? What bugs?</p>
 
-<p>If you find a bug, please tell us: ferm@foo-projects.org</p>
+<p>If you find a bug, please report it on GitHub: <a href="https://github.com/MaxKellermann/ferm/issues">https://github.com/MaxKellermann/ferm/issues</a></p>
 
 <h1 id="COPYRIGHT">COPYRIGHT</h1>
 
-<p>Copyright (C) 2001-2012 Max Kellermann &lt;max@foo-projects.org&gt;, Auke Kok &lt;sofar@foo-projects.org&gt;</p>
+<p>Copyright 2001-2017 Max Kellermann &lt;max.kellermann@gmail.com&gt;, Auke Kok &lt;sofar@foo-projects.org&gt; and various other contributors.</p>
 
 <p>This program is free software; you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation; either version 2 of the License, or (at your option) any later version.</p>
 
 <p>This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.</p>
 
-<p>You should have received a copy of the GNU General Public License along with this program; if not, write to the Free Software Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA 02111-1307 USA</p>
+<p>You should have received a copy of the GNU General Public License along with this program; if not, write to the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.</p>
 
 <h1 id="AUTHOR">AUTHOR</h1>
 
-<p>Max Kellermann &lt;max@foo-projects.org&gt;, Auke Kok &lt;sofar@foo-projects.org&gt;</p>
+<p>Max Kellermann &lt;max.kellermann@gmail.com&gt;, Auke Kok &lt;sofar@foo-projects.org&gt;</p>
 
 
 </body>

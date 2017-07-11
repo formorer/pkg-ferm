@@ -3,10 +3,10 @@
 #
 # ferm, a firewall setup program that makes firewall rules easy!
 #
-# Copyright (C) 2001-2012 Max Kellermann, Auke Kok
+# Copyright 2001-2017 Max Kellermann, Auke Kok
 #
-# Comments, questions, greetings and additions to this program
-# may be sent to <ferm@foo-projects.org>
+# Bug reports and patches for this program may be sent to the GitHub
+# repository: L<https://github.com/MaxKellermann/ferm>
 #
 
 # This tool allows you to import an existing firewall configuration
@@ -25,7 +25,8 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
+# MA 02110-1301 USA.
 #
 
 # $Id$
@@ -43,6 +44,9 @@ BEGIN {
         $ferm = 'ferm';
     }
 
+    # Perl 5.24 requires this prefix or else it will only look in @INC
+    $ferm = "./$ferm" unless $ferm =~ /^\//;
+
     # import its module tables
     require $ferm;
 
@@ -54,6 +58,7 @@ use vars qw(%aliases);
 %aliases = (
     i => 'interface',
     o => 'outerface',
+    f => 'fragment',
     p => 'protocol',
     d => 'daddr',
     s => 'saddr',

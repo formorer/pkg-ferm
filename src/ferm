@@ -3,10 +3,10 @@
 #
 # ferm, a firewall setup program that makes firewall rules easy!
 #
-# Copyright (C) 2001-2012 Max Kellermann, Auke Kok
+# Copyright 2001-2017 Max Kellermann, Auke Kok
 #
-# Comments, questions, greetings and additions to this program
-# may be sent to <ferm@foo-projects.org>
+# Bug reports and patches for this program may be sent to the GitHub
+# repository: L<https://github.com/MaxKellermann/ferm>
 #
 
 #
@@ -22,7 +22,8 @@
 #
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
-# Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston,
+# MA 02110-1301 USA.
 #
 
 # $Id$
@@ -48,7 +49,7 @@ use vars qw($has_strict $has_getopt);
 
 use vars qw($VERSION);
 
-$VERSION = '2.3';
+$VERSION = '2.4';
 #$VERSION .= '~git';
 
 ## interface variables
@@ -241,21 +242,24 @@ add_match_def 'addrtype', qw(!src-type !dst-type),
   qw(limit-iface-in*0 limit-iface-out*0);
 add_match_def 'ah', qw(ahspi! ahlen! ahres*0);
 add_match_def 'bpf', qw(bytecode);
+add_match_def 'cgroup', qw(path! cgroup&cgroup_classid);
 add_match_def 'comment', qw(comment=s);
 add_match_def 'condition', qw(condition!);
 add_match_def 'connbytes', qw(!connbytes connbytes-dir connbytes-mode);
 add_match_def 'connlabel', qw(!label set*0);
-add_match_def 'connlimit', qw(!connlimit-above connlimit-mask);
+add_match_def 'connlimit', qw(!connlimit-upto !connlimit-above connlimit-mask connlimit-saddr*0 connlimit-daddr*0);
 add_match_def 'connmark', qw(!mark);
 add_match_def 'conntrack', qw(!ctstate=c !ctproto ctorigsrc! ctorigdst! ctorigsrcport! ctorigdstport!),
   qw(ctreplsrc! ctrepldst! !ctstatus !ctexpire=s ctdir=s);
 add_match_def 'cpu', qw(!cpu);
+add_match_def 'devgroup', qw(!src-group !dst-group);
 add_match_def 'dscp', qw(dscp dscp-class);
 add_match_def 'dst', qw(!dst-len=s dst-opts=c);
 add_match_def 'ecn', qw(ecn-tcp-cwr*0 ecn-tcp-ece*0 ecn-ip-ect);
 add_match_def 'esp', qw(espspi!);
 add_match_def 'eui64';
 add_match_def 'fuzzy', qw(lower-limit=s upper-limit=s);
+add_match_def 'geoip', qw(!src-cc=s !dst-cc=s);
 add_match_def 'hbh', qw(hbh-len! hbh-opts=c);
 add_match_def 'helper', qw(helper);
 add_match_def 'hl', qw(hl-eq! hl-lt=s hl-gt=s);
@@ -288,10 +292,11 @@ add_match_def 'psd', qw(psd-weight-threshold psd-delay-threshold),
 add_match_def 'quota', qw(quota=s);
 add_match_def 'random', qw(average);
 add_match_def 'realm', qw(realm!);
-add_match_def 'recent', qw(name=s !set*0 !remove*0 !rcheck*0 !update*0 !seconds !hitcount rttl*0 rsource*0 rdest*0);
+add_match_def 'recent', qw(name=s !set*0 !remove*0 !rcheck*0 !update*0 !seconds !hitcount rttl*0 rsource*0 rdest*0 mask*0 reap*0);
 add_match_def 'rpfilter', qw(loose*0 validmark*0 accept-local*0 invert*0);
 add_match_def 'rt', qw(rt-type! rt-segsleft! rt-len! rt-0-res*0 rt-0-addrs=c rt-0-not-strict*0);
-add_match_def 'set', qw(!match-set=sc set:=match-set);
+add_match_def 'set', qw(!match-set=sc set:=match-set return-nomatch*0 !update-counters*0 !update-subcounters*0 !packets-eq=s packets-lt=s packets-gt=s !bytes-eq=s bytes-lt=s bytes-gt=s);
+add_match_def 'socket', qw(transparent*0 nowildcard*0 restore-skmark*0);
 add_match_def 'state', qw(!state=c);
 add_match_def 'statistic', qw(mode=s probability=s every=s packet=s);
 add_match_def 'string', qw(algo=s from=s to=s string hex-string);
@@ -340,13 +345,13 @@ add_target_def 'SECMARK', qw(selctx);
 add_target_def 'SET', qw(add-set=sc del-set=sc timeout exist*0);
 add_target_def 'SNAT', qw(to-source=m to:=to-source persistent*0 random*0);
 add_target_def 'SNPT', qw(src-pfx dst-pfx);
-add_target_def 'SYNPROXY', qw(sack-perm*0 timestamp*0 ecn*0 wscale=s mss=s);
+add_target_def 'SYNPROXY', qw(sack-perm*0 timestamps*0 ecn*0 wscale=s mss=s);
 add_target_def 'TARPIT';
 add_target_def 'TCPMSS', qw(set-mss clamp-mss-to-pmtu*0);
 add_target_def 'TCPOPTSTRIP', qw(strip-options=c);
 add_target_def 'TEE', qw(gateway);
 add_target_def 'TOS', qw(set-tos and-tos or-tos xor-tos);
-add_target_def 'TPROXY', qw(tproxy-mark on-port);
+add_target_def 'TPROXY', qw(tproxy-mark on-ip on-port);
 add_target_def 'TRACE';
 add_target_def 'TTL', qw(ttl-set ttl-dec ttl-inc);
 add_target_def 'ULOG', qw(ulog-nlgroup ulog-prefix ulog-cprange ulog-qthreshold);
@@ -495,6 +500,40 @@ sub address_magic {
         return bless \@ips, 'negated';
     } else {
         return \@ips;
+    }
+}
+
+sub cgroup_classid {
+    my $rule = shift;
+    my $value = getvalues(undef, allow_negation => 1);
+
+    my @classids;
+    my $negated = 0;
+    if (ref $value and ref $value eq 'ARRAY') {
+	@classids = @$value;
+    } elsif (ref $value and ref $value eq 'negated') {
+	@classids = @$value;
+	$negated = 1;
+    } elsif (ref $value) {
+	die;
+    } else {
+	@classids = ($value);
+    }
+
+    foreach (@classids) {
+	if ($_ =~ /^([0-9A-Fa-f]{1,4}):([0-9A-Fa-f]{1,4})$/) {
+	    $_ = (hex($1) << 16) + hex($2);
+	} elsif ($_ !~ /^-?\d+$/) {
+	    error('classid must be hex:hex or decimal');
+	}
+	error('classid must be non-negative') if $_ < 0;
+	error('classid is too large') if $_ > 0xffffffff;
+    }
+
+    if ($negated && scalar @classids) {
+	return bless \@classids, 'negated';
+    } else {
+	return \@classids;
     }
 }
 
@@ -647,7 +686,8 @@ foreach my $cmd (@pre_hooks) {
     system($cmd) unless $option{noexec};
 }
 
-while (my ($domain, $domain_info) = each %domains) {
+foreach my $domain (sort keys %domains) {
+    my $domain_info = $domains{$domain};
     next unless $domain_info->{enabled};
     my $s = $option{fast} &&
       defined $domain_info->{tools}{'tables-restore'}
@@ -672,7 +712,8 @@ if ($option{interactive}) {
         print LINES "echo 'ferm has applied the new firewall rules.'\n";
         print LINES "echo 'Please press Ctrl-C to confirm.'\n";
         print LINES "sleep $option{timeout}\n";
-        while (my ($domain, $domain_info) = each %domains) {
+        foreach my $domain (sort keys %domains) {
+            my $domain_info = $domains{$domain};
             my $restore = $domain_info->{tools}{'tables-restore'};
             next unless defined $restore;
             print LINES "$restore <\$${domain}_tmp\n";
@@ -691,7 +732,7 @@ exit 0;
 
 sub printversion {
     print "ferm $VERSION\n";
-    print "Copyright (C) 2001-2012 Max Kellermann, Auke Kok\n";
+    print "Copyright 2001-2017 Max Kellermann, Auke Kok\n";
     print "This program is free software released under GPLv2.\n";
     print "See the included COPYING file for license details.\n";
 }
@@ -1114,6 +1155,13 @@ sub resolve($\@$) {
 
     my @result;
     foreach my $hostname (@$names) {
+        if (($type eq 'A' and $hostname =~ /^\d+\.\d+\.\d+\.\d+$/) or
+              (($type eq 'AAAA' and
+                $hostname =~ /^[0-9a-fA-F:]*:[0-9a-fA-F:]*$/))) {
+            push @result, $hostname;
+            next;
+        }
+
         my $query = $resolver->search($hostname, $type);
         error("DNS query for '$hostname' failed: " . $resolver->errorstring)
           unless $query;
@@ -2097,6 +2145,37 @@ sub enter($$) {
                 next;
             }
 
+            if ($keyword eq '@preserve') {
+                error('@preserve not implemented for --slow mode')
+                  unless $option{fast};
+                error('@preserve without chain')
+                  unless exists $rule{chain};
+                error('Cannot specify matches for @preserve')
+                  if $rule{has_rule};
+                expect_token(';');
+
+                my $domain = $rule{domain};
+                my $domain_info = $domains{$domain};
+
+                error("\@preserve not supported on domain $domain")
+                  unless $option{test} or exists $domain_info->{previous};
+
+                my $chains = $rule{chain};
+                foreach my $table (to_array $rule{table}) {
+                    my $table_info = $domain_info->{tables}{$table};
+                    foreach my $chain (to_array $chains) {
+                        my $chain_info = $table_info->{chains}{$chain};
+                        error("Cannot \@preserve chain $chain because it is not empty")
+                          if exists $chain_info->{rules} and @{$chain_info->{rules}};
+
+                        $chain_info->{preserve} = 1;
+                    }
+                }
+
+                new_level(%rule, $prev);
+                next;
+            }
+
             # this rule has something which isn't inherited by its
             # parent closure.  This variable is used in a lot of
             # syntax checks.
@@ -2548,10 +2627,30 @@ sub table_to_save($$) {
 
     foreach my $chain (sort keys %{$table_info->{chains}}) {
         my $chain_info = $table_info->{chains}{$chain};
+
+        $$result_r .= $chain_info->{preserve}
+          if exists $chain_info->{preserve};
+
+        next if $option{flush};
+
         foreach my $rule (@{$chain_info->{rules}}) {
             $$result_r .= "-A $chain$rule->{rule}\n";
         }
     }
+}
+
+sub extract_table_from_save($$) {
+    my ($save, $table) = @_;
+    return $save =~ /^\*${table}\s*$\s*(.*?)^COMMIT\s*$/ms
+      ? $1
+      : '';
+}
+
+sub extract_chain_from_table_save($$) {
+    my ($table_save, $chain) = @_;
+    my $result = '';
+    $result .= $& while $table_save =~ /^-A \Q${chain}\E .*\n/gm;
+    return $result;
 }
 
 sub rules_to_save($) {
@@ -2560,13 +2659,28 @@ sub rules_to_save($) {
     # convert this into an iptables-save text
     my $result = "# Generated by ferm $VERSION on " . localtime() . "\n";
 
-    while (my ($table, $table_info) = each %{$domain_info->{tables}}) {
+    foreach my $table (sort keys %{$domain_info->{tables}}) {
+        my $table_info = $domain_info->{tables}{$table};
+
         # select table
         $result .= '*' . $table . "\n";
 
         # create chains / set policy
         foreach my $chain (sort keys %{$table_info->{chains}}) {
             my $chain_info = $table_info->{chains}{$chain};
+
+            if (exists $chain_info->{preserve}) {
+                my $table_save =
+                  extract_table_from_save($domain_info->{previous}, $table);
+                my $chain_save = extract_chain_from_table_save($table_save, $chain);
+                $chain_info->{preserve} = $chain_save;
+
+                if ($table_save =~ /^:\Q${chain}\E .*\n/m) {
+                    $result .= $&;
+                    next;
+                }
+            }
+
             my $policy = $option{flush} ? undef : $chain_info->{policy};
             unless (defined $policy) {
                 if (is_netfilter_builtin_chain($table, $chain)) {
@@ -2576,11 +2690,11 @@ sub rules_to_save($) {
                     $policy = '-';
                 }
             }
+
             $result .= ":$chain $policy\ [0:0]\n";
         }
 
-        table_to_save(\$result, $table_info)
-          unless $option{flush};
+        table_to_save(\$result, $table_info);
 
         # do it
         $result .= "COMMIT\n";

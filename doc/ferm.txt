@@ -372,6 +372,18 @@ BASIC KEYWORDS
             uses goto target. See discussion below for the difference
             between these two targets.
 
+    @preserve
+            Preserve existing rules of the current chain:
+
+             chain (foo bar) @preserve;
+
+            With this option, ferm loads the previous rule set using
+            iptables-save, extracts all "preserved" chains and inserts their
+            data into the output.
+
+            "Preserved" chains must not be modified with ferm: no rules and
+            no policies.
+
   Basic iptables match keywords
     interface [interface-name]
             Define the interface name, your outside network card, like eth0,
@@ -393,7 +405,7 @@ BASIC KEYWORDS
 
             Examples:
 
-                saddr 192.168/8 ACCEPT; # (identical to the next one:)
+                saddr 192.168.0.0/24 ACCEPT; # (identical to the next one:)
                 saddr 192.168.0.0/255.255.255.0 ACCEPT;
                 daddr my.domain.com ACCEPT;
 
@@ -426,7 +438,7 @@ BASIC KEYWORDS
 
     syn     Specify that the SYN flag in a tcp package should be matched,
             which are used to build new tcp connections. You can identify
-            incoming connections with this, and decide wether you want to
+            incoming connections with this, and decide whether you want to
             allow it or not. Packets that do not have this flag are probably
             from an already established connection, so it's considered
             reasonably safe to let these through.
@@ -500,6 +512,22 @@ ADDITIONAL KEYWORDS
 
                 mod bpf bytecode "4,48 0 0 9,21 0 1 6,6 0 0 1,6 0 0 0";
 
+    cgroup  Match using cgroupsv2 hierarchy or legacy net_cls cgroup.
+
+                mod cgroup path ! example/path ACCEPT;
+
+            The path is relative to the root of the cgroupsv2 hiearchy, and
+            is compared against the initial portion of a process' path in
+            the hierarchy.
+
+                mod cgroup cgroup 10:10 DROP;
+                mod cgroup cgroup 1048592 DROP;
+
+            Matches against the value of "net_cls.classid" set on the
+            process' legacy net_cls cgroup. The class may be specified as a
+            hexadecimal major:minor pair (see tc(8)), or as a decimal, so
+            those two rules are equivalent.
+
     comment Adds a comment of up to 256 characters to a rule, without an
             effect. Note that unlike ferm comments ('#'), this one will show
             up in "iptables -L".
@@ -537,6 +565,8 @@ ADDITIONAL KEYWORDS
                 mod connlimit connlimit-above 4 REJECT;
                 mod connlimit connlimit-above !4 ACCEPT;
                 mod connlimit connlimit-above 4 connlimit-mask 24 REJECT;
+                mod connlimit connlimit-upto 4 connlimit-saddr REJECT;
+                mod connlimit connlimit-above 4 connlimit-daddr REJECT;
 
     connmark
             Check the mark field associated with the connection, set by the
@@ -611,6 +641,12 @@ ADDITIONAL KEYWORDS
             controller [FLC]."
 
                 mod fuzzy lower-limit 10 upper-limit 20 ACCEPT;
+
+    geoip   Matches packets based on their geological location. (Needs an
+            installed GeoDB.)
+
+                mod geoip src-cc "CN,VN,KR,BH,BR,AR,TR,IN,HK" REJECT;
+                mod geoip dst-cc "DE,FR,CH,AT" ACCEPT;
 
     hbh     Matches the Hop-by-Hop Options header (ip6).
 
@@ -806,6 +842,7 @@ ADDITIONAL KEYWORDS
                 mod recent set rdest;
                 mod recent rcheck rsource name "badguy" seconds 60;
                 mod recent update seconds 120 hitcount 3 rttl;
+                mod recent mask 255.255.255.0 reap;
 
             This netfilter module has a design flaw: although it is
             implemented as a match module, it has target-like behaviour when
@@ -1606,11 +1643,12 @@ REQUIREMENTS
 BUGS
     Bugs? What bugs?
 
-    If you find a bug, please tell us: ferm@foo-projects.org
+    If you find a bug, please report it on GitHub:
+    <https://github.com/MaxKellermann/ferm/issues>
 
 COPYRIGHT
-    Copyright (C) 2001-2012 Max Kellermann <max@foo-projects.org>, Auke Kok
-    <sofar@foo-projects.org>
+    Copyright 2001-2017 Max Kellermann <max.kellermann@gmail.com>, Auke Kok
+    <sofar@foo-projects.org> and various other contributors.
 
     This program is free software; you can redistribute it and/or modify it
     under the terms of the GNU General Public License as published by the
@@ -1624,8 +1662,9 @@ COPYRIGHT
 
     You should have received a copy of the GNU General Public License along
     with this program; if not, write to the Free Software Foundation, Inc.,
-    59 Temple Place, Suite 330, Boston, MA 02111-1307 USA
+    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
 AUTHOR
-    Max Kellermann <max@foo-projects.org>, Auke Kok <sofar@foo-projects.org>
+    Max Kellermann <max.kellermann@gmail.com>, Auke Kok
+    <sofar@foo-projects.org>
 

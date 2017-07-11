@@ -1,3 +1,11 @@
+ferm (2.4-1) unstable; urgency=medium
+
+  * [2bd37ee] New upstream version 2.4
+  * [f280aca] Rework example firewall (Closes: #701200, #770946)
+  * [9736ebd] Disable cache by default (Closes: #849760)
+
+ -- Alexander Wirt <alexander.wirt@credativ.de>  Tue, 11 Jul 2017 14:52:19 +0200
+
 ferm (2.3-2) unstable; urgency=medium
 
   * [3e49919] Start ferm as before network and stop as late as possible

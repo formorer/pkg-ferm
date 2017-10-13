@@ -1,4 +1,5 @@
 debian/ferm.conf etc/ferm
+debian/ferm.d etc/ferm
 examples usr/share/doc/ferm
 src/ferm usr/sbin
 src/import-ferm usr/sbin

@@ -1,0 +1,12 @@
+# -*- shell-script -*-
+#
+#  Configuration file for ferm(1).
+#
+domain (ip ip6) {
+    table filter {
+        chain INPUT {
+            # respond to ping
+            proto icmp ACCEPT; 
+        }
+    }
+}

@@ -1,0 +1,18 @@
+# -*- shell-script -*-
+#
+#  Configuration file for ferm(1).
+#
+domain (ip ip6) {
+    table filter {
+        chain INPUT {
+            policy DROP;
+        }
+        chain OUTPUT {
+            policy ACCEPT;
+        }
+        chain FORWARD {
+            policy DROP;
+        }
+    }
+}
+

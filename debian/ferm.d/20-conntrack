@@ -1,0 +1,24 @@
+# -*- shell-script -*-
+#
+#  Configuration file for ferm(1).
+#
+domain (ip ip6) {
+    table filter {
+        chain INPUT {
+            # connection tracking
+            mod state state INVALID DROP;
+            mod state state (ESTABLISHED RELATED) ACCEPT;
+        }
+        chain OUTPUT {
+            # connection tracking
+            #mod state state INVALID DROP;
+            mod state state (ESTABLISHED RELATED) ACCEPT;
+        }
+        chain FORWARD {
+            # connection tracking
+            mod state state INVALID DROP;
+            mod state state (ESTABLISHED RELATED) ACCEPT;
+        }
+    }
+}
+

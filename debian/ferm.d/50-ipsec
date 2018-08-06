@@ -1,0 +1,17 @@
+# -*- shell-script -*-
+#
+#  Configuration file for ferm(1).
+#
+domain (ip ip6) {
+    table filter {
+        chain INPUT {
+            # allow IPsec
+            proto udp dport 500 ACCEPT;
+	    @if @eq($DOMAIN, ip) {
+	      proto (esp ah) ACCEPT;
+	    } @else {
+	      proto (esp) ACCEPT;
+	    }
+        }
+    }
+}

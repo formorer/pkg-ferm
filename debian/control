@@ -6,7 +6,7 @@ Standards-Version: 3.9.3
 Build-Depends: debhelper-compat (= 12)
 Build-Depends-Indep: po-debconf
 Vcs-Browser: https://github.com/formorer/pkg-ferm
-Vcs-Git: git://github.com/formorer/pkg-ferm.git
+Vcs-Git: https://github.com/formorer/pkg-ferm.git
 Homepage: http://ferm.foo-projects.org/
 
 Package: ferm

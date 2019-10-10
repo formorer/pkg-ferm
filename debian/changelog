@@ -1,3 +1,9 @@
+ferm (2.4-2) UNRELEASED; urgency=medium
+
+  * Trim trailing whitespace.
+
+ -- Debian Janitor <janitor@jelmer.uk>  Thu, 10 Oct 2019 09:26:57 +0000
+
 ferm (2.4-1) unstable; urgency=medium
 
   * [2bd37ee] New upstream version 2.4
@@ -113,7 +119,7 @@ ferm (2.1-2) unstable; urgency=low
   * Brazilian Portuguese (Adriano Rafael Gomes).  Closes: #661356
 
   [ Alexander Wirt ]
-  * bump standards version 
+  * bump standards version
 
  -- Alexander Wirt <formorer@debian.org>  Fri, 09 Mar 2012 09:03:36 +0100
 
@@ -144,7 +150,7 @@ ferm (2.0.9-1) unstable; urgency=low
 
 ferm (2.0.8-1) unstable; urgency=low
 
-  * New upstream release 
+  * New upstream release
     - Support eq,ne,not (Closes: #407563, #559902)
     - resolve() now support different types like AAAA or MX (Closes: #544248)
     - Fix docs for frag (Closes: #560000)
@@ -156,7 +162,7 @@ ferm (2.0.8-1) unstable; urgency=low
 ferm (2.0.7-1) unstable; urgency=low
 
   * New upstream version
-    - Fix post & flush hooks 
+    - Fix post & flush hooks
       (Closes: #548579, #563779)
     - Fix negiotation for owner module
       (Closes: #553423)
@@ -164,7 +170,7 @@ ferm (2.0.7-1) unstable; urgency=low
       (Closes: #544535)
   * Remove Max as maintainer. Thanks for your previous work Max!
   * Add russian debconf translation (Closes: #543185). Thanks Yuri Kozlov!
-  * Add japanese debconf translation (Closes: #554516). Thanks Hideki Yamane! 
+  * Add japanese debconf translation (Closes: #554516). Thanks Hideki Yamane!
   * Bump standards version (No changes)
   * Update initlevels (Closes: #549295)
 
@@ -188,8 +194,8 @@ ferm (2.0.6-1) unstable; urgency=low
     ip_tables is not loaded (Closes: #525444)
 
   [ Alexander Wirt ]
-  * Recommend libnet-dns-perl (Closes: #528500) 
-  * Bump standards version (No changes) 
+  * Recommend libnet-dns-perl (Closes: #528500)
+  * Bump standards version (No changes)
 
  -- Alexander Wirt <formorer@debian.org>  Sun, 19 Jul 2009 15:10:57 +0200
 
@@ -210,7 +216,7 @@ ferm (2.0.4-1) unstable; urgency=low
   * new upstream release
 
   [ Alexander Wirt ]
-  * Add ${misc:Depends} to binary package  
+  * Add ${misc:Depends} to binary package
 
  -- Alexander Wirt <formorer@debian.org>  Fri, 12 Dec 2008 09:02:48 +0100
 
@@ -250,7 +256,7 @@ ferm (2.0.1-1) unstable; urgency=low
   * added Swedish po translation (Closes: #492058)
 
   [ Alexander Wirt ]
-  * Bump standards version (No changes) 
+  * Bump standards version (No changes)
 
  -- Alexander Wirt <formorer@debian.org>  Sat, 26 Jul 2008 11:41:54 +0200
 
@@ -317,13 +323,13 @@ ferm (1.2.4-1) unstable; urgency=low
   * add Dutch po translation (Closes: #423072)
 
   [ Alexander Wirt ]
-  * Add debian/compat file 
+  * Add debian/compat file
 
  -- Alexander Wirt <formorer@debian.org>  Wed, 20 Jun 2007 20:59:16 +0200
 
 ferm (1.2.3-3) unstable; urgency=low
 
-  * Document OPTIONS= in default file 
+  * Document OPTIONS= in default file
 
  -- Alexander Wirt <formorer@debian.org>  Sun, 15 Apr 2007 02:19:17 +0200
 
@@ -364,7 +370,7 @@ ferm (1.2.2-1) unstable; urgency=low
   [ Alexander Wirt ]
   * Add french po translation (Closes: #389909)
   * Add czech po translation (Closes: #391476)
-  
+
  -- Alexander Wirt <formorer@debian.org>  Sat, 18 Nov 2006 00:33:04 +0100
 
 ferm (1.2.1-1) unstable; urgency=low
@@ -395,7 +401,7 @@ ferm (1.1.1+1.2beta2-2) unstable; urgency=low
 
   * build-depend on debhelper 5
   * added author Max Kellermann to debian/copyright
-  * New maintainer(s) 
+  * New maintainer(s)
 
  -- Alexander Wirt <formorer@debian.org>  Wed, 13 Sep 2006 16:41:32 +0200
 
@@ -537,4 +543,3 @@ ferm (0.0.17-1) unstable; urgency=low
   * Initial version (Closes: #93154)
 
  -- Tommi Virtanen <tv@debian.org>  Sat,  7 Apr 2001 00:18:15 +0300
-
